@@ -1,0 +1,11 @@
+{
+  "name": "robot-visual-perception-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "lint": "echo 'Add ESLint when you add code'",
+    "build": "echo 'Add build script when you add code'",
+    "test": "echo 'Add tests when you add code'"
+  }
+}
+
