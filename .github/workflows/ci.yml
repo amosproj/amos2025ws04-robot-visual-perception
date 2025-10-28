@@ -20,10 +20,10 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: 'frontend/package-lock.json'
+          cache-dependency-path: 'src/frontend/package-lock.json'
 
       - name: Install dependencies
-        working-directory: frontend
+        working-directory: src/frontend
         run: npm ci
       
       - name: Lint
@@ -47,22 +47,3 @@ jobs:
 
       - name: Lint
         run: make lint-backend
-
-  lint-go:
-    name: Lint WebRTC in Go
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-      
-      # Note: Using golangci-lint-action instead of 'make lint-go' for better caching and PR annotations
-      - name: Lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: latest
-          working-directory: webrtc-signaling

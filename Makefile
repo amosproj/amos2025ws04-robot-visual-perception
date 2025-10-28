@@ -8,16 +8,12 @@ help:
 	@echo "			install frontend dependencies (npm)"
 	@echo "		install-backend"
 	@echo "			install backend dependencies (uv)"
-	@echo "		install-go"
-	@echo "			install Go dependencies"
 	@echo "		lint"
 	@echo "			runs all linters (frontend, backend, and Go)"
 	@echo "		lint-frontend"
 	@echo "			lints frontend code with npm run lint"
 	@echo "		lint-backend"
 	@echo "			lints backend Python code with ruff"
-	@echo "		lint-go"
-	@echo "			lints Go WebRTC signaling code with golangci-lint"
 	@echo "		format-backend"
 	@echo "			formats backend Python code with ruff"
 
@@ -26,28 +22,21 @@ dev: install
 install: install-frontend install-backend install-go
 
 install-frontend:
-	cd frontend && npm install
+	cd src/frontend && npm install
 
 install-backend:
-	cd backend && uv venv
-	cd backend && uv pip install -r requirements.txt
-	cd backend && uv pip install -r requirements-dev.txt
-
-install-go:
-	cd webrtc-signaling && go mod download
+	cd src/backend && uv venv
+	cd src/backend && uv pip install -r requirements.txt
+	cd src/backend && uv pip install -r requirements-dev.txt
 
 lint: lint-frontend lint-backend lint-go
 
 lint-frontend:
-	cd frontend && npm run lint
+	cd src/frontend && npm run lint
 
 lint-backend:
-	cd backend && uv run ruff check .
-
-lint-go:
-	# Note: CI uses golangci-lint-action for better caching and PR annotations
-	cd webrtc-signaling && golangci-lint run
+	cd src/backend && uv run ruff check .
 
 format-backend:
-	cd backend && uv run ruff format .
+	cd src/backend && uv run ruff format .
 
