@@ -90,9 +90,11 @@ jobs:
       - name: Install dependencies
         run: make install-backend
       
-      - name: Build (smoke test)
+      # use py_compile instead of running main.py
+      # because main.py contains a web server that runs forever
+      - name: Build (syntax check)
         working-directory: src/backend
-        run: uv run python main.py
+        run: uv run python -m py_compile main.py
 
   # Test stage
 

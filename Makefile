@@ -1,4 +1,4 @@
-.PHONY: help lint lint-frontend lint-backend type-check-backend test test-frontend test-backend format format-frontend format-backend docker-build docker-build-frontend docker-build-backend docker-run-frontend docker-run-backend docker-clean
+.PHONY: help lint lint-frontend lint-backend type-check-backend test test-frontend test-backend format format-frontend format-backend docker-build docker-build-frontend docker-build-backend docker-run-frontend docker-run-backend docker-stop docker-clean
 
 help:
 	@echo "make"
@@ -38,12 +38,14 @@ help:
 	@echo "			runs frontend container on port 8080"
 	@echo "		docker-run-backend"
 	@echo "			runs backend container on port 8000"
+	@echo "		docker-stop"
+	@echo "			stops running containers"
 	@echo "		docker-clean"
-	@echo "			removes built Docker images"
+	@echo "			stops containers and removes Docker images"
 
 dev: install
 
-install: install-frontend install-backend install-go
+install: install-frontend install-backend
 
 install-frontend:
 	cd src/frontend && npm install
@@ -97,8 +99,16 @@ docker-run-frontend:
 	@echo "To stop: docker stop robot-frontend-dev"
 
 docker-run-backend:
-	docker run --rm -p 8000:8000 robot-backend:latest
+	@echo "Starting backend container..."
+	@docker run -d --rm -p 8000:8000 --name robot-backend-dev robot-backend:latest
+	@sleep 1
+	@echo "Opening browser at http://localhost:8000"
+	@open http://localhost:8000 || echo "Please open http://localhost:8000 in your browser"
+	@echo "To stop: docker stop robot-backend-dev"
 
-docker-clean:
-	docker rmi robot-frontend:latest robot-backend:latest || true
+docker-stop:
+	@docker stop robot-frontend-dev robot-backend-dev 2>/dev/null || true
+
+docker-clean: docker-stop
+	@docker rmi robot-frontend:latest robot-backend:latest || true
 

@@ -99,12 +99,6 @@ brew install node@20
 brew install python@3.11
 ```
 
-**Go 1.21+** (for WebRTC)
-```bash
-brew install go@1.21
-```
-
-
 **uv** (Python package manager)
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -112,10 +106,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 brew install uv
 ```
 
-**golangci-lint** (Go linter)
+**Docker** (for containerization)
 ```bash
-brew install golangci-lint
+brew install --cask docker
 ```
+
+## Development
 
 #### Install dependencies
 
@@ -128,15 +124,50 @@ make dev
 This will:
 - Install frontend dependencies (npm packages)
 - Create Python virtual environment and install backend dependencies
-- Download Go modules
 
-#### Running Linters
+#### Formatting
+
+Format your code before committing to maintain consistent style:
 
 ```bash
-make lint # Lint all components
-make lint-frontend # Lint frontend only
-make lint-backend # Lint backend only
-make lint-go # Lint Go code only
+make format                # Format all code (frontend and backend)
+make format-frontend       # Format frontend with Prettier
+make format-backend        # Format backend with Ruff
 ```
 
-Before you push your changes, run the linters above and address lint errors if any.
+#### Running linters
+
+Linting catches code issues and enforces style guidelines. Always run before pushing:
+
+```bash
+make lint                  # Lint all components (includes type checking)
+make lint-frontend         # Lint frontend with ESLint
+make lint-backend          # Lint backend with Ruff
+make type-check-backend    # Type check backend with mypy
+```
+
+Before you push your changes, run `make lint` and address any errors.
+
+#### Running tests
+
+```bash
+make test                  # Run all tests (frontend and backend)
+make test-frontend         # Run frontend tests with Vitest
+make test-backend          # Run backend tests with pytest
+```
+
+#### Docker commands
+
+Build and run Docker containers locally:
+
+```bash
+make docker-build          # Build all Docker images
+make docker-build-frontend # Build frontend image
+make docker-build-backend  # Build backend image
+
+make docker-run-frontend   # Run frontend container (opens browser)
+make docker-run-backend    # Run backend container (also opens browser)
+
+make docker-stop           # Stop all running containers
+make docker-clean          # Stop containers and remove images
+```
