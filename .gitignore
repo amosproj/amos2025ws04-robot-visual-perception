@@ -34,3 +34,8 @@ bin/
 
 # MacOS
 .DS_Store
+
+.venv/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
