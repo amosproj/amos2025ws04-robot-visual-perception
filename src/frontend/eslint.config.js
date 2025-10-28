@@ -1,17 +1,29 @@
+import tseslint from '@typescript-eslint/eslint-plugin';
+import tsparser from '@typescript-eslint/parser';
+
 export default [
   {
-    files: ['src/**/*.js', 'tests/**/*.js'],
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
     languageOptions: {
-      ecmaVersion: 2021,
-      sourceType: 'module',
+      parser: tsparser,
+      parserOptions: {
+        ecmaVersion: 2021,
+        sourceType: 'module',
+        ecmaFeatures: {
+          jsx: true,
+        },
+      },
       globals: {
         console: 'readonly',
         document: 'readonly',
         window: 'readonly',
       },
     },
+    plugins: {
+      '@typescript-eslint': tseslint,
+    },
     rules: {
-      'no-unused-vars': 'warn',
+      '@typescript-eslint/no-unused-vars': 'warn',
       'no-console': 'off',
     },
   },
