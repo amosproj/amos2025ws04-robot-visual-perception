@@ -4,8 +4,11 @@
   "private": true,
   "scripts": {
     "lint": "echo 'Add ESLint when you add code'",
-    "build": "echo 'Add build script when you add code'",
-    "test": "echo 'Add tests when you add code'"
+    "build": "mkdir -p dist && cp -r src/* dist/",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "2.1.5",
+    "prettier": "3.4.2"
   }
 }
-

@@ -1,10 +1,9 @@
 """
-Minimal smoke test file for CI
+Minimal placeholder file for CI
 """
 
 
-def hello():
-    """Placeholder function."""
+def hello() -> str:
     return "Hello from backend"
 
 
