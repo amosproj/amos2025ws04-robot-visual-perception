@@ -4,6 +4,7 @@ Dockerfile
 .dockerignore
 .prettierrc
 .prettierignore
+eslint.config.js
 
 tests
 
