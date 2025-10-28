@@ -1,37 +1,40 @@
+# server.py
 """
-Webcam → WebRTC backend (Windows-friendly)
+Webcam → WebRTC backend
 
-- FastAPI endpoint /offer handles SDP from the viewer and returns an answer.
-- Uses OpenCV to capture webcam frames.
-- Supports multiple viewers; a single shared camera is used.
-- STUN: Google public STUN (for local dev it works fine).
-- ENV:
-    CAMERA_INDEX (default: 0)
-    FRAME_WIDTH  (e.g., 1280)
-    FRAME_HEIGHT (e.g., 720)
-    FPS          (e.g., 30)
+Fixes for 405:
+- CORS preflight handled (OPTIONS on /offer).
+- Accept both /offer and /offer/ paths.
+- Wildcard origins without credentials (spec-compliant).
+
 Run:
     uvicorn server:app --host 0.0.0.0 --port 8000
 """
 
 import asyncio
 import os
-import time
-from typing import Optional, List
+import sys
 import contextlib
+from typing import Optional, List
 
 import cv2
-import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer, MediaStreamTrack
+from aiortc import (
+    RTCPeerConnection,
+    RTCSessionDescription,
+    RTCConfiguration,
+    RTCIceServer,
+    VideoStreamTrack,
+)
 
 # -----------------------------
 # Global camera singleton
 # -----------------------------
+
+
 class _SharedCamera:
-    """OpenCV camera shared across all connections (prevents device contention)."""
     def __init__(self):
         self._refcount = 0
         self._lock = asyncio.Lock()
@@ -45,20 +48,7 @@ class _SharedCamera:
             self._refcount += 1
             if self._cap is None:
                 idx = int(os.getenv("CAMERA_INDEX", "0"))
-                self._cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
-                # Optional tuning
-                w = int(os.getenv("FRAME_WIDTH", "0"))
-                h = int(os.getenv("FRAME_HEIGHT", "0"))
-                fps = int(os.getenv("FPS", "0"))
-                if w > 0: self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
-                if h > 0: self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
-                if fps > 0: self._cap.set(cv2.CAP_PROP_FPS, fps)
-
-                if not self._cap.isOpened():
-                    self._cap.release()
-                    self._cap = None
-                    raise RuntimeError("Cannot open webcam. Try CAMERA_INDEX=1 (or another). Check permissions.")
-
+                self._cap = _open_camera(idx)
                 self._running = True
                 self._reader_task = asyncio.create_task(self._read_loop())
 
@@ -79,14 +69,14 @@ class _SharedCamera:
                 self._refcount = 0
 
     async def _read_loop(self):
-        # Read frames on a dedicated loop
+        loop = asyncio.get_running_loop()
         try:
             while self._running and self._cap:
-                ok, frame = self._cap.read()
+                ok, frame = await loop.run_in_executor(None, _read_frame, self._cap)
                 if ok:
                     self._frame = frame
                 else:
-                    await asyncio.sleep(0.01)
+                    await asyncio.sleep(0.03)
         except asyncio.CancelledError:
             pass
 
@@ -95,37 +85,59 @@ class _SharedCamera:
 
 _shared_cam = _SharedCamera()
 
+def _open_camera(idx: int) -> cv2.VideoCapture:
+    """Try platform-appropriate backends before giving up."""
+    backends: List[int] = []
+    if sys.platform.startswith("win"):
+        backends = [cv2.CAP_DSHOW, cv2.CAP_ANY]
+    elif sys.platform == "darwin":
+        backends = [cv2.CAP_AVFOUNDATION, cv2.CAP_ANY]
+    else:
+        backends = [cv2.CAP_V4L2, cv2.CAP_ANY]
+
+    last_error: Optional[str] = None
+    for backend in backends:
+        cap = cv2.VideoCapture(idx, backend) if backend != cv2.CAP_ANY else cv2.VideoCapture(idx)
+        if cap.isOpened():
+            return cap
+        cap.release()
+        last_error = f"backend={backend}"
+
+    msg = f"Cannot open webcam at index {idx}"
+    if last_error:
+        msg += f" (last tried {last_error})"
+    msg += ". Try CAMERA_INDEX=1 or ensure camera permissions are granted."
+    raise RuntimeError(msg)
+
 # -----------------------------
 # Media track
 # -----------------------------
-class CameraVideoTrack(MediaStreamTrack):
+class CameraVideoTrack(VideoStreamTrack):
     kind = "video"
 
     def __init__(self):
         super().__init__()
-        self._last_ts = 0
-        self._fps = int(os.getenv("FPS", "30") or 30)
 
     async def recv(self):
-        # Ensure camera running
-        # (acquire is called by caller)
         pts, time_base = await self.next_timestamp()
 
-        # Pull last frame; if none yet, wait briefly
-        frame = _shared_cam.latest()
+        frame = None
         tries = 0
-        while frame is None and tries < 50:
-            await asyncio.sleep(0.01)
+        while frame is None:
             frame = _shared_cam.latest()
+            if frame is not None:
+                break
             tries += 1
-        if frame is None:
-            # still nothing
-            await asyncio.sleep(1 / self._fps)
-            return await self.recv()
+            if tries >= 100:
+                await asyncio.sleep(0.008)
+                tries = 0
+            else:
+                await asyncio.sleep(0.005)
 
-        # Convert OpenCV BGR → RGB for aiortc VideoFrame
         from av import VideoFrame
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        import cv2 as _cv2
+
+        rgb = _cv2.cvtColor(frame, _cv2.COLOR_BGR2RGB)
         video_frame = VideoFrame.from_ndarray(rgb, format="rgb24")
         video_frame.pts = pts
         video_frame.time_base = time_base
@@ -134,12 +146,14 @@ class CameraVideoTrack(MediaStreamTrack):
 # -----------------------------
 # FastAPI app
 # -----------------------------
-app = FastAPI(title="WebRTC Webcam Streamer", version="1.0.0")
+app = FastAPI(title="WebRTC Webcam Streamer", version="1.0.1")
+
+# Proper CORS (no credentials with wildcard)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # for local dev; restrict in production
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -147,26 +161,31 @@ class SDPModel(BaseModel):
     sdp: str
     type: str  # "offer"
 
-# Keep references so connections don’t get GC’d
 pcs: List[RTCPeerConnection] = []
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
+# Explicit OPTIONS handlers to avoid 405 on preflight in some setups
+@app.options("/offer")
+@app.options("/offer/")
+def options_offer():
+    return Response(status_code=204)
+
+# Accept both /offer and /offer/
 @app.post("/offer")
+@app.post("/offer/")
 async def offer(sdp: SDPModel):
     if sdp.type != "offer":
         raise HTTPException(400, "type must be 'offer'")
 
-    # STUN for NAT traversal (fine on LAN/dev too)
-    cfg = RTCConfiguration(
-        iceServers=[RTCIceServer(urls=["stun:stun.l.google.com:19302"])]
-    )
+    cfg = RTCConfiguration(iceServers=[RTCIceServer(urls=["stun:stun.l.google.com:19302"])])
     pc = RTCPeerConnection(configuration=cfg)
     pcs.append(pc)
 
-    # Prepare camera and video track
+    ice_ready = asyncio.get_event_loop().create_future()
+
     try:
         await _shared_cam.acquire()
     except Exception as e:
@@ -176,29 +195,33 @@ async def offer(sdp: SDPModel):
 
     local_video = CameraVideoTrack()
     pc.addTrack(local_video)
-    
-    @pc.on("iceconnectionstatechange")
-    async def _():
-        print("ICE:", pc.iceConnectionState)
 
+    if pc.iceGatheringState == "complete":
+        if not ice_ready.done():
+            ice_ready.set_result(True)
 
+    @pc.on("icegatheringstatechange")
+    def on_ice_gathering_state_change():
+        if pc.iceGatheringState == "complete" and not ice_ready.done():
+            ice_ready.set_result(True)
 
     @pc.on("iceconnectionstatechange")
     async def on_ice_state_change():
         if pc.iceConnectionState in ("failed", "closed", "disconnected"):
             await _cleanup_pc(pc)
 
-    # Set remote description and create answer
     offer_desc = RTCSessionDescription(sdp=sdp.sdp, type=sdp.type)
     await pc.setRemoteDescription(offer_desc)
     answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
 
+    with contextlib.suppress(asyncio.TimeoutError):
+        await asyncio.wait_for(ice_ready, timeout=5)
+
     return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    # Close all peer connections and release camera
     await asyncio.gather(*[_cleanup_pc(pc) for pc in list(pcs)], return_exceptions=True)
 
 async def _cleanup_pc(pc: RTCPeerConnection):
@@ -206,8 +229,11 @@ async def _cleanup_pc(pc: RTCPeerConnection):
         pcs.remove(pc)
     with contextlib.suppress(Exception):
         await pc.close()
-    # If no more peers, release camera
     if not pcs:
         with contextlib.suppress(Exception):
             await _shared_cam.release()
 
+
+def _read_frame(cap: cv2.VideoCapture):
+    """Run in a thread to grab frames without blocking asyncio loop."""
+    return cap.read()
