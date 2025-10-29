@@ -5,3 +5,4 @@ prettier@3.0.0
 # Browser Dependencies (loaded from CDN)
 # @tensorflow/tfjs@4.20.0
 # @tensorflow-models/coco-ssd@2.2.3
+
