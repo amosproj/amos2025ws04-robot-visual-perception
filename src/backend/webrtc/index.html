@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>WebRTC Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 24px; }
+    video { width: 100%; max-width: 960px; background: #000; }
+    button { padding: 8px 14px; margin: 8px 0; }
+    .row { margin-top: 8px; }
+    input[type=text] { width: 420px; }
+  </style>
+</head>
+<body>
+  <h1>WebRTC Webcam Viewer</h1>
+
+  <div class="row">
+    <label for="server">Signaling URL:</label>
+    <input id="server" type="text" value="">
+    <button id="connect">Connect</button>
+    <button id="disconnect" disabled>Disconnect</button>
+  </div>
+
+  <video id="video" autoplay playsinline controls muted></video>
+
+  <script>
+    let pc = null;
+
+    function defaultSignalingURL() {
+      try {
+        const url = new URL(window.location.href);
+        if (url.protocol.startsWith("http") && url.port === "8000") {
+          return `${url.origin}/offer`;
+        }
+      } catch (_) {}
+      return "http://127.0.0.1:8000/offer";
+    }
+
+    function normalizeOfferURL(raw) {
+      const trimmed = (raw || "").trim();
+      if (!trimmed) return defaultSignalingURL();
+
+      const withScheme = /^[a-zA-Z][\w+\-.]*:\/\//.test(trimmed) ? trimmed : `http://${trimmed}`;
+      try {
+        const url = new URL(withScheme);
+        const basePath = url.pathname.replace(/\/+$/, "");
+        url.pathname = basePath.endsWith("/offer") ? basePath : `${basePath}/offer`;
+        return url.toString();
+      } catch (_) {
+        const base = withScheme.replace(/\/+$/, "");
+        return base.endsWith("/offer") ? base : `${base}/offer`;
+      }
+    }
+
+    async function connect() {
+      const serverInput = document.getElementById("server");
+      const offerURL = normalizeOfferURL(serverInput.value);
+      serverInput.value = offerURL;
+
+      document.getElementById("connect").disabled = true;
+
+      pc = new RTCPeerConnection({
+        iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
+      });
+
+      // Ensure we actually signal that we want to RECEIVE video
+      pc.addTransceiver("video", { direction: "recvonly" });
+
+      // Display incoming video
+      const videoEl = document.getElementById("video");
+      pc.ontrack = (evt) => {
+        const stream = (evt.streams && evt.streams[0]) ? evt.streams[0] : new MediaStream([evt.track]);
+        if (videoEl.srcObject !== stream) {
+          videoEl.srcObject = stream;
+        }
+        if (videoEl.paused) {
+          videoEl.play().catch(() => {});
+        }
+      };
+
+      // Create an SDP offer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Wait for ICE gathering to complete (non-trickle)
+      await new Promise((resolve) => {
+        if (pc.iceGatheringState === "complete") return resolve();
+        function checkState() {
+          if (pc.iceGatheringState === "complete") {
+            pc.removeEventListener("icegatheringstatechange", checkState);
+            resolve();
+          }
+        }
+        pc.addEventListener("icegatheringstatechange", checkState);
+      });
+
+      // Send SDP to backend
+      const res = await fetch(offerURL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sdp: pc.localDescription.sdp,
+          type: pc.localDescription.type, // "offer"
+        }),
+      });
+
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(`Offer failed (${res.status}): ${t || "unknown error"}`);
+      }
+
+      const answer = await res.json();
+      // Accept answer from backend
+      await pc.setRemoteDescription(new RTCSessionDescription(answer));
+
+      document.getElementById("disconnect").disabled = false;
+    }
+
+    async function disconnect() {
+      if (pc) {
+        try {
+          pc.getSenders().forEach(s => s.track && s.track.stop());
+        } catch (_) {}
+        try { pc.close(); } catch (_) {}
+        pc = null;
+      }
+      document.getElementById("connect").disabled = false;
+      document.getElementById("disconnect").disabled = true;
+    }
+
+    document.getElementById("connect").onclick = () => connect().catch(err => {
+      alert(err.message);
+      document.getElementById("connect").disabled = false;
+    });
+    document.getElementById("disconnect").onclick = disconnect;
+    window.addEventListener("beforeunload", disconnect);
+  </script>
+</body>
+</html>
