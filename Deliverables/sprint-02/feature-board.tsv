@@ -1,0 +1,18 @@
+Title	URL	Assignees	Status	Estimated size	Real size
+Build Process Review	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/33		Product Backlog		
+Setup Licensing	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/30		Product Backlog		
+Keep BOM up to date	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/32		Product Backlog		
+Keep Architecture document up to date	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/31		Product Backlog		
+Depth Estimation Example with live WebRTC	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/34		Product Backlog		
+Object Detection Example with live WebRTC	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/35		Product Backlog		
+Metadata Transport	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/37		Product Backlog		
+backend container image	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/19		Product Backlog		
+local docker compose setup	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/20		Product Backlog		
+React WebCAM	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/36		Product Backlog		
+Implement Architecture scaffolding.	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/16		Sprint Backlog		
+Object detection pre-requisits	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/15	saribx	In Progress	3	5
+Team distribution preference	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/17		Awaiting Review	3	
+CI pipeline	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/18	anuunchin	Awaiting Review	3	
+Webcam as WebRTC stream	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/13	zohrehasadi00	Awaiting Review	5	5
+Architecture	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/14	anuunchin, Christoph-Mantsch, Paul2607, Tenebrae311	Awaiting Review	5	
+Go WebRTC example setup	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/21		Feature Archive		
