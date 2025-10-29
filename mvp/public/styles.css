@@ -1,0 +1,19 @@
+:root{ --bg:#0b0f14; --panel:#121822; --text:#e8eef5; --accent:#4cc9f0; --ok:#80ffdb; --warn:#ffd166 }
+*{ box-sizing: border-box }
+html,body{ height:100% }
+body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--text);}
+header{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--panel); position:sticky; top:0; z-index:10; box-shadow:0 2px 8px rgba(0,0,0,.3) }
+.controls{ display:flex; gap:12px; align-items:center }
+button, select{ background:#1e2633; color:var(--text); border:1px solid #2a3446; border-radius:8px; padding:8px 12px; cursor:pointer }
+button:hover{ border-color:var(--accent) }
+main{ padding:16px; display:grid; gap:12px }
+.canvas-wrap{ position:relative; width:min(960px, 95vw); margin:auto; background:#000; border-radius:12px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.35) }
+video, canvas{ width:100%; height:auto; display:block }
+video{ transform: scaleX(-1) }
+canvas{ position:absolute; left:0; top:0; pointer-events:none }
+.status{ text-align:center; color:#a7b4c6; font-size:14px }
+.metadata{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; margin:16px 0; padding:12px; background:var(--panel); border-radius:8px; font-size:14px }
+.metadata-item{ display:flex; justify-content:space-between; align-items:center }
+.metadata-item .label{ color:#a7b4c6; font-weight:500 }
+.metadata-item span:last-child{ color:var(--accent); font-weight:600 }
+.legend{ position:absolute; right:8px; top:8px; background:rgba(0,0,0,.5); padding:6px 8px; border-radius:8px; font-size:12px }

@@ -1,0 +1,28 @@
+{
+  "name": "realtimedistancevideo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "http-server public -p 5173 -c-1",
+    "dev": "http-server public -p 5173 -c-1",
+    "serve": "http-server public -p 5173 -c-1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saribx/realtimedistancevideo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/saribx/realtimedistancevideo/issues"
+  },
+  "homepage": "https://github.com/saribx/realtimedistancevideo#readme",
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "prettier": "^3.6.2"
+  }
+}

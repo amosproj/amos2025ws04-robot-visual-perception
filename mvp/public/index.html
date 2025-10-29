@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Real-time Distance Video (MVP)</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Real-time Distance Video (MVP)</h1>
+      <div class="controls">
+        <button id="startBtn">Start Camera</button>
+        <button id="videoBtn">Load Video File</button>
+        <button id="defaultVideoBtn">Use person_video.mp4</button>
+        <input type="file" id="videoInput" accept="video/*" style="display: none;">
+        <label>
+          Object filter:
+          <select id="classFilter">
+            <option value="">All</option>
+            <option value="person">person</option>
+            <option value="bottle">bottle</option>
+            <option value="cup">cup</option>
+            <option value="chair">chair</option>
+            <option value="tv">tv</option>
+          </select>
+        </label>
+        <label>
+          Camera FOV:
+          <select id="fovSelect">
+            <option value="60">Laptop (60°)</option>
+            <option value="75">Phone (75°)</option>
+            <option value="70">Desktop (70°)</option>
+            <option value="90">Wide (90°)</option>
+          </select>
+        </label>
+      </div>
+    </header>
+    <main>
+      <div class="canvas-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <div class="metadata" id="metadata">
+        <div class="metadata-item">
+          <span class="label">Resolution:</span>
+          <span id="resolution">-</span>
+        </div>
+        <div class="metadata-item">
+          <span class="label">FPS:</span>
+          <span id="fps">-</span>
+        </div>
+        <div class="metadata-item">
+          <span class="label">Objects:</span>
+          <span id="objectCount">-</span>
+        </div>
+        <div class="metadata-item">
+          <span class="label">FOV:</span>
+          <span id="currentFOV">60°</span>
+        </div>
+      </div>
+      <div class="status" id="status">Model loading…</div>
+    </main>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
