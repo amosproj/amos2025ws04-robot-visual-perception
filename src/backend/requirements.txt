@@ -1,0 +1,6 @@
+aiortc
+av
+fastapi
+uvicorn
+opencv-python
+pydantic
