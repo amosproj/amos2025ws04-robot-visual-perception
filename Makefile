@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 2025 robot-visual-perception
+#
+# SPDX-License-Identifier: MIT
+
 .PHONY: help lint lint-frontend lint-backend type-check-backend test test-frontend test-backend format format-frontend format-backend docker-build docker-build-frontend docker-build-backend docker-run-frontend docker-run-backend docker-stop docker-clean
 
 help:

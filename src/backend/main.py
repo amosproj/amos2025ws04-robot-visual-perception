@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 2025 robot-visual-perception
+#
+# SPDX-License-Identifier: MIT
+
 """PLACEHOLDER"""
 
 from http.server import HTTPServer, BaseHTTPRequestHandler

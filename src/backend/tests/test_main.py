@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 2025 robot-visual-perception
+#
+# SPDX-License-Identifier: MIT
+
 from main import hello
 
 
