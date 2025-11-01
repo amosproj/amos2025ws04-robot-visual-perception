@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 2025 robot-visual-perception
+
+SPDX-License-Identifier: CC0-1.0
+-->
+
 ---
 name: Feature request
 about: Suggest new feature (using user story)

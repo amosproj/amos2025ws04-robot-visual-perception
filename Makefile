@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 2025 robot-visual-perception
+#
+# SPDX-License-Identifier: MIT
+
 .PHONY: help lint lint-frontend lint-backend type-check-backend test test-frontend test-backend format format-frontend format-backend docker-build docker-build-frontend docker-build-backend docker-run-frontend docker-run-backend docker-stop docker-clean
 
 help:
@@ -9,11 +13,13 @@ help:
 	@echo "		install-backend"
 	@echo "			install backend dependencies (uv)"
 	@echo "		lint"
-	@echo "			runs all linters and type checking (frontend, backend)"
+	@echo "			runs all linters and type checking (frontend, backend, licensing)"
 	@echo "		lint-frontend"
 	@echo "			lints frontend code with npm run lint"
 	@echo "		lint-backend"
 	@echo "			lints backend Python code with ruff"
+	@echo "		lint-licensing"
+	@echo "			lints licensing files with reuse"
 	@echo "		type-check-backend"
 	@echo "			type checks backend Python code with mypy"
 	@echo "		format"
@@ -55,13 +61,16 @@ install-backend:
 	cd src/backend && uv pip install -r requirements.txt
 	cd src/backend && uv pip install -r requirements-dev.txt
 
-lint: lint-frontend lint-backend type-check-backend
+lint: lint-frontend lint-backend lint-licensing type-check-backend
 
 lint-frontend:
 	cd src/frontend && npm run lint
 
 lint-backend:
 	cd src/backend && uv run ruff check .
+
+lint-licensing:
+	reuse lint
 
 format: format-frontend format-backend
 
