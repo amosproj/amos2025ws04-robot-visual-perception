@@ -13,23 +13,23 @@ jobs:
   # Lint stage
 
   lint-licensing:
-  name: Lint licensing (REUSE)
-  runs-on: ubuntu-latest
-  steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v3
+    name: Lint licensing (REUSE)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
 
-    - name: Set up Python
-      run: uv python install 3.11
+      - name: Set up Python
+        run: uv python install 3.11
 
-    - name: Install dependencies
-      run: make install-backend
+      - name: Install dependencies
+        run: make install-backend
 
-    - name: Lint licensing
-      run: make lint-licensing
+      - name: Lint licensing
+        run: make lint-licensing
   
   lint-frontend:
     name: Lint frontend
