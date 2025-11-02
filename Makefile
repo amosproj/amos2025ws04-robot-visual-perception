@@ -46,10 +46,12 @@ dev: install
 install: install-frontend install-backend
 
 install-frontend:
+	@echo "Installing frontend dependencies (Node.js 20 required, see .nvmrc)"
 	cd src/frontend && npm install
 
 install-backend:
-	cd src/backend && uv venv
+	cd src/backend && uv python install   # Auto-uses .python-version (3.11)
+	cd src/backend && uv venv             # Auto-uses .python-version (3.11)
 	cd src/backend && uv pip install -r requirements.txt
 	cd src/backend && uv pip install -r requirements-dev.txt
 
