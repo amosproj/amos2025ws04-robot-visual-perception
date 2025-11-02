@@ -8,15 +8,16 @@ Fixes for 405:
 - Wildcard origins without credentials (spec-compliant).
 
 Run:
-    uvicorn server:app --host 0.0.0.0 --port 8000
+    uv run uvicorn server:app --host 0.0.0.0 --port 8000
 """
 
 import asyncio
 import os
 import sys
 import contextlib
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
+import numpy as np
 import cv2
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,6 +29,8 @@ from aiortc import (
     RTCIceServer,
     VideoStreamTrack,
 )
+from av import VideoFrame
+
 
 # -----------------------------
 # Global camera singleton
@@ -35,15 +38,15 @@ from aiortc import (
 
 
 class _SharedCamera:
-    def __init__(self):
+    def __init__(self) -> None:
         self._refcount = 0
         self._lock = asyncio.Lock()
-        self._cap = None
-        self._frame = None
+        self._cap: Optional[cv2.VideoCapture] = None
+        self._frame: Optional[np.ndarray] = None
         self._running = False
         self._reader_task: Optional[asyncio.Task] = None
 
-    async def acquire(self):
+    async def acquire(self) -> None:
         async with self._lock:
             self._refcount += 1
             if self._cap is None:
@@ -52,7 +55,7 @@ class _SharedCamera:
                 self._running = True
                 self._reader_task = asyncio.create_task(self._read_loop())
 
-    async def release(self):
+    async def release(self) -> None:
         async with self._lock:
             self._refcount -= 1
             if self._refcount <= 0:
@@ -68,7 +71,7 @@ class _SharedCamera:
                 self._reader_task = None
                 self._refcount = 0
 
-    async def _read_loop(self):
+    async def _read_loop(self) -> None:
         loop = asyncio.get_running_loop()
         try:
             while self._running and self._cap:
@@ -80,10 +83,12 @@ class _SharedCamera:
         except asyncio.CancelledError:
             pass
 
-    def latest(self):
+    def latest(self) -> Optional[np.ndarray]:
         return self._frame
 
+
 _shared_cam = _SharedCamera()
+
 
 def _open_camera(idx: int) -> cv2.VideoCapture:
     """Try platform-appropriate backends before giving up."""
@@ -97,7 +102,11 @@ def _open_camera(idx: int) -> cv2.VideoCapture:
 
     last_error: Optional[str] = None
     for backend in backends:
-        cap = cv2.VideoCapture(idx, backend) if backend != cv2.CAP_ANY else cv2.VideoCapture(idx)
+        cap = (
+            cv2.VideoCapture(idx, backend)
+            if backend != cv2.CAP_ANY
+            else cv2.VideoCapture(idx)
+        )
         if cap.isOpened():
             return cap
         cap.release()
@@ -109,16 +118,17 @@ def _open_camera(idx: int) -> cv2.VideoCapture:
     msg += ". Try CAMERA_INDEX=1 or ensure camera permissions are granted."
     raise RuntimeError(msg)
 
+
 # -----------------------------
 # Media track
 # -----------------------------
 class CameraVideoTrack(VideoStreamTrack):
     kind = "video"
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
-    async def recv(self):
+    async def recv(self) -> VideoFrame:
         pts, time_base = await self.next_timestamp()
 
         frame = None
@@ -134,14 +144,12 @@ class CameraVideoTrack(VideoStreamTrack):
             else:
                 await asyncio.sleep(0.005)
 
-        from av import VideoFrame
-        import cv2 as _cv2
-
-        rgb = _cv2.cvtColor(frame, _cv2.COLOR_BGR2RGB)
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).astype(np.uint8)
         video_frame = VideoFrame.from_ndarray(rgb, format="rgb24")
         video_frame.pts = pts
         video_frame.time_base = time_base
         return video_frame
+
 
 # -----------------------------
 # FastAPI app
@@ -157,30 +165,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class SDPModel(BaseModel):
     sdp: str
     type: str  # "offer"
 
+
 pcs: List[RTCPeerConnection] = []
 
+
 @app.get("/health")
-def health():
+def health() -> dict[str, str]:
     return {"status": "ok"}
+
 
 # Explicit OPTIONS handlers to avoid 405 on preflight in some setups
 @app.options("/offer")
 @app.options("/offer/")
-def options_offer():
+def options_offer() -> Response:
     return Response(status_code=204)
+
 
 # Accept both /offer and /offer/
 @app.post("/offer")
 @app.post("/offer/")
-async def offer(sdp: SDPModel):
+async def offer(sdp: SDPModel) -> dict[str, str]:
     if sdp.type != "offer":
         raise HTTPException(400, "type must be 'offer'")
 
-    cfg = RTCConfiguration(iceServers=[RTCIceServer(urls=["stun:stun.l.google.com:19302"])])
+    cfg = RTCConfiguration(
+        iceServers=[RTCIceServer(urls=["stun:stun.l.google.com:19302"])]
+    )
     pc = RTCPeerConnection(configuration=cfg)
     pcs.append(pc)
 
@@ -201,12 +216,12 @@ async def offer(sdp: SDPModel):
             ice_ready.set_result(True)
 
     @pc.on("icegatheringstatechange")
-    def on_ice_gathering_state_change():
+    def on_ice_gathering_state_change() -> None:
         if pc.iceGatheringState == "complete" and not ice_ready.done():
             ice_ready.set_result(True)
 
     @pc.on("iceconnectionstatechange")
-    async def on_ice_state_change():
+    async def on_ice_state_change() -> None:
         if pc.iceConnectionState in ("failed", "closed", "disconnected"):
             await _cleanup_pc(pc)
 
@@ -220,11 +235,13 @@ async def offer(sdp: SDPModel):
 
     return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
+
 @app.on_event("shutdown")
-async def on_shutdown():
+async def on_shutdown() -> None:
     await asyncio.gather(*[_cleanup_pc(pc) for pc in list(pcs)], return_exceptions=True)
 
-async def _cleanup_pc(pc: RTCPeerConnection):
+
+async def _cleanup_pc(pc: RTCPeerConnection) -> None:
     if pc in pcs:
         pcs.remove(pc)
     with contextlib.suppress(Exception):
@@ -234,6 +251,6 @@ async def _cleanup_pc(pc: RTCPeerConnection):
             await _shared_cam.release()
 
 
-def _read_frame(cap: cv2.VideoCapture):
+def _read_frame(cap: cv2.VideoCapture) -> Tuple[bool, Optional[np.ndarray]]:
     """Run in a thread to grab frames without blocking asyncio loop."""
     return cap.read()
