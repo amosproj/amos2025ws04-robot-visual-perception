@@ -19,7 +19,7 @@ import asyncio
 import os
 import sys
 import contextlib
-from typing import Optional, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import cv2
@@ -32,10 +32,11 @@ from aiortc import (
     RTCConfiguration,
     RTCIceServer,
     VideoStreamTrack,
+    RTCDataChannel,
 )
 from aiortc.rtcrtpsender import RTCRtpSender
 from av import VideoFrame
-from ultralytics import YOLO
+from ultralytics import YOLO  # type: ignore[import-untyped]
 
 
 # -----------------------------
@@ -277,7 +278,7 @@ class SDPModel(BaseModel):
 
 
 pcs: List[RTCPeerConnection] = []
-_datachannels: dict[int, any] = {}
+_datachannels: Dict[int, RTCDataChannel] = {}
 
 
 @app.get("/health")
