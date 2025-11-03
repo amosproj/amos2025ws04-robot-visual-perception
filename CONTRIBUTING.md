@@ -95,20 +95,30 @@ Before you can run the project locally, install the required tools:
 
 #### Prerequisites
 
-**Node.js 20+** (for frontend)
+**Node.js 20** (for frontend)
+
+Recommended: Use [nvm](https://github.com/nvm-sh/nvm) to manage Node.js versions:
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+
+cd src/frontend
+nvm install  # Installs Node.js 20
+nvm use      # Switches to Node.js 20
+```
+
+Alternative (without nvm):
 ```bash
 brew install node@20
 ```
 
-**Python 3.11+** (for backend)
-```bash
-brew install python@3.11
-```
+**Python 3.11** (for backend)
+
+The Makefile will automatically install Python 3.11 via `uv`. You just need `uv` installed:
 
 **uv** (Python package manager)
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-# or on mac
+# or on macOS
 brew install uv
 ```
 
@@ -148,8 +158,7 @@ Linting catches code issues and enforces style guidelines. Always run before pus
 ```bash
 make lint                  # Lint all components (includes type checking)
 make lint-frontend         # Lint frontend with ESLint
-make lint-backend          # Lint backend with Ruff
-make type-check-backend    # Type check backend with mypy
+make lint-backend          # Lints and type checks backend with Ruff
 ```
 
 Before you push your changes, run `make lint` and address any errors.
