@@ -43,3 +43,5 @@ bin/
 .ruff_cache/
 .mypy_cache/
 .pytest_cache/
+venv/
+yolov8n.pt
