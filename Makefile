@@ -63,11 +63,7 @@ install-backend:
 	cd src/backend && uv pip install -r requirements.txt
 	cd src/backend && uv pip install -r requirements-dev.txt
 
-<<<<<<< HEAD
 lint: lint-frontend lint-backend lint-licensing type-check-backend
-=======
-lint: lint-frontend lint-backend
->>>>>>> origin/main
 
 lint-frontend:
 	cd src/frontend && npm run lint
