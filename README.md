@@ -18,10 +18,12 @@ Minimal real-time object and distance detection via YOLO on a WebRTC video strea
 ## Run backend (WebRTC)
 Prereqs: Python 3.11+
 
-1) Install dependencies
+1) Install dependencies (Mac)
 ```
-cd src/backend 
-pip install -r src/backend/requirements.txt
+cd src/backend
+python3 -m venv venv
+source venv/bin/activate
+pip3 install -r requirements.txt
 ```
 
 2) Start the server
@@ -48,7 +50,7 @@ npm install
 ```
 VITE_BACKEND_URL=http://localhost:8000 npm run dev
 ```
-Open the shown URL in your console. 
+Open the shown URL in your console.
 
 ## Notes
 - The backend throttles inference to ~10 Hz to keep latency low.
