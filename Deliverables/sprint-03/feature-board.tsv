@@ -1,14 +1,14 @@
 Title	URL	Assignees	Status	Estimated size	Real size	Labels
+Split Backend Responsibilies	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/60		Product Backlog			backend, refactoring
+Improve Code Quality	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/59		Product Backlog			backend, refactoring
 Update Container Image	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/19		Product Backlog	2		backend
-React Video Component	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/36	saribx	Product Backlog	3		frontend
 Docker Compose Setup	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/20		Product Backlog	3		backend
+React Video Component	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/36	saribx	Product Backlog	3		frontend
 React Video Overlay	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/55		Product Backlog			frontend
  Transported Metadata Usage	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/54		Product Backlog			backend, frontend
-Video Router & Dispatching Service	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/56		Product Backlog			backend
 Object Dimension Library	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/57		Product Backlog			backend, research
 Object Rotation Effects	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/58		Product Backlog			research
-Improve Code Quality	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/59		Product Backlog			backend, refactoring
-Split Backend Responsibilies	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/60		Product Backlog			
+Video Router & Dispatching Service	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/56		Product Backlog			backend, research
 Keep Architecture document up to date	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/31	Christoph-Mantsch, Paul2607	In Progress	2		
 Build Process Review	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/33	anuunchin	In Progress	2		
 Metadata Transport	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/37	Tenebrae311	In Progress	5		
