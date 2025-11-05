@@ -35,6 +35,7 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from ultralytics import YOLO  # type: ignore[import-untyped]
+import httpx
 
 
 class _Detector:
@@ -163,9 +164,68 @@ class SDPModel(BaseModel):
     type: str
 
 
+class _WebcamSession:
+    """Manages a peer connection to the webcam service for a single analyzer client."""
+
+    def __init__(self, offer_url: str) -> None:
+        self._offer_url = offer_url
+        self._pc: Optional[RTCPeerConnection] = None
+        self._track: Optional[MediaStreamTrack] = None
+
+    async def connect(self) -> MediaStreamTrack:
+        cfg = RTCConfiguration(
+            iceServers=[RTCIceServer(urls=["stun:stun.l.google.com:19302"])]
+        )
+        pc = RTCPeerConnection(configuration=cfg)
+        self._pc = pc
+
+        track_future: asyncio.Future[MediaStreamTrack] = asyncio.get_event_loop().create_future()
+        ice_ready: asyncio.Future[None] = asyncio.get_event_loop().create_future()
+
+        if pc.iceGatheringState == "complete" and not ice_ready.done():
+            ice_ready.set_result(None)
+
+        @pc.on("track")
+        def on_track(track: MediaStreamTrack) -> None:
+            if track.kind == "video" and not track_future.done():
+                track_future.set_result(track)
+
+        @pc.on("icegatheringstatechange")
+        def on_ice_gathering_state_change() -> None:
+            if pc.iceGatheringState == "complete" and not ice_ready.done():
+                ice_ready.set_result(None)
+
+        pc.addTransceiver("video", direction="recvonly")
+        offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(ice_ready, timeout=5)
+
+        payload = {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.post(self._offer_url, json=payload)
+            res.raise_for_status()
+            answer = res.json()
+
+        await pc.setRemoteDescription(RTCSessionDescription(**answer))
+        self._track = await track_future
+        return self._track
+
+    async def close(self) -> None:
+        if self._track is not None:
+            with contextlib.suppress(Exception):
+                self._track.stop()
+            self._track = None
+        if self._pc is not None:
+            with contextlib.suppress(Exception):
+                await self._pc.close()
+            self._pc = None
+
+
 pcs: List[RTCPeerConnection] = []
-_remote_tracks: Dict[int, MediaStreamTrack] = {}
 _data_channels: Dict[int, RTCDataChannel] = {}
+_sessions: Dict[int, _WebcamSession] = {}
 
 
 @app.get("/health")
@@ -195,18 +255,22 @@ async def offer(sdp: SDPModel) -> dict[str, str]:
     _data_channels[pc_id] = pc.createDataChannel("meta")
     ice_ready = asyncio.get_event_loop().create_future()
 
-    @pc.on("track")
-    def on_track(track: MediaStreamTrack) -> None:
-        if track.kind != "video":
-            return
-        _remote_tracks[pc_id] = track
-        processed = _AnalyzedVideoTrack(track, pc_id)
-        pc.addTrack(processed)
+    session = _WebcamSession(
+        os.getenv("WEBCAM_OFFER_URL", "http://localhost:8000/offer")
+    )
+    try:
+        source_track = await session.connect()
+    except Exception as exc:
+        await session.close()
+        with contextlib.suppress(Exception):
+            await pc.close()
+        pcs.remove(pc)
+        _data_channels.pop(pc_id, None)
+        raise HTTPException(502, f"Webcam upstream error: {exc}") from exc
 
-        @track.on("ended")
-        async def on_ended() -> None:
-            with contextlib.suppress(KeyError):
-                _remote_tracks.pop(pc_id, None)
+    _sessions[pc_id] = session
+    processed = _AnalyzedVideoTrack(source_track, pc_id)
+    pc.addTrack(processed)
 
     @pc.on("icegatheringstatechange")
     def on_ice_gathering_state_change() -> None:
@@ -259,10 +323,9 @@ async def _cleanup_pc(pc: RTCPeerConnection) -> None:
         with contextlib.suppress(Exception):
             channel.close()
 
-    track = _remote_tracks.pop(pc_id, None)
-    if track is not None:
-        with contextlib.suppress(Exception):
-            await track.stop()
+    session = _sessions.pop(pc_id, None)
+    if session is not None:
+        await session.close()
 
 
 def _send_meta(pc_id: int, meta: List[Dict[str, float | int]]) -> None:
@@ -272,4 +335,3 @@ def _send_meta(pc_id: int, meta: List[Dict[str, float | int]]) -> None:
     payload = json.dumps({"detections": meta})
     with contextlib.suppress(Exception):
         channel.send(payload)
-
