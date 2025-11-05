@@ -36,5 +36,15 @@ TODO
 
 ### Design Rationale
 
-The choice of WebSocket for metadata streaming ensures low-latency, browser-native communication without the complexity of WebRTC DataChannels, which are faster in general but much harder to deal with in (future) cloud environments, since it uses UDP Peer-to-Peer connections. Load balancing in this case is also not trivial.
+The choice of WebSocket for metadata streaming ensures low-latency, browser-native communication [1] without the complexity of WebRTC DataChannels, which are faster in general but much harder to deal with in (future) cloud environments like Kubernetes, since it uses UDP Peer-to-Peer connections [2][3]. Load balancing in this case is also not trivial [4].
+
+### References
+
+1. Ably, "WebSockets explained: What they are and how they work", [link](https://ably.com/topic/websockets)
+
+2. VideoSDK, "WebSockets vs WebRTC: Key Differences and Best Use Cases Explained", [link](https://www.videosdk.live/developer-hub/developer-hub/webrtc/websockets-vs-webrtc-differences)
+
+3. Medium, "Kubernetes: The next step for WebRTC", [link](https://medium.com/l7mp-technologies/kubernetes-the-next-step-for-webrtc-fb8d8a33f24e)
+
+4. ossrs, "Load Balancing Streaming Servers", [link](https://ossrs.net/lts/en-us/blog/load-balancing-streaming-servers)
 
