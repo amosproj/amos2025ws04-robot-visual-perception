@@ -13,7 +13,7 @@ function App() {
 
   const offerUrl = useMemo(() => {
     const url = (import.meta as any)?.env?.VITE_BACKEND_URL as string | undefined;
-    return (url ?? 'http://localhost:8000') + '/offer';
+    return (url ?? 'http://localhost:8001') + '/offer';
   }, []);
 
   useEffect(() => {
