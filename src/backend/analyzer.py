@@ -106,6 +106,8 @@ class _AnalyzedVideoTrack(VideoStreamTrack):
 
     async def recv(self) -> VideoFrame:
         frame = await self._source.recv()
+        if not isinstance(frame, VideoFrame):
+            raise TypeError("Expected VideoFrame from source track")
         base = frame.to_ndarray(format="bgr24")
 
         detections = await _detector.infer(base)
