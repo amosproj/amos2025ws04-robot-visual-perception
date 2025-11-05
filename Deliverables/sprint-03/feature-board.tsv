@@ -1,0 +1,25 @@
+Title	URL	Assignees	Status	Estimated size	Real size	Labels
+Split Backend Responsibilies	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/60		Product Backlog			backend, refactoring
+Improve Code Quality	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/59		Product Backlog			backend, refactoring
+Update Container Image	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/19		Product Backlog	2		backend
+Docker Compose Setup	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/20		Product Backlog	3		backend
+React Video Component	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/36	saribx	Product Backlog	3		frontend
+React Video Overlay	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/55		Product Backlog			frontend
+ Transported Metadata Usage	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/54		Product Backlog			backend, frontend
+Object Dimension Library	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/57		Product Backlog			backend, research
+Object Rotation Effects	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/58		Product Backlog			research
+Video Router & Dispatching Service	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/56		Product Backlog			backend, research
+Keep Architecture document up to date	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/31	Christoph-Mantsch, Paul2607	In Progress	2		
+Build Process Review	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/33	anuunchin	In Progress	2		
+Metadata Transport	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/37	Tenebrae311	In Progress	5		
+Object detection pre-requisits	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/15	saribx	Awaiting Review	5		
+Keep BOM up to date	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/32	Christoph-Mantsch, Paul2607	Awaiting Review	2		
+Depth Estimation Example with live WebRTC	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/34	saribx, zohrehasadi00	Awaiting Review	5		
+Object Detection Example with live WebRTC	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/35	saribx, zohrehasadi00	Awaiting Review	3		
+Implement Architecture scaffolding.	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/16		Awaiting Review	3		EPIC
+Setup Licensing	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/30	Tenebrae311	Feature Archive	2		
+Go WebRTC example setup	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/21		Feature Archive			
+Architecture	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/14	Christoph-Mantsch, Paul2607, Tenebrae311	Feature Archive	5	5	
+Webcam as WebRTC stream	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/13	zohrehasadi00	Feature Archive	5	5	
+CI pipeline	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/18	anuunchin	Feature Archive	3	3	
+Team distribution preference	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/17		Feature Archive	3	1	
