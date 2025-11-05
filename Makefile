@@ -73,7 +73,7 @@ lint-backend:
 	cd src/backend && uv run mypy .
 
 lint-licensing:
-	reuse lint
+	cd src/backend && uv run reuse lint
 
 format: format-frontend format-backend
 
