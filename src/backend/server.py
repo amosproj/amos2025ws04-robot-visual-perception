@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+
 # server.py
 """
 Webcam → WebRTC backend
