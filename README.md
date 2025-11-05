@@ -26,11 +26,15 @@ source venv/bin/activate
 pip3 install -r requirements.txt
 ```
 
-2) Start the server
+2) Start the webcam service
 ```
-uvicorn src.backend.webrtc.server:app --host 0.0.0.0 --port 8000
+uv run uvicorn server:app --host 0.0.0.0 --port 8000
 ```
-The first run will download `yolov8n.pt` automatically (this will take some time)
+3) Start the analyzer service (separate terminal)
+```
+uv run uvicorn analyzer:app --host 0.0.0.0 --port 8001
+```
+The first analyzer start will download `yolov8n.pt` automatically (this will take some time)
 
 Optional environment variables (more relevant later):
 - `CAMERA_INDEX` (default 0) – select webcam device
@@ -48,10 +52,10 @@ npm install
 
 2) Start dev server
 ```
-VITE_BACKEND_URL=http://localhost:8000 npm run dev
+VITE_BACKEND_URL=http://localhost:8001 npm run dev
 ```
 Open the shown URL in your console.
 
 ## Notes
-- The backend throttles inference to ~10 Hz to keep latency low.
-- Overlay drawing is done server‑side to avoid extra client work.
+- The webcam service mirrors and streams raw frames only; the analyzer handles YOLO inference and overlays.
+- Analyzer inference is throttled to ~10 Hz to keep latency low.
