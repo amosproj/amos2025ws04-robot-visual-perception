@@ -2,52 +2,64 @@
 #
 # SPDX-License-Identifier: MIT
 
-.PHONY: help lint lint-frontend lint-backend lint-licensing test test-frontend test-backend format format-frontend format-backend docker-build docker-build-frontend docker-build-backend docker-run-frontend docker-run-backend docker-stop docker-clean
+.PHONY: help \
+	dev install install-frontend install-backend \
+	lint lint-frontend lint-backend lint-licensing type-check-backend \
+	format format-frontend format-backend \
+	test test-frontend test-backend \
+	run-backend-local run-frontend-local \
+	docker-build docker-build-frontend docker-build-backend \
+	docker-run-frontend docker-run-backend \
+	docker-stop docker-clean
 
 help:
 	@echo "make"
-	@echo "		dev (or install)"
-	@echo "			install all dependencies for development"
-	@echo "		install-frontend"
-	@echo "			install frontend dependencies (npm)"
-	@echo "		install-backend"
-	@echo "			install backend dependencies (uv)"
-	@echo "		lint"
-	@echo "			runs all linters and type checking (frontend, backend, licensing)"
-	@echo "		lint-frontend"
-	@echo "			lints frontend code with npm run lint"
-	@echo "		lint-backend"
-	@echo "			lints backend Python code with ruff"
-	@echo "		lint-licensing"
-	@echo "			lints licensing files with reuse"
-	@echo "		type-check-backend"
-	@echo "			type checks backend Python code with mypy"
-	@echo "		format"
-	@echo "			formats all code (frontend and backend)"
-	@echo "		format-frontend"
-	@echo "			formats frontend code with prettier"
-	@echo "		format-backend"
-	@echo "			formats backend Python code with ruff"
-	@echo "		test"
-	@echo "			runs all tests (frontend and backend)"
-	@echo "		test-frontend"
-	@echo "			runs frontend tests with vitest"
-	@echo "		test-backend"
-	@echo "			runs backend tests with pytest"
-	@echo "		docker-build"
-	@echo "			builds all Docker images (frontend and backend)"
-	@echo "		docker-build-frontend"
-	@echo "			builds frontend Docker image"
-	@echo "		docker-build-backend"
-	@echo "			builds backend Docker image"
-	@echo "		docker-run-frontend"
-	@echo "			runs frontend container on port 8080"
-	@echo "		docker-run-backend"
-	@echo "			runs backend container on port 8000"
-	@echo "		docker-stop"
-	@echo "			stops running containers"
-	@echo "		docker-clean"
-	@echo "			stops containers and removes Docker images"
+	@echo "  dev (or install)"
+	@echo "      install all dependencies for development"
+	@echo "  install-frontend"
+	@echo "      install frontend dependencies (npm)"
+	@echo "  install-backend"
+	@echo "      install backend dependencies (uv)"
+	@echo "  lint"
+	@echo "      runs all linters and type checking (frontend, backend, licensing)"
+	@echo "  lint-frontend"
+	@echo "      lints frontend code with npm run lint"
+	@echo "  lint-backend"
+	@echo "      lints backend Python code with ruff"
+	@echo "  type-check-backend"
+	@echo "      type checks backend Python code with mypy"
+	@echo "  lint-licensing"
+	@echo "      lints licensing files with reuse"
+	@echo "  format"
+	@echo "      formats all code (frontend and backend)"
+	@echo "  format-frontend"
+	@echo "      formats frontend code with prettier"
+	@echo "  format-backend"
+	@echo "      formats backend code with ruff"
+	@echo "  test"
+	@echo "      runs all tests (frontend and backend)"
+	@echo "  test-frontend"
+	@echo "      runs frontend tests with vitest"
+	@echo "  test-backend"
+	@echo "      runs backend tests with pytest"
+	@echo "  run-backend-local"
+	@echo "      runs backend locally with uvicorn"
+	@echo "  run-frontend-local"
+	@echo "      runs frontend locally with Vite (uses VITE_BACKEND_URL)"
+	@echo "  docker-build"
+	@echo "      builds all Docker images (frontend and backend)"
+	@echo "  docker-build-frontend"
+	@echo "      builds frontend Docker image"
+	@echo "  docker-build-backend"
+	@echo "      builds backend Docker image"
+	@echo "  docker-run-frontend"
+	@echo "      runs frontend container on port 8080"
+	@echo "  docker-run-backend"
+	@echo "      runs backend container on port 8000"
+	@echo "  docker-stop"
+	@echo "      stops running containers"
+	@echo "  docker-clean"
+	@echo "      stops containers and removes Docker images"
 
 dev: install
 
@@ -63,7 +75,7 @@ install-backend:
 	cd src/backend && uv pip install -r requirements.txt
 	cd src/backend && uv pip install -r requirements-dev.txt
 
-lint: lint-frontend lint-backend lint-licensing type-check-backend
+lint: lint-frontend lint-backend lint-licensing
 
 lint-frontend:
 	cd src/frontend && npm run lint
@@ -90,6 +102,12 @@ test-frontend:
 
 test-backend:
 	cd src/backend && uv run pytest
+
+run-backend-local:
+	cd src/backend && uv run uvicorn webrtc.server:app --host 0.0.0.0 --port 8000
+
+run-frontend-local:
+	cd src/frontend && VITE_BACKEND_URL=http://localhost:8000 npm run dev
 
 docker-build: docker-build-frontend docker-build-backend
 

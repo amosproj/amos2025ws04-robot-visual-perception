@@ -12,8 +12,10 @@ function App() {
   const [status, setStatus] = useState('Ready');
 
   const offerUrl = useMemo(() => {
-    const url = (import.meta as any)?.env?.VITE_BACKEND_URL as string | undefined;
-    return (url ?? 'http://localhost:8001') + '/offer';
+    const url = (import.meta as any)?.env?.VITE_BACKEND_URL as
+      | string
+      | undefined;
+    return (url ?? 'http://localhost:8000') + '/offer';
   }, []);
 
   useEffect(() => {
@@ -98,7 +100,12 @@ function App() {
           autoPlay
           playsInline
           muted
-          style={{ width: '720px', maxWidth: '100%', borderRadius: 8, background: '#000' }}
+          style={{
+            width: '720px',
+            maxWidth: '100%',
+            borderRadius: 8,
+            background: '#000',
+          }}
         />
       </main>
     </div>
