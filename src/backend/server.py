@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+
 # server.py
 """
 Webcam → WebRTC backend
@@ -19,7 +20,7 @@ import asyncio
 import os
 import sys
 import contextlib
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import cv2
@@ -32,16 +33,9 @@ from aiortc import (
     RTCConfiguration,
     RTCIceServer,
     VideoStreamTrack,
-    RTCDataChannel,
 )
 from aiortc.rtcrtpsender import RTCRtpSender
 from av import VideoFrame
-from ultralytics import YOLO  # type: ignore[import-untyped]
-
-
-# -----------------------------
-# Global camera singleton
-# -----------------------------
 
 
 class _SharedCamera:
@@ -97,70 +91,6 @@ class _SharedCamera:
 _shared_cam = _SharedCamera()
 
 
-# -----------------------------
-# YOLO detector (singleton)
-# -----------------------------
-
-
-class _Detector:
-    def __init__(self) -> None:
-        self._model = YOLO("yolov8n.pt")
-        self._last_det: Optional[list[tuple[int, int, int, int, int, float]]] = None
-        self._last_time: float = 0.0
-        self._lock = asyncio.Lock()
-        # Approximate camera FOV for distance estimation (degrees)
-        self._fov_deg: float = float(os.getenv("CAMERA_HFOV_DEG", "60"))
-
-    async def infer(self, frame_bgr: np.ndarray) -> list[tuple[int, int, int, int, int, float]]:
-        """Run (throttled) inference and cache results.
-
-        Returns list of (x1, y1, x2, y2, class_id, conf).
-        """
-        now = asyncio.get_running_loop().time()
-        # Throttle to ~10 Hz
-        if self._last_det is not None and (now - self._last_time) < 0.10:
-            return self._last_det
-
-        async with self._lock:
-            # Re-check inside lock
-            now = asyncio.get_running_loop().time()
-            if self._last_det is not None and (now - self._last_time) < 0.10:
-                return self._last_det
-
-            # Ultralytics expects RGB
-            rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-            results = self._model.predict(rgb, imgsz=640, conf=0.25, verbose=False)
-            dets: list[tuple[int, int, int, int, int, float]] = []
-            if results:
-                r = results[0]
-                if r.boxes is not None and len(r.boxes) > 0:
-                    xyxy = r.boxes.xyxy.cpu().numpy().astype(int)
-                    cls = r.boxes.cls.cpu().numpy().astype(int)
-                    conf = r.boxes.conf.cpu().numpy()
-                    for (x1, y1, x2, y2), c, p in zip(xyxy, cls, conf):
-                        dets.append((int(x1), int(y1), int(x2), int(y2), int(c), float(p)))
-
-            self._last_det = dets
-            self._last_time = now
-            return dets
-
-    def estimate_distance_m(self, bbox: tuple[int, int, int, int], frame_width: int) -> float:
-        """Very rough monocular distance estimate based on bbox width and HFOV.
-        Uses class-agnostic nominal object width of 0.5 m for stability; override via env OBJ_WIDTH_M.
-        """
-        x1, y1, x2, y2 = bbox
-        pix_w = max(1, x2 - x1)
-        obj_w_m = float(os.getenv("OBJ_WIDTH_M", "0.5"))
-        fov_rad = np.deg2rad(self._fov_deg)
-        focal_px = (frame_width / 2.0) / np.tan(fov_rad / 2.0)
-        dist_m = (obj_w_m * focal_px) / pix_w
-        scale = float(os.getenv("DIST_SCALE", "1.5"))
-        return float(dist_m * scale)
-
-
-_detector = _Detector()
-
-
 def _open_camera(idx: int) -> cv2.VideoCapture:
     """Try platform-appropriate backends before giving up."""
     backends: List[int] = []
@@ -214,43 +144,8 @@ class CameraVideoTrack(VideoStreamTrack):
                 tries = 0
             else:
                 await asyncio.sleep(0.005)
-        # Run (throttled) detection and draw overlays
-        dets = await _detector.infer(frame)
-        # Mirror the base frame first so any text drawn is readable
-        overlay = cv2.flip(frame, 1)
-        h, w = overlay.shape[:2]
-        meta: list[dict[str, float | int | str]] = []
-        for (x1, y1, x2, y2, cls_id, conf) in dets:
-            # Mirror bbox coordinates horizontally
-            mx1 = w - x2
-            mx2 = w - x1
-            dist_m = _detector.estimate_distance_m((x1, y1, x2, y2), w)
-            cv2.rectangle(overlay, (mx1, y1), (mx2, y2), (0, 255, 0), 2)
-            label = f"{cls_id}:{conf:.2f} {dist_m:.1f}m"
-            cv2.putText(
-                overlay,
-                label,
-                (mx1, max(0, y1 - 10)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1.2,
-                (0, 255, 0),
-                3,
-                cv2.LINE_AA,
-            )
-            meta.append({
-                "cls": int(cls_id),
-                "conf": float(conf),
-                "x1": int(mx1),
-                "y1": int(y1),
-                "x2": int(mx2),
-                "y2": int(y2),
-                "dist_m": float(dist_m),
-            })
-
-        # Send lightweight metadata if a channel is available
-        _send_meta(meta)
-
-        rgb = cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB).astype(np.uint8)
+        mirrored = cv2.flip(frame, 1)
+        rgb = cv2.cvtColor(mirrored, cv2.COLOR_BGR2RGB).astype(np.uint8)
         video_frame = VideoFrame.from_ndarray(rgb, format="rgb24")
         video_frame.pts = pts
         video_frame.time_base = time_base
@@ -278,7 +173,6 @@ class SDPModel(BaseModel):
 
 
 pcs: List[RTCPeerConnection] = []
-_datachannels: Dict[int, RTCDataChannel] = {}
 
 
 @app.get("/health")
@@ -317,10 +211,6 @@ async def offer(sdp: SDPModel) -> dict[str, str]:
 
     local_video = CameraVideoTrack()
     pc.addTrack(local_video)
-
-    # Create a data channel for metadata
-    ch = pc.createDataChannel("meta")
-    _datachannels[id(pc)] = ch
 
     # Prefer H.264 to support Safari and improve cross-browser compatibility
     try:
@@ -371,22 +261,9 @@ async def _cleanup_pc(pc: RTCPeerConnection) -> None:
     if not pcs:
         with contextlib.suppress(Exception):
             await _shared_cam.release()
-    with contextlib.suppress(KeyError):
-        _datachannels.pop(id(pc))
 
 
 def _read_frame(cap: cv2.VideoCapture) -> Tuple[bool, Optional[np.ndarray]]:
     """Run in a thread to grab frames without blocking asyncio loop."""
     return cap.read()
-
-
-def _send_meta(meta: list[dict[str, float | int | str]]) -> None:
-    """Non-blocking metadata send to all open data channels (best-effort)."""
-    if not _datachannels:
-        return
-    import json
-    payload = json.dumps({"detections": meta})
-    for ch in list(_datachannels.values()):
-        with contextlib.suppress(Exception):
-            ch.send(payload)
             
