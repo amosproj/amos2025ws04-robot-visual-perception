@@ -1,3 +1,9 @@
+/**
+ * SPDX-FileCopyrightText: 2025 robot-visual-perception
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
@@ -33,6 +39,7 @@ export interface UseWebRTCPlayerResult {
   connectionState: ConnectionState;
   errorReason: string;
   isPaused: boolean;
+  latencyMs?: number;
   connect: () => Promise<void>;
   disconnect: () => void;
   togglePlayPause: () => Promise<void>;
@@ -48,10 +55,12 @@ export function useWebRTCPlayer({ signalingEndpoint, autoPlay = false }: UseWebR
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
+  const statsPollRef = useRef<number | null>(null);
 
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
   const [errorReason, setErrorReason] = useState('');
   const [isPaused, setIsPaused] = useState(false);
+  const [latencyMs, setLatencyMs] = useState<number | undefined>(undefined);
 
   const connect = useCallback(async () => {
     if (pcRef.current) return;
@@ -126,6 +135,11 @@ export function useWebRTCPlayer({ signalingEndpoint, autoPlay = false }: UseWebR
     }
     setIsPaused(false);
     setConnectionState('idle');
+    setLatencyMs(undefined);
+    if (statsPollRef.current) {
+      window.clearInterval(statsPollRef.current);
+      statsPollRef.current = null;
+    }
   }, []);
 
   const togglePlayPause = useCallback(async () => {
@@ -150,22 +164,77 @@ export function useWebRTCPlayer({ signalingEndpoint, autoPlay = false }: UseWebR
   }, [connectionState, isPaused, connect]);
 
   const enterFullscreen = useCallback(() => {
-    const el = videoRef.current?.parentElement ?? videoRef.current;
+    const el = (videoRef.current?.parentElement ?? videoRef.current) as any;
     if (!el) return;
-    const anyEl = el as any;
-    const req = anyEl.requestFullscreen || anyEl.webkitRequestFullscreen || anyEl.msRequestFullscreen;
-    if (req) req.call(anyEl);
+    const doc: any = document as any;
+    const isFull = doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement;
+    if (isFull) {
+      const exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+      if (exit) exit.call(doc);
+      return;
+    }
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (req) req.call(el);
   }, []);
 
   useEffect(() => {
     return () => disconnect();
   }, [disconnect]);
 
+  // Poll WebRTC stats for latency when connected
+  useEffect(() => {
+    if (connectionState !== 'connected' || !pcRef.current) {
+      if (statsPollRef.current) {
+        window.clearInterval(statsPollRef.current);
+        statsPollRef.current = null;
+      }
+      return;
+    }
+
+    const poll = async () => {
+      try {
+        const pc = pcRef.current;
+        if (!pc) return;
+        const stats = await pc.getStats();
+        let rttSeconds: number | undefined;
+        stats.forEach((report) => {
+          if (report.type === 'candidate-pair' && (report as any).nominated && (report as any).state === 'succeeded') {
+            const v = (report as any).currentRoundTripTime;
+            if (typeof v === 'number') {
+              rttSeconds = v;
+            }
+          }
+          if (report.type === 'remote-inbound-rtp' && (report as any).roundTripTime != null) {
+            const v = (report as any).roundTripTime;
+            if (typeof v === 'number') {
+              rttSeconds = v;
+            }
+          }
+        });
+        if (rttSeconds != null) {
+          setLatencyMs(Math.max(0, Math.round(rttSeconds * 1000)));
+        }
+      } catch {
+      }
+    };
+
+    // initial poll and interval
+    poll();
+    statsPollRef.current = window.setInterval(poll, 250);
+    return () => {
+      if (statsPollRef.current) {
+        window.clearInterval(statsPollRef.current);
+        statsPollRef.current = null;
+      }
+    };
+  }, [connectionState]);
+
   return {
     videoRef,
     connectionState,
     errorReason,
     isPaused,
+    latencyMs,
     connect,
     disconnect,
     togglePlayPause,

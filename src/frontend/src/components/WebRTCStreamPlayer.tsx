@@ -1,3 +1,9 @@
+/**
+ * SPDX-FileCopyrightText: 2025 robot-visual-perception
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 import React, { useState } from 'react';
 import { useWebRTCPlayer } from '../hooks/useWebRTCPlayer';
 
@@ -39,6 +45,7 @@ export default function WebRTCStreamPlayer({
     connectionState,
     errorReason,
     isPaused,
+    latencyMs,
     togglePlayPause,
     disconnect,
     enterFullscreen,
@@ -48,9 +55,9 @@ export default function WebRTCStreamPlayer({
 
   return (
     <div className={className} style={{ display: 'flex', flexDirection: 'column', gap: 16, ...style }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
-        <span style={{ 
-          fontSize: 14, 
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <span style={{
+          fontSize: 14,
           opacity: 0.8,
           display: 'flex',
           alignItems: 'center',
@@ -62,13 +69,14 @@ export default function WebRTCStreamPlayer({
             borderRadius: '50%',
             backgroundColor: connectionState === 'connected' ? '#0f0' : connectionState === 'connecting' ? '#ff0' : connectionState === 'error' ? '#f00' : '#666'
           }} />
-          {connectionState === 'idle' && 'Idle'}
-          {connectionState === 'connecting' && 'Connecting…'}
-          {connectionState === 'connected' && (isPaused ? 'Paused' : 'Connected')}
-          {connectionState === 'error' && `Error: ${errorReason}`}
+          {connectionState !== 'connected' && connectionState === 'idle' && 'Idle'}
+          {connectionState !== 'connected' && connectionState === 'connecting' && 'Connecting…'}
+          {connectionState !== 'connected' && connectionState === 'error' && `Error: ${errorReason}`}
+          {connectionState === 'connected' && 'Connected'}
+          {connectionState === 'connected' && latencyMs != null && ` · ${latencyMs} ms`}
         </span>
-        <button 
-          onClick={disconnect} 
+        <button
+          onClick={disconnect}
           disabled={connectionState === 'idle'}
           style={{
             padding: '10px 24px',
@@ -96,10 +104,10 @@ export default function WebRTCStreamPlayer({
           Disconnect
         </button>
       </div>
-      
-      <div 
-        style={{ 
-          width: '100%', 
+
+      <div
+        style={{
+          width: '100%',
           maxWidth: '100%',
           position: 'relative'
         }}
@@ -120,7 +128,7 @@ export default function WebRTCStreamPlayer({
             display: 'block'
           }}
         />
-        
+
         {/* Controls overlay */}
         <div style={{
           position: 'absolute',
@@ -156,7 +164,7 @@ export default function WebRTCStreamPlayer({
           >
             {connectionState !== 'connected' || isPaused ? <Play size={24} fill="white" /> : <Pause size={24} fill="white" />}
           </button>
-          
+
           {/* Right side - Fullscreen */}
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             <button
