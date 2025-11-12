@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: MIT
 import cv2
 import numpy as np
+import torch
+from typing import Literal
+from common.config import config
 
 from ultralytics.engine.results import Results  # type: ignore[import-untyped]
-
 
 def get_detections(
     inference_results: list[Results],
@@ -38,43 +40,71 @@ def get_detections(
 
     return detections
 
+class DistanceEstimator():
+    def __init__(self, model_type: Literal["MiDaS_small", "DPT_Hybrid", "DPT_Large"] = "MiDaS_small", midas_model: str = "intel-isl/MiDaS") -> None:
+        self.region_size = config.REGION_SIZE  # size of region around bbox center to sample depth
+        self.scale_factor = config.SCALE_FACTOR  # empirical calibration factor
 
-def estimate_distance_m(
-    bbox: tuple[int, int, int, int],
-    frame_width: int,
-    fov_deg: float,
-    obj_width_m: float,
-    scale: float,
-) -> float:
-    """Estimate the distance to an object using the pinhole camera model.
+        self.model_type = model_type
+        self.midas_model = midas_model
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        self.depth_estimation_model = torch.hub.load(midas_model, model_type).to(self.device).eval()
+        # get MiDaS transforms
+        midas_transforms = torch.hub.load(midas_model, "transforms")
+        if model_type == "DPT_Large" or model_type == "DPT_Hybrid":
+            self.transform = midas_transforms.dpt_transform
+        else:
+            self.transform = midas_transforms.small_transform
 
-    Computes distance based on the object’s bounding box width in pixels,
-    the camera’s horizontal field of view, and an assumed real-world object width.
 
-    Args:
-        bbox: Bounding box coordinates as (x1, y1, x2, y2).
-        frame_width: Width of the camera frame in pixels.
-        fov_deg: Horizontal field of view of the camera in degrees.
-        obj_width_m: Assumed real-world width of the detected object in meters.
-        scale: Additional scaling factor applied to the computed distance.
+    def estimate_distance_m(self, frame_rgb: np.ndarray, dets: list[tuple[int, int, int, int, int, float]]) -> list[float]:
+        """Estimate distance in meters for each detection based on depth map.
+        
+        Returns list of distances in meters."""
+        h, w, _ = frame_rgb.shape
 
-    Returns:
-        Estimated distance to the object in meters.
-    """
-    x1, _, x2, _ = bbox
-    pix_w = max(1, x2 - x1)
-    fov_rad = np.deg2rad(fov_deg)
-    focal_px = (frame_width / 2.0) / np.tan(fov_rad / 2.0)
-    dist_m = (obj_width_m * focal_px) / pix_w
-    return float(dist_m * scale)
+        input_batch = self.transform(frame_rgb).to(self.device)
+        with torch.no_grad():
+            prediction = self.depth_estimation_model(input_batch)
+            prediction = torch.nn.functional.interpolate(
+                prediction.unsqueeze(1),
+                size=(h, w),
+                mode="bicubic",
+                align_corners=False,
+            ).squeeze()
+        depth_map = prediction.cpu().numpy()
+        distances = []
+        for (x1, y1, x2, y2, cls_id, conf) in dets:
+            # extract 5x5 central region of bbox and clip to image bounds
+            cx = int((x1 + x2) / 2)
+            cy = int((y1 + y2) / 2)
+            # Define region size (odd for symmetry)
+            half_size = self.region_size // 2
+            x_start = max(cx - half_size, 0)
+            x_end = min(cx + half_size + 1, w)
+            y_start = max(cy - half_size, 0)
+            y_end = min(cy + half_size + 1, h)
+
+            region = depth_map[y_start:y_end, x_start:x_end]
+            # Use mean depth value for robustness
+            depth_value = max(np.mean(region), 1e-6) # avoid div by zero
+
+            distances.append(float(self.scale_factor / depth_value))
+        return distances
+    
+estimator_instance = None
+
+def _get_estimator_distance() -> DistanceEstimator:
+    global estimator_instance
+    if estimator_instance is None:
+        estimator_instance = DistanceEstimator()
+    return estimator_instance
 
 
 def draw_detections(
     frame: np.ndarray,
     detections: list[tuple[int, int, int, int, int, float]],
-    fov_deg: float,
-    obj_width_m: float,
-    scale: float,
+    distances_m: list[float],
 ) -> np.ndarray:
     """Draw bounding boxes and distance labels for detected objects on a frame.
 
@@ -83,7 +113,7 @@ def draw_detections(
     confidence, and distance.
 
     Args:
-        frame: Input frame as a NumPy array in BGR format.
+        frame: Input frame as a NumPy array in RGB format.
         detections: List of detections as (x1, y1, x2, y2, class_id, confidence).
         fov_deg: Horizontal field of view of the camera in degrees.
         obj_width_m: Assumed real-world width of the detected object in meters.
@@ -95,11 +125,9 @@ def draw_detections(
     _, w = frame.shape[:2]
 
     # Draw bounding boxes and labels for each detection
-    for x1, y1, x2, y2, cls_id, conf in detections:
+    for (x1, y1, x2, y2, cls_id, conf), dist_m in zip(detections, distances_m):
         # Estimate distance and create label
-        dist_m = estimate_distance_m((x1, y1, x2, y2), w, fov_deg, obj_width_m, scale)
         label = f"{cls_id}:{conf:.2f} {dist_m:.1f}m"
-
         # Draw bounding box
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 

@@ -12,8 +12,7 @@ from av import VideoFrame
 from common.core.camera import _shared_cam
 from common.core.detector import _get_detector
 from common.utils.video import numpy_to_video_frame
-from common.utils.geometry import draw_detections
-from common.config import config
+from common.utils.geometry import draw_detections, _get_estimator_distance
 
 
 class CameraVideoTrack(VideoStreamTrack):
@@ -58,15 +57,17 @@ class CameraVideoTrack(VideoStreamTrack):
 
         # Flip frame for mirror effect
         overlay = cv2.flip(frame, 1)
+        # Convert BGR to RGB
+        overlay = cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB)
 
         # Run YOLO detection on flipped frame
         detections = await _get_detector().infer(overlay)
+        # Estimate distances for each detection
+        distances_m = _get_estimator_distance().estimate_distance_m(overlay, detections)
 
         overlay = draw_detections(
             overlay,
             detections,
-            config.CAMERA_HFOV_DEG,
-            config.OBJ_WIDTH_M,
-            config.DIST_SCALE,
+            distances_m
         )
         return numpy_to_video_frame(overlay, pts, time_base)
