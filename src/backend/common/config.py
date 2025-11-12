@@ -11,11 +11,10 @@ class Config:
 
     # Camera settings
     CAMERA_INDEX: int = int(os.getenv("CAMERA_INDEX", "0"))
-    CAMERA_HFOV_DEG: float = float(os.getenv("CAMERA_HFOV_DEG", "60"))
 
-    # Detection settings
-    OBJ_WIDTH_M: float = float(os.getenv("OBJ_WIDTH_M", "0.5"))
-    DIST_SCALE: float = float(os.getenv("DIST_SCALE", "1.5"))
+    # Depth estimation settings
+    REGION_SIZE = int(os.getenv("REGION_SIZE", "5"))
+    SCALE_FACTOR = float(os.getenv("SCALE_FACTOR", "432.0"))
 
     # WebRTC settings
     STUN_SERVER: str = os.getenv("STUN_SERVER", "stun:stun.l.google.com:19302")

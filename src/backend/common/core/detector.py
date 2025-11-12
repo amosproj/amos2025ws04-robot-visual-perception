@@ -4,7 +4,6 @@
 import asyncio
 from typing import Optional
 
-import cv2
 import numpy as np
 from ultralytics import YOLO  # type: ignore[import-untyped]
 
@@ -28,18 +27,17 @@ class _Detector:
         self._last_det: Optional[list[tuple[int, int, int, int, int, float]]] = None
         self._last_time: float = 0.0
         self._lock = asyncio.Lock()
-        self._fov_deg = config.CAMERA_HFOV_DEG
 
     async def infer(
-        self, frame_bgr: np.ndarray
+        self, frame_rgb: np.ndarray
     ) -> list[tuple[int, int, int, int, int, float]]:
         """Run YOLO inference asynchronously on a single frame.
 
-        Performs object detection on the given BGR image using the loaded YOLO model.
+        Performs object detection on the given RGB image using the loaded YOLO model.
         Uses simple caching to avoid repeated inference calls within 100 ms.
 
         Args:
-            frame_bgr (np.ndarray): Input image in BGR color format (OpenCV style).
+            frame_rgb (np.ndarray): Input image in RGB color format.
 
         Returns:
             list[tuple[int, int, int, int, int, float]]: A list of detections, where each
@@ -54,7 +52,6 @@ class _Detector:
             if self._last_det is not None and (now - self._last_time) < 0.10:
                 return self._last_det
 
-            frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
             inference_results = self._model.predict(
                 frame_rgb, imgsz=640, conf=0.25, verbose=False
             )

@@ -7,9 +7,8 @@ from av import VideoFrame
 
 from common.core.detector import _get_detector
 from common.utils.video import numpy_to_video_frame
-from common.utils.geometry import draw_detections
-from common.config import config
-
+from common.utils.geometry import _get_estimator_distance, draw_detections
+import cv2
 
 class AnalyzedVideoTrack(VideoStreamTrack):
     """
@@ -52,17 +51,17 @@ class AnalyzedVideoTrack(VideoStreamTrack):
 
         # Convert to numpy array
         base = frame.to_ndarray(format="bgr24")
+        overlay = cv2.cvtColor(base, cv2.COLOR_BGR2RGB)
 
         # Run YOLO detection
-        detections = await _get_detector().infer(base)
+        detections = await _get_detector().infer(overlay)
+        # Estimate distances for each detection
+        distances_m = _get_estimator_distance().estimate_distance_m(overlay, detections)
 
         # Draw detections on frame
-        overlay = base.copy()
         overlay = draw_detections(
             overlay,
             detections,
-            config.CAMERA_HFOV_DEG,
-            config.OBJ_WIDTH_M,
-            config.DIST_SCALE,
+            distances_m
         )
         return numpy_to_video_frame(overlay, frame.pts, frame.time_base)

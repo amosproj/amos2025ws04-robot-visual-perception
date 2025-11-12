@@ -4,8 +4,7 @@
 import numpy as np
 import pytest
 
-from common.utils.geometry import get_detections, estimate_distance_m, draw_detections
-from common.config import config
+from common.utils.geometry import get_detections, draw_detections
 from tests.test_utils import DummyResult, DummyBoxes
 
 
@@ -52,24 +51,6 @@ def test_get_detections(xyxy, cls_ids, confs, expected) -> None:
     detections = get_detections([result])
     assert detections == expected
 
-
-@pytest.mark.parametrize(
-    "bbox, expected",
-    [
-        ((10, 20, 50, 60), 10.392304845413268),
-    ],
-)
-def test_estimate_distance_m(bbox, expected, frame_width: int = 640) -> None:
-    result = estimate_distance_m(
-        bbox=bbox,
-        frame_width=frame_width,
-        fov_deg=config.CAMERA_HFOV_DEG,
-        obj_width_m=config.OBJ_WIDTH_M,
-        scale=config.DIST_SCALE,
-    )
-    assert np.isclose(result, expected, rtol=1e-6)
-
-
 @pytest.mark.parametrize(
     "frame_input",
     [(100, 640, 3)],
@@ -77,13 +58,13 @@ def test_estimate_distance_m(bbox, expected, frame_width: int = 640) -> None:
 def test_draw_detections_runs_and_returns_same_shape(frame_input) -> None:
     frame = np.zeros(frame_input, dtype=np.uint8)
     detections = [(10, 20, 50, 60, 1, 0.9)]
+    distances_m = [1]
+    
 
     result = draw_detections(
         frame=frame.copy(),
         detections=detections,
-        fov_deg=config.CAMERA_HFOV_DEG,
-        obj_width_m=config.OBJ_WIDTH_M,
-        scale=config.DIST_SCALE,
+        distances_m=distances_m,
     )
 
     assert result.shape == frame.shape
