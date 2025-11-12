@@ -14,18 +14,17 @@ def numpy_to_video_frame(
     frame: np.ndarray, pts: Optional[int], time_base: Optional[Fraction]
 ) -> VideoFrame:
     """
-    Convert a numpy array (BGR format) to a WebRTC VideoFrame.
+    Convert a numpy array (RGB format) to a WebRTC VideoFrame.
 
     Args:
-        frame: Input frame as numpy array in BGR format
+        frame: Input frame as numpy array in RGB format
         pts: Presentation timestamp
         time_base: Time base (Fraction)
 
     Returns:
         VideoFrame ready for WebRTC transmission
     """
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).astype(np.uint8)
-    out = VideoFrame.from_ndarray(rgb, format="rgb24")
+    out = VideoFrame.from_ndarray(frame.astype(np.uint8), format="rgb24")
     out.pts = pts
     out.time_base = time_base
     return out
