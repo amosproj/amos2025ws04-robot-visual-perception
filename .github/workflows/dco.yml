@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2025 robot-visual-perception
+#
+# SPDX-License-Identifier: MIT
+
+name: DCO Check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-signoff:
+    name: Check commit sign-off and allowed emails
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR commits
+        id: get_commits
+        uses: tim-actions/get-pr-commits@v1.1.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: DCO check
+        uses: tim-actions/dco@v1.1.0
+        with:
+          commits: ${{ steps.get_commits.outputs.commits }}
+
+      - name: Check allowed emails in commit messages
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA='${{ github.event.pull_request.base.sha }}'
+          HEAD_SHA='${{ github.event.pull_request.head.sha }}'
+
+          IFS=',' read -ra ALLOWED <<< "${{ vars.ALLOWED_SIGNOFF_EMAILS }}"
+          for sha in $(git rev-list "$BASE_SHA..$HEAD_SHA"); do
+            msg="$(git show -s --format=%B "$sha")"
+            ok=0
+            for email in "${ALLOWED[@]}"; do
+              if echo "$msg" | grep -Fqi "$(echo "$email" | xargs)"; then
+                ok=1; break
+              fi
+            done
+            if (( ! ok )); then
+              echo "❌ $sha has no allowed email in commit message"
+              echo "---- commit message ----"
+              echo "$msg"
+              echo "------------------------"
+              exit 1
+            fi
+            echo "✅ $sha has one or more of allowed emails in commit message"
+          done

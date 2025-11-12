@@ -1,4 +1,4 @@
-/**
+/*
  * SPDX-FileCopyrightText: 2025 robot-visual-perception
  *
  * SPDX-License-Identifier: MIT
@@ -15,12 +15,12 @@ function App() {
         <p>T-Systems Project - AMOS 2025</p>
       </header>
       <main>
-        <WebRTCStreamPlayer 
-        signalingEndpoint={envUrl} 
-        autoPlay 
-        muted 
+        <WebRTCStreamPlayer
+        signalingEndpoint={envUrl}
+        autoPlay
+        muted
         enableOverlay={true}
-        overlayTestMode={true}       
+        overlayTestMode={true}
         />
       </main>
     </div>

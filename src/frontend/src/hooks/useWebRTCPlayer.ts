@@ -1,4 +1,4 @@
-/**
+/*
  * SPDX-FileCopyrightText: 2025 robot-visual-perception
  *
  * SPDX-License-Identifier: MIT
@@ -6,9 +6,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+// ConnectionState: short union for connection lifecycle
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
 
-function normalizeOfferUrl(raw?: string): string {
+// Normalize a backend signaling URL into a full /offer endpoint (uses fallback when invalid)
+export function normalizeOfferUrl(raw?: string): string {
   const fallback = 'http://localhost:8001/offer';
   if (!raw) return fallback;
   try {
@@ -29,11 +31,13 @@ function normalizeOfferUrl(raw?: string): string {
   }
 }
 
+// Hook options
 export interface UseWebRTCPlayerOptions {
   signalingEndpoint?: string;
   autoPlay?: boolean;
 }
 
+// Hook result
 export interface UseWebRTCPlayerResult {
   videoRef: React.RefObject<HTMLVideoElement>;
   connectionState: ConnectionState;
@@ -46,6 +50,7 @@ export interface UseWebRTCPlayerResult {
   enterFullscreen: () => void;
 }
 
+// Hook: manages a WebRTC receiver (connect/disconnect, latency polling)
 export function useWebRTCPlayer({ signalingEndpoint, autoPlay = false }: UseWebRTCPlayerOptions): UseWebRTCPlayerResult {
   const offerUrl = useMemo(() => {
     const envUrl = (import.meta as any)?.env?.VITE_BACKEND_URL as string | undefined;
