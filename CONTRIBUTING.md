@@ -51,7 +51,7 @@ Paste the following:
 ```bash
 #!/bin/sh
 if ! grep -q '^Signed-off-by:' "$1"; then
-  echo "❌ Commit rejected: missing 'Signed-off-by' line."
+  echo "Commit rejected: missing 'Signed-off-by' line."
   echo "Please use: git commit -s"
   exit 1
 fi
