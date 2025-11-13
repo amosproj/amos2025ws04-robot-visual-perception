@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 fastapi==0.115.10
 aiortc==1.14.0
+aioice==0.10.1
 av==16.0.1
 pydantic==2.12.3
 uvicorn==0.38.0
