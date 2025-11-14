@@ -70,8 +70,10 @@ install-frontend:
 	cd src/frontend && npm install
 
 install-backend:
-	cd src/backend && uv python install   # Auto-uses .python-version (3.11)
-	cd src/backend && uv venv             # Auto-uses .python-version (3.11)
+# Auto-uses .python-version (3.11)
+	cd src/backend && uv python install
+# Auto-uses .python-version (3.11)
+	cd src/backend && uv venv             
 	cd src/backend && uv pip install -r requirements.txt
 	cd src/backend && uv pip install -r requirements-dev.txt
 

@@ -8,6 +8,23 @@ SPDX-License-Identifier: CC-BY-4.0
 
 Minimal real-time object and distance detection via YOLO on a WebRTC video stream.
 
+## Quick Start (Windows)
+
+For Windows users, we provide an automated setup script:
+```powershell
+PowerShell -ExecutionPolicy Bypass -File .\start-optibot.ps1
+```
+
+This script will:
+- Install all required dependencies (Python 3.11, Node.js, Git, Make, uv)
+- Build the project
+- Start all services automatically
+- Open your browser to http://localhost:3000
+
+**Requirements:** Administrator privileges
+
+For manual setup or other platforms, see the sections below.
+
 ## What’s included
 - FastAPI + aiortc backend streaming webcam frames
 - YOLOv8n inference (Ultralytics) on the server
