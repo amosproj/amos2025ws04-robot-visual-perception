@@ -7,6 +7,7 @@
 	lint lint-frontend lint-backend lint-licensing type-check-backend \
 	format format-frontend format-backend \
 	test test-frontend test-backend \
+	sbom sbom-check sbom-update-excel \
 	run-backend-local run-frontend-local \
 	docker-build docker-build-frontend docker-build-backend \
 	docker-run-frontend docker-run-backend \
@@ -42,6 +43,12 @@ help:
 	@echo "      runs frontend tests with vitest"
 	@echo "  test-backend"
 	@echo "      runs backend tests with pytest"
+	@echo "  sbom"
+	@echo "      generates SBOM (sbom.json) and dependency CSV"
+	@echo "  sbom-check"
+	@echo "      checks if SBOM is up-to-date with dependencies"
+	@echo "  sbom-update-excel"
+	@echo "      generates SBOM and updates planning-documents.xlsx"
 	@echo "  run-backend-local"
 	@echo "      runs backend locally with uvicorn"
 	@echo "  run-frontend-local"
@@ -68,12 +75,19 @@ install: install-frontend install-backend
 install-frontend:
 	@echo "Installing frontend dependencies (Node.js 20 required, see .nvmrc)"
 	cd src/frontend && npm install
+	@echo "Generating SBOM..."
+	cd scripts && uv pip install -r requirements.txt || echo "Warning: Could not install SBOM dependencies"
+	cd scripts && uv run python generate_sbom.py || echo "Warning: SBOM generation failed"
 
 install-backend:
-	cd src/backend && uv python install   # Auto-uses .python-version (3.11)
-	cd src/backend && uv venv             # Auto-uses .python-version (3.11)
+	@echo "Installing backend dependencies (Python 3.11 required)"
+	cd src/backend && uv python install
+	cd src/backend && uv venv
 	cd src/backend && uv pip install -r requirements.txt
 	cd src/backend && uv pip install -r requirements-dev.txt
+	@echo "Generating SBOM..."
+	cd scripts && uv pip install -r requirements.txt || echo "Warning: Could not install SBOM dependencies"
+	cd scripts && uv run python generate_sbom.py || echo "Warning: SBOM generation failed"
 
 lint: lint-frontend lint-backend lint-licensing
 
@@ -161,4 +175,23 @@ docker-stop:
 
 docker-clean: docker-stop
 	@docker rmi robot-frontend:latest robot-webcam:latest robot-analyzer:latest || true
+
+# SBOM generation targets
+sbom:
+	@echo "Installing SBOM tool dependencies..."
+	@uv pip install -q -r scripts/requirements.txt
+	@echo "Generating SBOM and dependency CSV..."
+	@uv run python scripts/generate_sbom.py
+
+sbom-check:
+	@echo "Installing SBOM tool dependencies..."
+	@uv pip install -q -r scripts/requirements.txt
+	@echo "Checking if SBOM is up-to-date..."
+	@uv run python scripts/generate_sbom.py --check
+
+sbom-update-excel:
+	@echo "Installing SBOM tool dependencies..."
+	@uv pip install -q -r scripts/requirements.txt
+	@echo "Generating SBOM and updating Excel..."
+	@uv run python scripts/generate_sbom.py --update-excel
 
