@@ -14,6 +14,7 @@ from webcam.routes import router, on_shutdown
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    yield
     with suppress(Exception):
         await on_shutdown()
 
