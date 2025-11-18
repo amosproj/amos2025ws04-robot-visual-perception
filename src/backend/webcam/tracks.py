@@ -39,6 +39,10 @@ class CameraVideoTrack(VideoStreamTrack):
             if tries >= 100:
                 tries = 0
 
+
+        # Horizontally flip the WebCam
+        frame = frame[:, ::-1]
+
         # numpy (BGR) → WebRTC-Frame
         # aiortc expect a video frame object
         video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
