@@ -9,6 +9,7 @@ from common.config import config
 
 from ultralytics.engine.results import Results  # type: ignore[import-untyped]
 
+
 def get_detections(
     inference_results: list[Results],
 ) -> list[tuple[int, int, int, int, int, float]]:
@@ -40,15 +41,26 @@ def get_detections(
 
     return detections
 
-class DistanceEstimator():
-    def __init__(self, model_type: Literal["MiDaS_small", "DPT_Hybrid", "DPT_Large"] = "MiDaS_small", midas_model: str = "intel-isl/MiDaS") -> None:
-        self.region_size = config.REGION_SIZE  # size of region around bbox center to sample depth
+
+class DistanceEstimator:
+    def __init__(
+        self,
+        model_type: Literal["MiDaS_small", "DPT_Hybrid", "DPT_Large"] = "MiDaS_small",
+        midas_model: str = "intel-isl/MiDaS",
+    ) -> None:
+        self.region_size = (
+            config.REGION_SIZE
+        )  # size of region around bbox center to sample depth
         self.scale_factor = config.SCALE_FACTOR  # empirical calibration factor
 
         self.model_type = model_type
         self.midas_model = midas_model
-        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        self.depth_estimation_model = torch.hub.load(midas_model, model_type).to(self.device).eval()
+        self.device = (
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        )
+        self.depth_estimation_model = (
+            torch.hub.load(midas_model, model_type).to(self.device).eval()
+        )
         # get MiDaS transforms
         midas_transforms = torch.hub.load(midas_model, "transforms")
         if model_type == "DPT_Large" or model_type == "DPT_Hybrid":
@@ -56,10 +68,11 @@ class DistanceEstimator():
         else:
             self.transform = midas_transforms.small_transform
 
-
-    def estimate_distance_m(self, frame_rgb: np.ndarray, dets: list[tuple[int, int, int, int, int, float]]) -> list[float]:
+    def estimate_distance_m(
+        self, frame_rgb: np.ndarray, dets: list[tuple[int, int, int, int, int, float]]
+    ) -> list[float]:
         """Estimate distance in meters for each detection based on depth map.
-        
+
         Returns list of distances in meters."""
         h, w, _ = frame_rgb.shape
 
@@ -74,7 +87,7 @@ class DistanceEstimator():
             ).squeeze()
         depth_map = prediction.cpu().numpy()
         distances = []
-        for (x1, y1, x2, y2, cls_id, conf) in dets:
+        for x1, y1, x2, y2, cls_id, conf in dets:
             # extract 5x5 central region of bbox and clip to image bounds
             cx = int((x1 + x2) / 2)
             cy = int((y1 + y2) / 2)
@@ -87,14 +100,16 @@ class DistanceEstimator():
 
             region = depth_map[y_start:y_end, x_start:x_end]
             # Use mean depth value for robustness
-            depth_value = max(np.mean(region), 1e-6) # avoid div by zero
+            depth_value = max(np.mean(region), 1e-6)  # avoid div by zero
 
             distances.append(float(self.scale_factor / depth_value))
         return distances
-    
+
+
 estimator_instance = None
 
-def _get_estimator_distance() -> DistanceEstimator:
+
+def _get_estimator_instance() -> DistanceEstimator:
     global estimator_instance
     if estimator_instance is None:
         estimator_instance = DistanceEstimator()

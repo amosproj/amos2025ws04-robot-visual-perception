@@ -51,9 +51,14 @@ export interface UseWebRTCPlayerResult {
 }
 
 // Hook: manages a WebRTC receiver (connect/disconnect, latency polling)
-export function useWebRTCPlayer({ signalingEndpoint, autoPlay = false }: UseWebRTCPlayerOptions): UseWebRTCPlayerResult {
+export function useWebRTCPlayer({
+  signalingEndpoint,
+  autoPlay = false,
+}: UseWebRTCPlayerOptions): UseWebRTCPlayerResult {
   const offerUrl = useMemo(() => {
-    const envUrl = (import.meta as any)?.env?.VITE_BACKEND_URL as string | undefined;
+    const envUrl = (import.meta as any)?.env?.VITE_BACKEND_URL as
+      | string
+      | undefined;
     const base = signalingEndpoint ?? envUrl ?? 'http://localhost:8001';
     return normalizeOfferUrl(base);
   }, [signalingEndpoint]);
@@ -62,7 +67,8 @@ export function useWebRTCPlayer({ signalingEndpoint, autoPlay = false }: UseWebR
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const statsPollRef = useRef<number | null>(null);
 
-  const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>('idle');
   const [errorReason, setErrorReason] = useState('');
   const [isPaused, setIsPaused] = useState(false);
   const [latencyMs, setLatencyMs] = useState<number | undefined>(undefined);
@@ -72,7 +78,9 @@ export function useWebRTCPlayer({ signalingEndpoint, autoPlay = false }: UseWebR
     setErrorReason('');
     setConnectionState('connecting');
 
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }] });
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }],
+    });
     pcRef.current = pc;
 
     pc.addTransceiver('video', { direction: 'recvonly' });
@@ -106,7 +114,10 @@ export function useWebRTCPlayer({ signalingEndpoint, autoPlay = false }: UseWebR
       const res = await fetch(offerUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sdp: pc.localDescription?.sdp ?? '', type: 'offer' }),
+        body: JSON.stringify({
+          sdp: pc.localDescription?.sdp ?? '',
+          type: 'offer',
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const answer = await res.json();
@@ -155,13 +166,17 @@ export function useWebRTCPlayer({ signalingEndpoint, autoPlay = false }: UseWebR
     if (!videoRef.current) return;
     if (isPaused) {
       try {
-        pcRef.current?.getReceivers().forEach((r) => r.track && (r.track.enabled = true));
+        pcRef.current
+          ?.getReceivers()
+          .forEach((r) => r.track && (r.track.enabled = true));
       } catch {}
       await videoRef.current.play().catch(() => {});
       setIsPaused(false);
     } else {
       try {
-        pcRef.current?.getReceivers().forEach((r) => r.track && (r.track.enabled = false));
+        pcRef.current
+          ?.getReceivers()
+          .forEach((r) => r.track && (r.track.enabled = false));
       } catch {}
       videoRef.current.pause();
       setIsPaused(true);
@@ -172,13 +187,20 @@ export function useWebRTCPlayer({ signalingEndpoint, autoPlay = false }: UseWebR
     const el = (videoRef.current?.parentElement ?? videoRef.current) as any;
     if (!el) return;
     const doc: any = document as any;
-    const isFull = doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement;
+    const isFull =
+      doc.fullscreenElement ||
+      doc.webkitFullscreenElement ||
+      doc.msFullscreenElement;
     if (isFull) {
-      const exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+      const exit =
+        doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
       if (exit) exit.call(doc);
       return;
     }
-    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    const req =
+      el.requestFullscreen ||
+      el.webkitRequestFullscreen ||
+      el.msRequestFullscreen;
     if (req) req.call(el);
   }, []);
 
@@ -203,13 +225,20 @@ export function useWebRTCPlayer({ signalingEndpoint, autoPlay = false }: UseWebR
         const stats = await pc.getStats();
         let rttSeconds: number | undefined;
         stats.forEach((report) => {
-          if (report.type === 'candidate-pair' && (report as any).nominated && (report as any).state === 'succeeded') {
+          if (
+            report.type === 'candidate-pair' &&
+            (report as any).nominated &&
+            (report as any).state === 'succeeded'
+          ) {
             const v = (report as any).currentRoundTripTime;
             if (typeof v === 'number') {
               rttSeconds = v;
             }
           }
-          if (report.type === 'remote-inbound-rtp' && (report as any).roundTripTime != null) {
+          if (
+            report.type === 'remote-inbound-rtp' &&
+            (report as any).roundTripTime != null
+          ) {
             const v = (report as any).roundTripTime;
             if (typeof v === 'number') {
               rttSeconds = v;
@@ -219,8 +248,7 @@ export function useWebRTCPlayer({ signalingEndpoint, autoPlay = false }: UseWebR
         if (rttSeconds != null) {
           setLatencyMs(Math.max(0, Math.round(rttSeconds * 1000)));
         }
-      } catch {
-      }
+      } catch {}
     };
 
     // initial poll and interval
