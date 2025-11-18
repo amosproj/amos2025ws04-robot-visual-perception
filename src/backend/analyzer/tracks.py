@@ -1,67 +1,73 @@
-# SPDX-FileCopyrightText: 2025 robot-visual-perception
-#
-# SPDX-License-Identifier: MIT
+import time
+import asyncio
+import cv2
 from aiortc import VideoStreamTrack
 from aiortc.mediastreams import MediaStreamTrack
 from av import VideoFrame
-
-from common.core.detector import _get_detector
 from common.utils.video import numpy_to_video_frame
-from common.utils.geometry import _get_estimator_instance, draw_detections
-import cv2
+from common.core.detector import _get_detector
+from common.utils.geometry import _get_estimator_instance, draw_detections, get_detections
+
 
 class AnalyzedVideoTrack(VideoStreamTrack):
-    """
-    WebRTC video track that applies YOLO detection to an upstream video source.
-
-    Receives frames from a remote WebRTC stream (e.g., webcam service), runs
-    YOLO-based object detection, draws bounding boxes and distance labels, and
-    outputs annotated frames for analyzer clients.
-    """
-
     kind = "video"
 
-    def __init__(self, source: MediaStreamTrack, pc_id: int) -> None:
-        """Initialize a new analyzed video track.
-
-        Args:
-            source (MediaStreamTrack): The upstream video source to process.
-            pc_id (int): Identifier for the peer connection using this track.
-        """
+    def __init__(self, source: MediaStreamTrack, pc_id: int):
         super().__init__()
         self._source = source
         self._pc_id = pc_id
 
+        # Cache
+        self._latest_frame = None
+        self._last_overlay = None
+        self._last_detections = None
+        self._last_distances = None
+
+        # Frequenz-Limit für YOLO/Overlay
+        self._infer_interval = 0.12
+        self._last_infer_time = 0
+
+        # Lock für parallele Inference
+        self._lock = asyncio.Lock()
+
+        # Hintergrundtask starten
+        asyncio.create_task(self._inference_loop())
+
+    async def _inference_loop(self):
+        detector = _get_detector()
+        estimator = _get_estimator_instance()
+
+        while True:
+            frame = self._latest_frame
+            if frame is not None:
+                now = time.time()
+                if now - self._last_infer_time >= self._infer_interval:
+                    async with self._lock:
+                        try:
+                            # predict() synchron → in Thread
+                            detections = await asyncio.to_thread(detector._model.predict, frame, imgsz=640, conf=0.25, verbose=False)
+                            # convert to detection tuples
+                            detections = get_detections(detections)
+                            distances = await asyncio.to_thread(estimator.estimate_distance_m, frame, detections)
+
+                            self._last_detections = detections
+                            self._last_distances = distances
+                            self._last_infer_time = now
+                        except Exception as e:
+                            print("Inference error:", e)
+            await asyncio.sleep(0.005)
+
     async def recv(self) -> VideoFrame:
-        """Receive, process, and return the next upstream frame.
-
-        Reads a frame from the upstream source, performs YOLO detection, draws
-        bounding boxes and distance labels, and returns the annotated frame as
-        a WebRTC VideoFrame.
-
-        Returns:
-            VideoFrame: The processed frame with detection overlays.
-
-        Raises:
-            TypeError: If the upstream source does not provide a VideoFrame.
-        """
         frame = await self._source.recv()
-        if not isinstance(frame, VideoFrame):
-            raise TypeError("Expected VideoFrame from source track")
-
-        # Convert to numpy array
         base = frame.to_ndarray(format="bgr24")
-        overlay = cv2.cvtColor(base, cv2.COLOR_BGR2RGB)
+        rgb = cv2.cvtColor(base, cv2.COLOR_BGR2RGB)
 
-        # Run YOLO detection
-        detections = await _get_detector().infer(overlay)
-        # Estimate distances for each detection
-        distances_m = _get_estimator_instance().estimate_distance_m(overlay, detections)
+        # immer speichern für Hintergrundtask
+        self._latest_frame = rgb
 
-        # Draw detections on frame
-        overlay = draw_detections(
-            overlay,
-            detections,
-            distances_m
-        )
+        # Overlay anwenden, wenn vorhanden
+        overlay = rgb.copy()
+        if self._last_detections is not None:
+            overlay = draw_detections(overlay, self._last_detections, self._last_distances)
+
         return numpy_to_video_frame(overlay, frame.pts, frame.time_base)
