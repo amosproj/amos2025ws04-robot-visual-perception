@@ -99,7 +99,9 @@ async def offer(sdp: SDPModel) -> dict[str, str]:
         if h264:
             for t in pc.getTransceivers():
                 if t.kind == "video":
-                    t.setCodecPreferences(h264)
+                    t.setCodecPreferences(
+                        [c for c in h264 if getattr(c, "name", "") != "avc1.640029"]
+                    )
     except Exception:
         pass
 

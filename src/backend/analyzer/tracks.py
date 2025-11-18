@@ -1,55 +1,79 @@
+# SPDX-FileCopyrightText: 2025 robot-visual-perception
+#
+# SPDX-License-Identifier: MIT
+
 import time
 import asyncio
+from typing import Optional, cast
+
 import cv2
+import numpy as np
 from aiortc import VideoStreamTrack
 from aiortc.mediastreams import MediaStreamTrack
 from av import VideoFrame
 from common.utils.video import numpy_to_video_frame
 from common.core.detector import _get_detector
-from common.utils.geometry import _get_estimator_instance, draw_detections, get_detections
+from common.utils.geometry import _get_estimator_instance, draw_detections
 
 
 class AnalyzedVideoTrack(VideoStreamTrack):
     kind = "video"
 
-    def __init__(self, source: MediaStreamTrack, pc_id: int):
+    def __init__(self, source: MediaStreamTrack, pc_id: int) -> None:
         super().__init__()
         self._source = source
         self._pc_id = pc_id
 
-        # Cache
-        self._latest_frame = None
-        self._last_overlay = None
-        self._last_detections = None
-        self._last_distances = None
+        # Cache for latest processed data
+        self._latest_frame: Optional[np.ndarray] = None
+        self._last_overlay: Optional[np.ndarray] = None
+        self._last_detections: Optional[list[tuple[int, int, int, int, int, float]]] = (
+            None
+        )
+        self._last_distances: Optional[list[float]] = None
 
-        # Frequenz-Limit für YOLO/Overlay
+        # Frequency limit for YOLO/overlay processing
         self._infer_interval = 0.12
-        self._last_infer_time = 0
+        self._last_infer_time = 0.0
 
-        # Lock für parallele Inference
-        self._lock = asyncio.Lock()
+        # Lock for parallel inference - use asyncio.Lock for async operations
+        self._infer_lock = asyncio.Lock()
 
-        # Hintergrundtask starten
-        asyncio.create_task(self._inference_loop())
+        # Background task management
+        self._inference_task: Optional[asyncio.Task[None]] = None
+        self._running = False
 
-    async def _inference_loop(self):
+        # Start background task
+        self._start_inference_loop()
+
+    def _start_inference_loop(self) -> None:
+        """Start the background inference task."""
+        if self._inference_task is None or self._inference_task.done():
+            self._running = True
+            self._inference_task = asyncio.create_task(self._inference_loop())
+
+    async def _inference_loop(self) -> None:
+        """Background task for running inference."""
         detector = _get_detector()
         estimator = _get_estimator_instance()
 
-        while True:
+        while self._running:
             frame = self._latest_frame
             if frame is not None:
                 now = time.time()
                 if now - self._last_infer_time >= self._infer_interval:
-                    async with self._lock:
+                    # Use async lock for async operations
+                    async with self._infer_lock:
                         try:
-                            # predict() synchron → in Thread
-                            detections = await asyncio.to_thread(detector._model.predict, frame, imgsz=640, conf=0.25, verbose=False)
-                            # convert to detection tuples
-                            detections = get_detections(detections)
-                            distances = await asyncio.to_thread(estimator.estimate_distance_m, frame, detections)
+                            # Use the detector's infer method for asynchronous inference
+                            detections = await detector.infer(frame)
 
+                            # Estimate distances using the estimator
+                            distances = await asyncio.to_thread(
+                                estimator.estimate_distance_m, frame, detections
+                            )
+
+                            # Update detections and distances - these will be used until new ones are available
                             self._last_detections = detections
                             self._last_distances = distances
                             self._last_infer_time = now
@@ -59,15 +83,48 @@ class AnalyzedVideoTrack(VideoStreamTrack):
 
     async def recv(self) -> VideoFrame:
         frame = await self._source.recv()
-        base = frame.to_ndarray(format="bgr24")
+        video_frame = cast(VideoFrame, frame)
+
+        # Process this frame (no dropping)
+        base = video_frame.to_ndarray(format="bgr24")
         rgb = cv2.cvtColor(base, cv2.COLOR_BGR2RGB)
 
-        # immer speichern für Hintergrundtask
+        # Always store for background task
         self._latest_frame = rgb
 
-        # Overlay anwenden, wenn vorhanden
+        # Apply overlay with last available detections
         overlay = rgb.copy()
-        if self._last_detections is not None:
-            overlay = draw_detections(overlay, self._last_detections, self._last_distances)
+        # Use async lock when accessing shared detection data
+        if self._last_detections is not None and self._last_distances is not None:
+            overlay = draw_detections(
+                overlay, self._last_detections, self._last_distances
+            )
 
-        return numpy_to_video_frame(overlay, frame.pts, frame.time_base)
+        return numpy_to_video_frame(overlay, video_frame.pts, video_frame.time_base)
+
+    async def stop(self) -> None:  # type: ignore
+        """Stop the track and clean up resources."""
+        self._running = False
+
+        # Cancel the inference task if it exists
+        if self._inference_task is not None and not self._inference_task.done():
+            self._inference_task.cancel()
+            try:
+                await self._inference_task
+            except asyncio.CancelledError:
+                pass  # Task cancellation is expected
+
+        # Clean up resources
+        self._latest_frame = None
+        self._last_detections = None
+        self._last_distances = None
+
+        # Call parent stop method - don't await since it returns None
+        super().stop()
+
+    def __del__(self) -> None:
+        """Ensure cleanup when the object is destroyed."""
+        if self._running:
+            self._running = False
+            if self._inference_task is not None and not self._inference_task.done():
+                self._inference_task.cancel()

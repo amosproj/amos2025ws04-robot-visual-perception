@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 
 import asyncio
-import numpy as np
 from aiortc import VideoStreamTrack
 from av import VideoFrame
 

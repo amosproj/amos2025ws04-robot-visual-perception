@@ -20,16 +20,24 @@ describe('normalizeOfferUrl', () => {
   });
 
   it('appends /offer to a base path', () => {
-    expect(normalizeOfferUrl('https://example.com/base')).toBe('https://example.com/base/offer');
+    expect(normalizeOfferUrl('https://example.com/base')).toBe(
+      'https://example.com/base/offer'
+    );
   });
 
   it('removes extra trailing slashes and appends /offer', () => {
-    expect(normalizeOfferUrl('https://example.com/base///')).toBe('https://example.com/base/offer');
+    expect(normalizeOfferUrl('https://example.com/base///')).toBe(
+      'https://example.com/base/offer'
+    );
   });
 
   it('does not duplicate /offer when already present', () => {
-    expect(normalizeOfferUrl('https://example.com/offer')).toBe('https://example.com/offer');
-    expect(normalizeOfferUrl('https://example.com/offer/')).toBe('https://example.com/offer');
+    expect(normalizeOfferUrl('https://example.com/offer')).toBe(
+      'https://example.com/offer'
+    );
+    expect(normalizeOfferUrl('https://example.com/offer/')).toBe(
+      'https://example.com/offer'
+    );
   });
 
   it('returns fallback for invalid urls', () => {
@@ -46,4 +54,3 @@ const _error: ConnectionState = 'error';
 
 // @ts-expect-error: invalid ConnectionState should error at compile time
 const _invalid: ConnectionState = 'paused';
-

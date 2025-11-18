@@ -7,7 +7,9 @@
 import WebRTCStreamPlayer from './components/WebRTCStreamPlayer';
 
 function App() {
-  const envUrl = (import.meta as any)?.env?.VITE_BACKEND_URL as string | undefined;
+  const envUrl = (import.meta as any)?.env?.VITE_BACKEND_URL as
+    | string
+    | undefined;
   return (
     <div id="app">
       <header>
@@ -16,11 +18,11 @@ function App() {
       </header>
       <main>
         <WebRTCStreamPlayer
-        signalingEndpoint={envUrl}
-        autoPlay
-        muted
-        enableOverlay={true}
-        overlayTestMode={true}
+          signalingEndpoint={envUrl}
+          autoPlay
+          muted
+          enableOverlay={true}
+          overlayTestMode={true}
         />
       </main>
     </div>
