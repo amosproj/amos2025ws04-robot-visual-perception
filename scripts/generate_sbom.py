@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
@@ -7,7 +6,7 @@
 SBOM Generator for robot-visual-perception project.
 
 Generates:
-- SBOM in SPDX JSON format (sbom.json)
+- SBOM in CycloneDX JSON format (sbom.json)
 - CSV with first-order dependencies (sbom-dependencies.csv)
 - Optional: Updates planning-documents.xlsx in Deliverables/sprint-XX/
 """
@@ -20,10 +19,9 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from typing import Any, Dict, List, Optional
 from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
 
 
 def run_command(cmd: List[str], cwd: Optional[Path] = None) -> str:
@@ -43,13 +41,46 @@ def get_project_root() -> Path:
     return Path(__file__).parent.parent
 
 
-def parse_requirements_file(file_path: Path) -> List[Dict[str, str]]:
-    """Parse requirements.txt and extract package info."""
-    packages = []
-    if not file_path.exists():
-        return packages
+def get_npm_first_order_deps(package_json_path: Path) -> List[Dict[str, Any]]:
+    """Extract first-order npm dependencies from package.json."""
+    if not package_json_path.exists():
+        return []
 
-    with open(file_path, "r") as f:
+    with open(package_json_path, "r") as f:
+        data = json.load(f)
+
+    deps = []
+
+    # Production dependencies
+    for name, version in data.get("dependencies", {}).items():
+        version_clean = version.lstrip("^~>=<")
+        deps.append({
+            "name": name,
+            "version": version_clean,
+            "ecosystem": "npm",
+            "is_dev": False
+        })
+
+    # Dev dependencies
+    for name, version in data.get("devDependencies", {}).items():
+        version_clean = version.lstrip("^~>=<")
+        deps.append({
+            "name": name,
+            "version": version_clean,
+            "ecosystem": "npm",
+            "is_dev": True
+        })
+
+    return deps
+
+
+def get_python_first_order_deps(requirements_path: Path) -> List[Dict[str, Any]]:
+    """Extract first-order Python dependencies from requirements.txt."""
+    if not requirements_path.exists():
+        return []
+
+    deps = []
+    with open(requirements_path, "r") as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):
@@ -59,297 +90,290 @@ def parse_requirements_file(file_path: Path) -> List[Dict[str, str]]:
             match = re.match(r"^([a-zA-Z0-9\-_.]+)\s*==\s*([0-9.]+)", line)
             if match:
                 name, version = match.groups()
-                packages.append(
-                    {
-                        "name": name,
-                        "version": version,
-                        "ecosystem": "pypi",
-                        "purl": f"pkg:pypi/{name}@{version}",
-                    }
-                )
+                deps.append({
+                    "name": name,
+                    "version": version,
+                    "ecosystem": "pypi",
+                    "is_dev": False
+                })
 
-    return packages
-
-
-def get_npm_dependencies(package_json_path: Path) -> List[Dict[str, str]]:
-    """Extract npm dependencies from package.json."""
-    packages = []
-    if not package_json_path.exists():
-        return packages
-
-    with open(package_json_path, "r") as f:
-        data = json.load(f)
-
-    # Production dependencies
-    for name, version in data.get("dependencies", {}).items():
-        version_clean = version.lstrip("^~>=<")
-        packages.append(
-            {
-                "name": name,
-                "version": version_clean,
-                "ecosystem": "npm",
-                "purl": f"pkg:npm/{name}@{version_clean}",
-                "is_dev": False,
-            }
-        )
-
-    # Dev dependencies
-    for name, version in data.get("devDependencies", {}).items():
-        version_clean = version.lstrip("^~>=<")
-        packages.append(
-            {
-                "name": name,
-                "version": version_clean,
-                "ecosystem": "npm",
-                "purl": f"pkg:npm/{name}@{version_clean}",
-                "is_dev": True,
-            }
-        )
-
-    return packages
-
-
-def enrich_packages_with_license(packages: List[Dict[str, str]], ecosystem: str) -> None:
-    """Populate license metadata for each package in-place."""
-    for pkg in packages:
-        pkg["license"] = get_license_info(pkg["name"], pkg["version"], ecosystem)
-
-
-LicenseCacheKey = Tuple[str, str, str]
-LICENSE_CACHE: Dict[LicenseCacheKey, str] = {}
-
-
-def get_license_info(name: str, version: str, ecosystem: str) -> str:
-    """Fetch license information for a given package from its registry."""
-    cache_key: LicenseCacheKey = (ecosystem, name.lower(), version)
-    if cache_key in LICENSE_CACHE:
-        return LICENSE_CACHE[cache_key]
-
-    if ecosystem == "pypi":
-        license_value = fetch_license_from_pypi(name, version)
-    elif ecosystem == "npm":
-        license_value = fetch_license_from_npm(name, version)
-    else:
-        license_value = "NOASSERTION"
-
-    LICENSE_CACHE[cache_key] = license_value
-    return license_value
-
-
-def extract_license_from_classifiers(classifiers: List[str]) -> Optional[str]:
-    """Extract a readable license string from PyPI classifiers."""
-    for classifier in reversed(classifiers):
-        if classifier.startswith("License ::"):
-            parts = [part.strip() for part in classifier.split("::") if part.strip()]
-            if parts:
-                return parts[-1]
-    return None
-
-
-def fetch_license_from_pypi(name: str, version: str) -> str:
-    """Retrieve license metadata for a PyPI package/version."""
-    encoded_name = quote(name)
-    url = f"https://pypi.org/pypi/{encoded_name}/{version}/json"
-    try:
-        with urlopen(url, timeout=10) as response:
-            data = json.load(response)
-    except (HTTPError, URLError, TimeoutError, ValueError):
-        return "NOASSERTION"
-
-    info = data.get("info", {})
-    license_value = (info.get("license") or "").strip()
-    if not license_value or license_value.upper() == "UNKNOWN":
-        license_value = extract_license_from_classifiers(info.get("classifiers", [])) or ""
-
-    license_value = license_value.strip()
-    return license_value or "NOASSERTION"
-
-
-def parse_npm_license_field(raw_license: Any) -> Optional[str]:
-    """Normalize possible npm license structures."""
-    if isinstance(raw_license, str):
-        return raw_license.strip()
-    if isinstance(raw_license, dict):
-        return str(raw_license.get("type", "")).strip() or None
-    if isinstance(raw_license, list):
-        licenses = []
-        for entry in raw_license:
-            normalized = parse_npm_license_field(entry)
-            if normalized:
-                licenses.append(normalized)
-        return ", ".join(licenses) if licenses else None
-    return None
+    return deps
 
 
 def fetch_license_from_npm(name: str, version: str) -> str:
-    """Retrieve license metadata for an npm package/version."""
+    """Fetch license from npm registry."""
+    from urllib.parse import quote
+
     encoded_name = quote(name, safe="@/")
     url = f"https://registry.npmjs.org/{encoded_name}"
+
     try:
         with urlopen(url, timeout=10) as response:
             data = json.load(response)
-    except (HTTPError, URLError, TimeoutError, ValueError):
+
+        # Try version-specific license first
+        version_data = data.get("versions", {}).get(version, {})
+        license_value = version_data.get("license")
+
+        # Fallback to latest
+        if not license_value:
+            license_value = data.get("license")
+
+        # Handle different license formats
+        if isinstance(license_value, dict):
+            license_type = license_value.get("type", "NOASSERTION")
+            return license_type if license_type else "NOASSERTION"
+        elif isinstance(license_value, str):
+            return license_value if license_value else "NOASSERTION"
+
+        return "NOASSERTION"
+    except (HTTPError, URLError, TimeoutError, ValueError, KeyError) as e:
+        print(f" (npm fetch error: {type(e).__name__})", end="")
         return "NOASSERTION"
 
-    version_data = {}
-    versions = data.get("versions", {})
-    if isinstance(versions, dict):
-        version_data = versions.get(version, {})
 
-    license_value = parse_npm_license_field(version_data.get("license"))
-    if not license_value:
-        license_value = parse_npm_license_field(version_data.get("licenses"))
-    if not license_value:
-        license_value = parse_npm_license_field(data.get("license"))
+def fetch_license_from_github(repo_url: str) -> str:
+    """Try to fetch license from GitHub repository."""
+    from urllib.parse import urlparse
+    import re
 
-    return license_value or "NOASSERTION"
+    try:
+        # Extract owner/repo from GitHub URL
+        parsed = urlparse(repo_url)
+        if "github.com" not in parsed.netloc.lower():
+            return "NOASSERTION"
 
+        match = re.search(r"github\.com/([^/]+)/([^/]+)", repo_url, re.IGNORECASE)
+        if not match:
+            return "NOASSERTION"
 
-PYTHON_CONTEXT_OVERRIDES: Dict[str, str] = {
-    "aiortc": "WebRTC Signaling",
-    "av": "WebRTC Signaling",
-    "opencv-python": "Image Analysis (Python)",
-    "numpy": "Image Analysis (Python)",
-    "ultralytics": "Image Analysis (Python)",
-    "timm": "Image Analysis (Python)",
-}
+        owner, repo = match.groups()
+        repo = repo.rstrip(".git")
 
-def apply_context_overrides(
-    packages: List[Dict[str, str]],
-    context_overrides: Optional[Dict[str, str]] = None,
-) -> None:
-    """Inject human-readable context overrides."""
-    for pkg in packages:
-        name = pkg.get("name")
-        if not name:
-            continue
-        if context_overrides:
-            context_value = context_overrides.get(name)
-            if context_value:
-                pkg["context"] = context_value
+        # Use GitHub API to get license
+        api_url = f"https://api.github.com/repos/{owner}/{repo}"
+        with urlopen(api_url, timeout=10) as response:
+            data = json.load(response)
+            license_data = data.get("license")
+            if license_data and isinstance(license_data, dict):
+                spdx_id = license_data.get("spdx_id")
+                if spdx_id and spdx_id != "NOASSERTION":
+                    return spdx_id
+
+        return "NOASSERTION"
+    except (HTTPError, URLError, TimeoutError, ValueError, KeyError):
+        return "NOASSERTION"
 
 
-def generate_spdx_sbom(
-    python_packages: List[Dict[str, str]], npm_packages: List[Dict[str, str]]
-) -> Dict[str, Any]:
-    """Generate SBOM in SPDX 2.3 JSON format."""
+def fetch_license_from_pypi(name: str, version: str) -> str:
+    """Fetch license from PyPI."""
+    from urllib.parse import quote
+
+    encoded_name = quote(name)
+    url = f"https://pypi.org/pypi/{encoded_name}/{version}/json"
+
+    try:
+        with urlopen(url, timeout=10) as response:
+            data = json.load(response)
+
+        info = data.get("info", {})
+
+        # Try license field first
+        license_field = info.get("license")
+        if license_field:
+            license_value = str(license_field).strip()
+
+            # Skip empty or unknown values
+            if not license_value or license_value.upper() in ("UNKNOWN", "NONE", "NULL"):
+                license_value = None
+            # Truncate very long licenses (e.g., full license text)
+            elif len(license_value) > 100:
+                # Try to extract SPDX identifier from long text
+                upper_text = license_value.upper()
+                if "BSD-3-CLAUSE" in upper_text or ("BSD" in upper_text and "3-CLAUSE" in upper_text):
+                    return "BSD-3-Clause"
+                elif "BSD-2-CLAUSE" in upper_text or ("BSD" in upper_text and "2-CLAUSE" in upper_text):
+                    return "BSD-2-Clause"
+                elif "BSD" in upper_text:
+                    return "BSD-3-Clause"
+                elif "MIT" in upper_text:
+                    return "MIT"
+                elif "APACHE-2.0" in upper_text or "APACHE 2.0" in upper_text:
+                    return "Apache-2.0"
+                elif "APACHE" in upper_text:
+                    return "Apache-2.0"
+                elif "GPL-3" in upper_text or "GPLV3" in upper_text:
+                    return "GPL-3.0"
+                elif "GPL-2" in upper_text or "GPLV2" in upper_text:
+                    return "GPL-2.0"
+                elif "GPL" in upper_text:
+                    return "GPL"
+                elif "LGPL" in upper_text:
+                    return "LGPL"
+                else:
+                    license_value = None
+
+            if license_value:
+                return license_value
+
+        # Fallback to classifiers
+        classifiers = info.get("classifiers", [])
+        for classifier in reversed(classifiers):
+            if classifier.startswith("License ::"):
+                parts = [p.strip() for p in classifier.split("::") if p.strip()]
+                if len(parts) > 1 and parts[-1] not in ("OSI Approved", "License"):
+                    # Convert common classifier names to SPDX
+                    license_name = parts[-1]
+                    if "MIT" in license_name:
+                        return "MIT"
+                    elif "Apache" in license_name and "2.0" in license_name:
+                        return "Apache-2.0"
+                    elif "BSD" in license_name and "3-Clause" in license_name:
+                        return "BSD-3-Clause"
+                    elif "BSD" in license_name and "2-Clause" in license_name:
+                        return "BSD-2-Clause"
+                    elif "GPL" in license_name:
+                        return license_name
+                    return license_name
+
+        # Last resort: try to get license from project's GitHub repo
+        project_urls = info.get("project_urls", {})
+        for url_type, url in project_urls.items():
+            if url and ("github.com" in url.lower() or "source" in url_type.lower() or "repository" in url_type.lower()):
+                github_license = fetch_license_from_github(url)
+                if github_license != "NOASSERTION":
+                    return github_license
+
+        # Also check home_page field
+        home_page = info.get("home_page")
+        if home_page and "github.com" in home_page.lower():
+            github_license = fetch_license_from_github(home_page)
+            if github_license != "NOASSERTION":
+                return github_license
+
+        return "NOASSERTION"
+    except (HTTPError, URLError, TimeoutError, ValueError, KeyError) as e:
+        print(f" (pypi fetch error: {type(e).__name__})", end="")
+        return "NOASSERTION"
+
+
+def enrich_with_licenses(deps: List[Dict[str, Any]]) -> None:
+    """Enrich dependencies with license information."""
+    for dep in deps:
+        ecosystem = dep["ecosystem"]
+        name = dep["name"]
+        version = dep["version"]
+
+        print(f"  Fetching license for {name}@{version}...", end="")
+
+        if ecosystem == "npm":
+            dep["license"] = fetch_license_from_npm(name, version)
+        elif ecosystem == "pypi":
+            dep["license"] = fetch_license_from_pypi(name, version)
+        else:
+            dep["license"] = "NOASSERTION"
+
+        print(f" {dep['license']}")
+
+
+def generate_cyclonedx_sbom(all_deps: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Generate CycloneDX SBOM."""
     timestamp = datetime.utcnow().isoformat() + "Z"
 
     sbom = {
-        "spdxVersion": "SPDX-2.3",
-        "dataLicense": "CC0-1.0",
-        "SPDXID": "SPDXRef-DOCUMENT",
-        "name": "robot-visual-perception-sbom",
-        "documentNamespace": f"https://github.com/amosproj/amos2025ws04-robot-visual-perception/sbom-{timestamp}",
-        "creationInfo": {
-            "created": timestamp,
-            "creators": ["Tool: robot-visual-perception-sbom-generator"],
-            "licenseListVersion": "3.21",
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.6",
+        "version": 1,
+        "metadata": {
+            "timestamp": timestamp,
+            "tools": [{
+                "name": "robot-visual-perception-sbom-generator",
+                "version": "2.0.0"
+            }],
+            "component": {
+                "type": "application",
+                "name": "robot-visual-perception",
+                "version": "0.1.0"
+            }
         },
-        "packages": [],
+        "components": []
     }
 
-    # Add root package
-    sbom["packages"].append(
-        {
-            "SPDXID": "SPDXRef-Package-root",
-            "name": "robot-visual-perception",
-            "versionInfo": "0.1.0",
-            "downloadLocation": "NOASSERTION",
-            "filesAnalyzed": False,
-            "licenseConcluded": "MIT",
-            "copyrightText": "NOASSERTION",
+    for dep in all_deps:
+        component = {
+            "type": "library",
+            "name": dep["name"],
+            "version": dep["version"],
         }
-    )
 
-    # Add Python packages
-    for idx, pkg in enumerate(python_packages):
-        sbom["packages"].append(
-            {
-                "SPDXID": f"SPDXRef-Package-pypi-{idx}",
-                "name": pkg["name"],
-                "versionInfo": pkg["version"],
-                "downloadLocation": f"https://pypi.org/project/{pkg['name']}/{pkg['version']}",
-                "filesAnalyzed": False,
-                "licenseConcluded": pkg.get("license", "NOASSERTION"),
-                "externalRefs": [
-                    {
-                        "referenceCategory": "PACKAGE-MANAGER",
-                        "referenceType": "purl",
-                        "referenceLocator": pkg["purl"],
-                    }
-                ],
-            }
-        )
+        # Add PURL
+        if dep["ecosystem"] == "npm":
+            component["purl"] = f"pkg:npm/{dep['name']}@{dep['version']}"
+        elif dep["ecosystem"] == "pypi":
+            component["purl"] = f"pkg:pypi/{dep['name']}@{dep['version']}"
 
-    # Add npm packages
-    for idx, pkg in enumerate(npm_packages):
-        sbom["packages"].append(
-            {
-                "SPDXID": f"SPDXRef-Package-npm-{idx}",
-                "name": pkg["name"],
-                "versionInfo": pkg["version"],
-                "downloadLocation": f"https://www.npmjs.com/package/{pkg['name']}/v/{pkg['version']}",
-                "filesAnalyzed": False,
-                "licenseConcluded": pkg.get("license", "NOASSERTION"),
-                "externalRefs": [
-                    {
-                        "referenceCategory": "PACKAGE-MANAGER",
-                        "referenceType": "purl",
-                        "referenceLocator": pkg["purl"],
-                    }
-                ],
-            }
-        )
+        # Add license if available
+        if dep.get("license") and dep["license"] != "NOASSERTION":
+            component["licenses"] = [{
+                "license": {
+                    "id": dep["license"]
+                }
+            }]
+
+        sbom["components"].append(component)
 
     return sbom
 
 
-def generate_csv(sections: List[Dict[str, Any]]) -> List[Dict[str, str]]:
-    """Generate CSV data for the Bill of Materials from all dependency sections."""
-    csv_data: List[Dict[str, str]] = []
-    counter = 1
+def generate_csv_for_planning_doc(all_deps: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    """Generate CSV data matching the planning document format."""
+    csv_data = []
 
-    for section in sections:
-        context = section["context"]
-        packages = section.get("packages") or []
-        prefix = section.get("name_prefix", "")
-        status = section.get("status", "In Use")
-        for pkg in packages:
-            name = pkg.get("name", "")
-            version = pkg.get("version", "")
-            license_value = pkg.get("license", "NOASSERTION")
-            pkg_context = pkg.get("context", context)
-            pkg_status = pkg.get("status", status)
-            formatted_name = (
-                f"{prefix}:{name}" if prefix and name else name
-            )
+    # Context mapping
+    def get_context(dep: Dict[str, Any]) -> str:
+        if dep["ecosystem"] == "npm":
+            return "Frontend (React UI)"
+        elif dep["ecosystem"] == "pypi":
+            if dep.get("is_dev"):
+                return "Backend Dev Dependencies"
+            else:
+                return "Backend (FastAPI API)"
+        return "Other"
 
-            csv_data.append(
-                {
-                    "#": str(counter),
-                    "Context": pkg_context,
-                    "Name": formatted_name,
-                    "Version": version,
-                    "License": license_value,
-                    "Status": pkg_status,
-                }
-            )
-            counter += 1
+    # Sort: Frontend first, then Backend, then Dev
+    sorted_deps = sorted(all_deps, key=lambda d: (
+        0 if d["ecosystem"] == "npm" and not d.get("is_dev") else
+        1 if d["ecosystem"] == "pypi" and not d.get("is_dev") else
+        2,
+        d["name"]
+    ))
+
+    for idx, dep in enumerate(sorted_deps, start=1):
+        context = get_context(dep)
+
+        # Format name with ecosystem prefix
+        if dep["ecosystem"] == "npm":
+            formatted_name = f"npm:{dep['name']}"
+        elif dep["ecosystem"] == "pypi":
+            formatted_name = f"pypi:{dep['name']}"
+        else:
+            formatted_name = dep["name"]
+
+        csv_data.append({
+            "#": str(idx),
+            "Context": context,
+            "Name": formatted_name,
+            "Version": dep["version"],
+            "License": dep.get("license", "NOASSERTION"),
+            "Comment": ""  # Empty for automated entries
+        })
 
     return csv_data
 
 
 def write_csv(csv_data: List[Dict[str, str]], output_path: Path) -> None:
     """Write CSV file."""
-    fieldnames = [
-        "#",
-        "Context",
-        "Name",
-        "Version",
-        "License",
-        "Status",
-    ]
+    fieldnames = ["#", "Context", "Name", "Version", "License", "Comment"]
 
     with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -360,9 +384,7 @@ def write_csv(csv_data: List[Dict[str, str]], output_path: Path) -> None:
 def get_latest_sprint_number() -> Optional[int]:
     """Get the latest sprint number from Git tags."""
     try:
-        # Get latest tag
         tag = run_command(["git", "describe", "--tags", "--abbrev=0"])
-        # Extract sprint number (e.g., v1.0.0-sprint-04 -> 4)
         match = re.search(r"sprint-(\d+)", tag)
         if match:
             return int(match.group(1))
@@ -446,7 +468,6 @@ def update_excel(csv_data: List[Dict[str, str]], sprint_folder: Path) -> None:
     # Find or create 'Bill of Materials' sheet
     sheet_name = "Bill of Materials"
     if sheet_name in wb.sheetnames:
-        # Clear existing sheet
         ws = wb[sheet_name]
         wb.remove(ws)
 
@@ -468,6 +489,12 @@ def update_excel(csv_data: List[Dict[str, str]], sprint_folder: Path) -> None:
     for row in csv_data:
         ws.append(list(row.values()))
 
+    # Set column widths for better readability
+    # Column widths: #, Context, Name, Version, License, Comment
+    column_widths = [5, 30, 40, 15, 25, 40]
+    for idx, width in enumerate(column_widths, start=1):
+        ws.column_dimensions[chr(64 + idx)].width = width
+
     # Save
     wb.save(excel_path)
     print(f"Updated {excel_path}")
@@ -488,116 +515,80 @@ def main():
     args = parser.parse_args()
 
     root = get_project_root()
-
-    # Parse dependencies
-    print("Parsing dependencies...")
-    backend_dir = root / "src" / "backend"
-    frontend_dir = root / "src" / "frontend"
-    scripts_dir = root / "scripts"
-
-    python_prod = parse_requirements_file(backend_dir / "requirements.txt")
-    python_dev = parse_requirements_file(backend_dir / "requirements-dev.txt")
-    scripts_python = parse_requirements_file(scripts_dir / "requirements.txt")
-    npm_packages = get_npm_dependencies(frontend_dir / "package.json")
-
-    # Enrich with license info (best-effort via registry lookups)
-    for package_group in (python_prod, python_dev, scripts_python):
-        enrich_packages_with_license(package_group, "pypi")
-    enrich_packages_with_license(npm_packages, "npm")
-
-    # Apply context overrides for nicer BOM output
-    apply_context_overrides(python_prod, PYTHON_CONTEXT_OVERRIDES)
-
-    all_python = python_prod + python_dev + scripts_python
-
-    print(f"Found {len(python_prod)} Python production packages")
-    print(f"Found {len(python_dev)} Python dev packages")
-    print(f"Found {len(scripts_python)} Python script packages")
-    print(f"Found {len(npm_packages)} npm packages (prod + dev)")
+    sbom_path = root / "sbom.json"
+    csv_path = root / "sbom-dependencies.csv"
 
     # Check mode
     if args.check:
-        sbom_path = root / "sbom.json"
-        csv_path = root / "sbom-dependencies.csv"
-
         if not sbom_path.exists() or not csv_path.exists():
             print("Error: SBOM files missing. Run 'make sbom' to generate.")
             sys.exit(1)
 
-        # Simple check: compare modification times
+        # Check if dependency files are newer than SBOM
         dependency_files = [
-            backend_dir / "requirements.txt",
-            backend_dir / "requirements-dev.txt",
-            frontend_dir / "package.json",
-            scripts_dir / "requirements.txt",
+            root / "src" / "backend" / "requirements.txt",
+            root / "src" / "backend" / "requirements-dev.txt",
+            root / "src" / "frontend" / "package.json",
         ]
 
         existing_mtimes = [
             path.stat().st_mtime for path in dependency_files if path.exists()
         ]
         if not existing_mtimes:
-            print("Error: No dependency files found to compare timestamps.", file=sys.stderr)
+            print("Error: No dependency files found.", file=sys.stderr)
             sys.exit(1)
 
         req_time = max(existing_mtimes)
-
         sbom_time = min(sbom_path.stat().st_mtime, csv_path.stat().st_mtime)
 
         if req_time > sbom_time:
-            print(
-                "Error: Dependencies changed but SBOM not updated. Run 'make sbom'."
-            )
+            print("Error: Dependencies changed but SBOM not updated. Run 'make sbom'.")
             sys.exit(1)
 
         print("SBOM is up-to-date.")
         return
 
-    # Generate SBOM
-    print("Generating SBOM...")
-    sbom = generate_spdx_sbom(all_python, npm_packages)
+    # Collect first-order dependencies
+    print("Parsing first-order dependencies...")
 
-    sbom_path = root / "sbom.json"
+    all_deps = []
+
+    # Frontend dependencies
+    frontend_deps = get_npm_first_order_deps(root / "src" / "frontend" / "package.json")
+    all_deps.extend(frontend_deps)
+    print(f"Found {len(frontend_deps)} frontend dependencies")
+
+    # Backend production dependencies
+    backend_deps = get_python_first_order_deps(root / "src" / "backend" / "requirements.txt")
+    all_deps.extend(backend_deps)
+    print(f"Found {len(backend_deps)} backend production dependencies")
+
+    # Backend dev dependencies
+    backend_dev_deps = get_python_first_order_deps(root / "src" / "backend" / "requirements-dev.txt")
+    for dep in backend_dev_deps:
+        dep["is_dev"] = True
+    all_deps.extend(backend_dev_deps)
+    print(f"Found {len(backend_dev_deps)} backend dev dependencies")
+
+    print(f"\nTotal first-order dependencies: {len(all_deps)}")
+
+    # Enrich with license information
+    print("\nFetching license information...")
+    enrich_with_licenses(all_deps)
+
+    # Generate SBOM
+    print("\nGenerating CycloneDX SBOM...")
+    sbom = generate_cyclonedx_sbom(all_deps)
+
     with open(sbom_path, "w") as f:
         json.dump(sbom, f, indent=2)
     print(f"Generated: {sbom_path}")
 
-    # Generate CSV (all dependencies for BOM/Excel)
-    print("Generating CSV...")
-    csv_sections = [
-        {
-            "context": "Frontend (React UI)",
-            "packages": [p for p in npm_packages if not p.get("is_dev", False)],
-            "name_prefix": "npm",
-        },
-        {
-            "context": "Frontend Dev Tooling",
-            "packages": [p for p in npm_packages if p.get("is_dev", False)],
-            "name_prefix": "npm",
-            "status": "Development",
-        },
-        {
-            "context": "Backend (FastAPI API)",
-            "packages": python_prod,
-            "name_prefix": "pypi",
-        },
-        {
-            "context": "Backend Dev Dependencies",
-            "packages": python_dev,
-            "name_prefix": "pypi",
-            "status": "Development",
-        },
-        {
-            "context": "Automation Scripts",
-            "packages": scripts_python,
-            "name_prefix": "pypi",
-        },
-    ]
-
-    csv_data = generate_csv([section for section in csv_sections if section["packages"]])
-
-    csv_path = root / "sbom-dependencies.csv"
+    # Generate CSV
+    print("Generating CSV for planning document...")
+    csv_data = generate_csv_for_planning_doc(all_deps)
     write_csv(csv_data, csv_path)
-    print(f"Generated: {csv_path}")
+    print(f"Generated: {csv_path} ({len(csv_data)} dependencies)")
 
     # Update Excel if requested
     if args.update_excel:
@@ -616,4 +607,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

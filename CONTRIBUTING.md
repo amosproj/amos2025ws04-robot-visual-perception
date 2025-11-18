@@ -186,3 +186,15 @@ make docker-run-backend    # Run backend container (also opens browser)
 make docker-stop           # Stop all running containers
 make docker-clean          # Stop containers and remove images
 ```
+
+
+## Generating the Bill of Material (BOM)
+
+To generate the Bill of Material (BOM) for the current sprint and save it in an excel file, run:
+
+```bash
+make sbom-update-excel
+```
+
+This will create the `planning-document.xlsx` file in the corresponding `sprint-XX` folder (where XX is the current sprint number) along with a license file for the excel file.
+
