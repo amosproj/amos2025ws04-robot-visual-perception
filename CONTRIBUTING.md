@@ -127,6 +127,37 @@ brew install uv
 brew install --cask docker
 ```
 
+### Quick Start for Windows
+
+For Windows developers, use our automated setup script that handles all prerequisites:
+```powershell
+PowerShell -ExecutionPolicy Bypass -File .\start-optibot.ps1
+```
+
+**What it does:**
+- Checks for administrator privileges
+- Installs Chocolatey (if not present)
+- Installs Git, Python 3.11, Node.js 20+, Make, and uv
+- Runs `make dev` to install dependencies
+- Starts webcam, analyzer, and frontend services in separate windows
+- Opens browser to http://localhost:3000
+
+**Optional parameters:**
+```powershell
+# Custom camera settings
+.\start-optibot.ps1 -CameraIndex 1 -CameraWidth 1920 -CameraHeight 1080 -CameraFPS 60
+
+# Skip the build step (if already built)
+.\start-optibot.ps1 -SkipBuild
+
+# Custom backend port
+.\start-optibot.ps1 -BackendPort 8080
+```
+
+**Note:** Administrator rights are required for installing dependencies via Chocolatey.
+
+For manual setup or non-Windows platforms, follow the instructions below.
+
 ## Development
 
 #### Install dependencies
