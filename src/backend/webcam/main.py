@@ -9,17 +9,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from common import __version__
 from common.config import config
-from common.core.detector import _get_detector
-from common.utils.geometry import _get_estimator_distance
 from webcam.routes import router, on_shutdown
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Load heavy ML models before serving traffic so the first offer does not block.
-    _get_detector()
-    _get_estimator_distance()
-    yield
     with suppress(Exception):
         await on_shutdown()
 

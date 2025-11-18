@@ -7,7 +7,7 @@ from av import VideoFrame
 
 from common.core.detector import _get_detector
 from common.utils.video import numpy_to_video_frame
-from common.utils.geometry import _get_estimator_distance, draw_detections
+from common.utils.geometry import _get_estimator_instance, draw_detections
 import cv2
 
 class AnalyzedVideoTrack(VideoStreamTrack):
@@ -56,7 +56,7 @@ class AnalyzedVideoTrack(VideoStreamTrack):
         # Run YOLO detection
         detections = await _get_detector().infer(overlay)
         # Estimate distances for each detection
-        distances_m = _get_estimator_distance().estimate_distance_m(overlay, detections)
+        distances_m = _get_estimator_instance().estimate_distance_m(overlay, detections)
 
         # Draw detections on frame
         overlay = draw_detections(

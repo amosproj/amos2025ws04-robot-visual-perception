@@ -94,7 +94,7 @@ class DistanceEstimator():
     
 estimator_instance = None
 
-def _get_estimator_distance() -> DistanceEstimator:
+def _get_estimator_instance() -> DistanceEstimator:
     global estimator_instance
     if estimator_instance is None:
         estimator_instance = DistanceEstimator()
