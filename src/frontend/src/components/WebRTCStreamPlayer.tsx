@@ -86,7 +86,6 @@ export default function WebRTCStreamPlayer({
   muted = true,
   autoPlay = false,
   enableOverlay = false,
-  overlayTestMode = false,
 }: WebRTCStreamPlayerProps) {
   const {
     videoRef,
@@ -227,7 +226,6 @@ export default function WebRTCStreamPlayer({
           <VideoOverlay
             ref={overlayRef}
             videoRef={videoRef}
-            testMode={overlayTestMode}
           />
         )}
 
