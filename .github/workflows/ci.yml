@@ -170,11 +170,11 @@ jobs:
       - name: Set up Python
         run: uv python install 3.11
 
-      - name: Check SBOM freshness
-        run: make sbom-check
-
       - name: Generate SBOM
         run: make sbom
+
+      - name: Check SBOM freshness
+        run: make sbom-check
 
       - name: Ensure SBOM files committed
         run: git diff --exit-code -- sbom.json sbom-dependencies.csv
