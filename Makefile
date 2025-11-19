@@ -133,7 +133,7 @@ run-webcam-local:
 
 run-analyzer-local:
 	@echo "Starting analyzer service on port 8001..."
-	cd src/backend && uv run uvicorn analyzer.main:app --host 0.0.0.0 --port 8001 --reload
+	cd src/backend && uv run python -m analyzer.cli --dev --reload
 
 run-backend-local: run-webcam-local
 	@echo "Note: To run analyzer, use 'make run-analyzer-local' in another terminal"

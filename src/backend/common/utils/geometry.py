@@ -4,7 +4,8 @@
 import cv2
 import numpy as np
 import torch
-from typing import Literal
+from pathlib import Path
+from typing import Literal, Optional
 from common.config import config
 
 from ultralytics.engine.results import Results  # type: ignore[import-untyped]
@@ -47,7 +48,16 @@ class DistanceEstimator:
         self,
         model_type: Literal["MiDaS_small", "DPT_Hybrid", "DPT_Large"] = "MiDaS_small",
         midas_model: str = "intel-isl/MiDaS",
+        midas_cache_directory: Optional[Path] = None,
     ) -> None:
+        """Initialize the distance estimator with MiDaS depth estimation model.
+
+        Args:
+            model_type: Type of MiDaS model to use.
+            midas_model: Repository identifier for the MiDaS model.
+            midas_cache_directory: Custom directory for PyTorch Hub cache.
+                If None, uses PyTorch's default cache location.
+        """
         self.region_size = (
             config.REGION_SIZE
         )  # size of region around bbox center to sample depth
@@ -58,11 +68,15 @@ class DistanceEstimator:
         self.device = (
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         )
+
+        if midas_cache_directory is not None:
+            torch.hub.set_dir(str(midas_cache_directory))
+
         self.depth_estimation_model = (
-            torch.hub.load(midas_model, model_type).to(self.device).eval()
+            torch.hub.load(midas_model, model_type, trust_repo=True).to(self.device).eval()
         )
         # get MiDaS transforms
-        midas_transforms = torch.hub.load(midas_model, "transforms")
+        midas_transforms = torch.hub.load(midas_model, "transforms", trust_repo=True)
         if model_type == "DPT_Large" or model_type == "DPT_Hybrid":
             self.transform = midas_transforms.dpt_transform
         else:
@@ -109,10 +123,20 @@ class DistanceEstimator:
 estimator_instance = None
 
 
-def _get_estimator_instance() -> DistanceEstimator:
+def _get_estimator_instance(midas_cache_directory: Optional[Path] = None) -> DistanceEstimator:
+    """Get or create the singleton distance estimator instance.
+
+    Args:
+        midas_cache_directory: Custom directory for PyTorch Hub cache.
+            Only used on first call. Subsequent calls will return the
+            existing instance.
+
+    Returns:
+        The singleton distance estimator instance.
+    """
     global estimator_instance
     if estimator_instance is None:
-        estimator_instance = DistanceEstimator()
+        estimator_instance = DistanceEstimator(midas_cache_directory=midas_cache_directory)
     return estimator_instance
 
 

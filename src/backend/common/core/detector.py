@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 import asyncio
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -23,15 +24,20 @@ Detection = tuple[int, int, int, int, int, float]
 
 
 class _Detector:
-    def __init__(self, backend: Optional[str] = None) -> None:
+    def __init__(self, model_path: Optional[Path] = None) -> None:
         """Initialize the YOLO object detector.
 
-        Loads the YOLO model from the configured path and sets up internal
-        state for asynchronous inference, caching, and distance estimation.
+        Loads the YOLO model from the specified path or falls back to the
+        configured path. Sets up internal state for asynchronous inference,
+        caching, and distance estimation.
+
+        Args:
+            model_path: Path to the YOLO model file. If None, uses the path
+                from config.MODEL_PATH.
 
         Raises:
             FileNotFoundError: If the YOLO model file does not exist at the
-            configured path.
+            specified or configured path.
         """
         backend_name = (backend or config.DETECTOR_BACKEND).lower()
         self._engine: _DetectorEngine
@@ -82,11 +88,19 @@ class _Detector:
 _detector_instance: Optional[_Detector] = None
 
 
-def _get_detector() -> _Detector:
-    """Get or create the singleton detector instance."""
+def _get_detector(model_path: Optional[Path] = None) -> _Detector:
+    """Get or create the singleton detector instance.
+
+    Args:
+        model_path: Path to the YOLO model file. Only used on first call.
+            Subsequent calls will return the existing instance.
+
+    Returns:
+        The singleton detector instance.
+    """
     global _detector_instance
     if _detector_instance is None:
-        _detector_instance = _Detector()
+        _detector_instance = _Detector(model_path)
     return _detector_instance
 
 
