@@ -12,6 +12,7 @@ Generates:
 """
 
 import argparse
+import copy
 import csv
 import json
 import re
@@ -276,16 +277,18 @@ def enrich_with_licenses(deps: List[Dict[str, Any]]) -> None:
         print(f" {dep['license']}")
 
 
-def generate_cyclonedx_sbom(all_deps: List[Dict[str, Any]]) -> Dict[str, Any]:
+def generate_cyclonedx_sbom(
+    all_deps: List[Dict[str, Any]], timestamp: Optional[str] = None
+) -> Dict[str, Any]:
     """Generate CycloneDX SBOM."""
-    timestamp = datetime.utcnow().isoformat() + "Z"
+    sbom_timestamp = timestamp or datetime.utcnow().isoformat() + "Z"
 
     sbom = {
         "bomFormat": "CycloneDX",
         "specVersion": "1.6",
         "version": 1,
         "metadata": {
-            "timestamp": timestamp,
+            "timestamp": sbom_timestamp,
             "tools": [{
                 "name": "robot-visual-perception-sbom-generator",
                 "version": "2.0.0"
@@ -376,9 +379,30 @@ def write_csv(csv_data: List[Dict[str, str]], output_path: Path) -> None:
     fieldnames = ["#", "Context", "Name", "Version", "License", "Comment"]
 
     with open(output_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(csv_data)
+
+
+def load_existing_sbom(sbom_path: Path) -> Optional[Dict[str, Any]]:
+    """Load existing SBOM file if available."""
+    if not sbom_path.exists():
+        return None
+
+    try:
+        with open(sbom_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        return None
+
+
+def normalize_sbom(sbom: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a SBOM copy with volatile metadata removed for comparison."""
+    data = copy.deepcopy(sbom)
+    metadata = data.get("metadata")
+    if isinstance(metadata, dict):
+        metadata.pop("timestamp", None)
+    return data
 
 
 def get_latest_sprint_number() -> Optional[int]:
@@ -517,6 +541,7 @@ def main():
     root = get_project_root()
     sbom_path = root / "sbom.json"
     csv_path = root / "sbom-dependencies.csv"
+    existing_sbom = load_existing_sbom(sbom_path)
 
     # Check mode
     if args.check:
@@ -579,6 +604,14 @@ def main():
     # Generate SBOM
     print("\nGenerating CycloneDX SBOM...")
     sbom = generate_cyclonedx_sbom(all_deps)
+
+    if existing_sbom:
+        previous_timestamp = existing_sbom.get("metadata", {}).get("timestamp")
+        if previous_timestamp:
+            new_normalized = normalize_sbom(sbom)
+            existing_normalized = normalize_sbom(existing_sbom)
+            if new_normalized == existing_normalized:
+                sbom["metadata"]["timestamp"] = previous_timestamp
 
     with open(sbom_path, "w") as f:
         json.dump(sbom, f, indent=2)

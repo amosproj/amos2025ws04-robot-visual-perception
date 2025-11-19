@@ -68,6 +68,10 @@ help:
 	@echo "  docker-clean"
 	@echo "      stops containers and removes Docker images"
 
+SBOM_PYTHON ?= 3.11
+SBOM_INSTALL := uv pip install --system --python $(SBOM_PYTHON) -q -r scripts/requirements.txt
+SBOM_RUN := uv run --python $(SBOM_PYTHON) python scripts/generate_sbom.py
+
 dev: install
 
 install: install-frontend install-backend
@@ -76,8 +80,8 @@ install-frontend:
 	@echo "Installing frontend dependencies (Node.js 20 required, see .nvmrc)"
 	cd src/frontend && npm install
 	@echo "Generating SBOM..."
-	cd scripts && uv pip install -r requirements.txt || echo "Warning: Could not install SBOM dependencies"
-	cd scripts && uv run python generate_sbom.py || echo "Warning: SBOM generation failed"
+	@$(SBOM_INSTALL) || echo "Warning: Could not install SBOM dependencies"
+	@$(SBOM_RUN) || echo "Warning: SBOM generation failed"
 
 install-backend:
 # Auto-uses .python-version (3.11)
@@ -87,8 +91,8 @@ install-backend:
 	cd src/backend && uv pip install -r requirements.txt
 	cd src/backend && uv pip install -r requirements-dev.txt
 	@echo "Generating SBOM..."
-	cd scripts && uv pip install -r requirements.txt || echo "Warning: Could not install SBOM dependencies"
-	cd scripts && uv run python generate_sbom.py || echo "Warning: SBOM generation failed"
+	@$(SBOM_INSTALL) || echo "Warning: Could not install SBOM dependencies"
+	@$(SBOM_RUN) || echo "Warning: SBOM generation failed"
 
 lint: lint-frontend lint-backend lint-licensing
 
@@ -180,19 +184,19 @@ docker-clean: docker-stop
 # SBOM generation targets
 sbom:
 	@echo "Installing SBOM tool dependencies..."
-	@uv venv && uv pip install -q -r scripts/requirements.txt
+	@$(SBOM_INSTALL)
 	@echo "Generating SBOM and dependency CSV..."
-	@uv run python scripts/generate_sbom.py
+	@$(SBOM_RUN)
 
 sbom-check:
 	@echo "Installing SBOM tool dependencies..."
-	@uv venv && uv pip install -q -r scripts/requirements.txt
+	@$(SBOM_INSTALL)
 	@echo "Checking if SBOM is up-to-date..."
-	@uv run python scripts/generate_sbom.py --check
+	@$(SBOM_RUN) --check
 
 sbom-update-excel:
 	@echo "Installing SBOM tool dependencies..."
-	@uv venv && uv pip install -q -r scripts/requirements.txt
+	@$(SBOM_INSTALL)
 	@echo "Generating SBOM and updating Excel..."
-	@uv run python scripts/generate_sbom.py --update-excel
+	@$(SBOM_RUN) --update-excel
 
