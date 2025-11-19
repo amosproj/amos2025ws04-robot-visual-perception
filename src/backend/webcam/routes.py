@@ -53,7 +53,7 @@ async def offer(sdp: SDPModel) -> dict[str, str]:
     """
     WebRTC signaling endpoint for webcam stream.
 
-    Provides direct access to local camera with YOLO detection overlays.
+    Provides direct access to raw local camera frames.
     """
     if sdp.type != "offer":
         raise HTTPException(400, "type must be 'offer'")
@@ -72,13 +72,9 @@ async def offer(sdp: SDPModel) -> dict[str, str]:
         pcs.remove(pc)
         raise HTTPException(500, f"Camera error: {e}")
 
-    # Add video track with detection overlays
+    # Add raw video track
     local_video = CameraVideoTrack()
     pc.addTrack(local_video)
-
-    # Create data channel for metadata
-    ch = pc.createDataChannel("meta")
-    _datachannels[id(pc)] = ch
 
     # Prefer H.264 for better compatibility
     try:

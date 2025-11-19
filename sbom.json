@@ -3,7 +3,7 @@
   "specVersion": "1.6",
   "version": 1,
   "metadata": {
-    "timestamp": "2025-11-18T18:17:40.213518Z",
+    "timestamp": "2025-11-19T10:00:51.279537Z",
     "tools": [
       {
         "name": "robot-visual-perception-sbom-generator",
@@ -191,6 +191,19 @@
       "name": "aiortc",
       "version": "1.14.0",
       "purl": "pkg:pypi/aiortc@1.14.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "aioice",
+      "version": "0.10.1",
+      "purl": "pkg:pypi/aioice@0.10.1",
       "licenses": [
         {
           "license": {

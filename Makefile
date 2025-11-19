@@ -80,9 +80,10 @@ install-frontend:
 	cd scripts && uv run python generate_sbom.py || echo "Warning: SBOM generation failed"
 
 install-backend:
-	@echo "Installing backend dependencies (Python 3.11 required)"
+# Auto-uses .python-version (3.11)
 	cd src/backend && uv python install
-	cd src/backend && uv venv
+# Auto-uses .python-version (3.11)
+	cd src/backend && uv venv             
 	cd src/backend && uv pip install -r requirements.txt
 	cd src/backend && uv pip install -r requirements-dev.txt
 	@echo "Generating SBOM..."

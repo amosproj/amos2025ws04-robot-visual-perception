@@ -51,6 +51,7 @@ def test_get_detections(xyxy, cls_ids, confs, expected) -> None:
     detections = get_detections([result])
     assert detections == expected
 
+
 @pytest.mark.parametrize(
     "frame_input",
     [(100, 640, 3)],
@@ -59,7 +60,6 @@ def test_draw_detections_runs_and_returns_same_shape(frame_input) -> None:
     frame = np.zeros(frame_input, dtype=np.uint8)
     detections = [(10, 20, 50, 60, 1, 0.9)]
     distances_m = [1]
-    
 
     result = draw_detections(
         frame=frame.copy(),
