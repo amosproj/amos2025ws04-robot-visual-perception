@@ -180,19 +180,19 @@ docker-clean: docker-stop
 # SBOM generation targets
 sbom:
 	@echo "Installing SBOM tool dependencies..."
-	@uv pip install -q -r scripts/requirements.txt
+	@uv venv && uv pip install -q -r scripts/requirements.txt
 	@echo "Generating SBOM and dependency CSV..."
 	@uv run python scripts/generate_sbom.py
 
 sbom-check:
 	@echo "Installing SBOM tool dependencies..."
-	@uv pip install -q -r scripts/requirements.txt
+	@uv venv && uv pip install -q -r scripts/requirements.txt
 	@echo "Checking if SBOM is up-to-date..."
 	@uv run python scripts/generate_sbom.py --check
 
 sbom-update-excel:
 	@echo "Installing SBOM tool dependencies..."
-	@uv pip install -q -r scripts/requirements.txt
+	@uv venv && uv pip install -q -r scripts/requirements.txt
 	@echo "Generating SBOM and updating Excel..."
 	@uv run python scripts/generate_sbom.py --update-excel
 
