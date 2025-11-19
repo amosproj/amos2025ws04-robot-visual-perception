@@ -94,7 +94,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       },
     }));
 
-    // Main render loop - OPTIMIZED: only render when data changes
+    // Main render loop
     useEffect(() => {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -106,21 +106,46 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       });
       if (!ctx) return;
 
-      // Update canvas size to match video
+      // Update canvas size to match video EXACTLY
       const updateCanvasSize = () => {
+        // Wait for video to load its metadata
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+          return;
+        }
+
         const rect = video.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
 
+        // Set canvas size to match video display size
         canvas.width = rect.width * dpr;
         canvas.height = rect.height * dpr;
         canvas.style.width = `${rect.width}px`;
         canvas.style.height = `${rect.height}px`;
 
+        // Position canvas exactly over video
+        canvas.style.position = 'absolute';
+        canvas.style.top = '0px';
+        canvas.style.left = '0px';
+
         ctx.scale(dpr, dpr);
+        
+        console.log(`Canvas resized: ${rect.width}x${rect.height}, video: ${video.videoWidth}x${video.videoHeight}`);
       };
 
+      // Listen for video metadata loaded
+      const handleVideoLoad = () => {
+        console.log('Video loaded, updating canvas size');
+        updateCanvasSize();
+      };
+
+      video.addEventListener('loadedmetadata', handleVideoLoad);
+      video.addEventListener('resize', updateCanvasSize);
+      
       updateCanvasSize();
-      const resizeObserver = new ResizeObserver(updateCanvasSize);
+      const resizeObserver = new ResizeObserver(() => {
+        // Small delay to ensure video has updated
+        setTimeout(updateCanvasSize, 10);
+      });
       resizeObserver.observe(video);
 
       // Rendering function with timestamp check
@@ -147,13 +172,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           return;
         }
 
-        // Set styles once for all detections
-        ctx.strokeStyle = '#00ff00';
-        ctx.lineWidth = 3;
-        ctx.font = 'bold 14px sans-serif';
-
-        // Draw each bounding box
-        metadata.detections.forEach((detection) => {
+        // Draw each bounding box with enhanced dark mode styling
+        metadata.detections.forEach((detection, index) => {
           const { box, label, confidence, distance } = detection;
 
           // Convert normalized coordinates to pixel coordinates
@@ -162,31 +182,79 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           const width = box.width * displayWidth;
           const height = box.height * displayHeight;
 
-          // Draw bounding box
-          ctx.strokeRect(x, y, width, height);
+          // Color scheme for different objects
+          const colors = [
+            '#00d4ff', // cyan
+            '#00ff88', // green
+            '#ff6b9d', // pink
+            '#ffd93d', // yellow
+            '#ff8c42', // orange
+            '#a8e6cf', // mint
+            '#b4a5ff', // purple
+            '#ffb347'  // peach
+          ];
+          const color = colors[index % colors.length];
 
-          // Draw label (confidence and distance in meters)
+          // Draw glowing bounding box
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 8;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 3;
+          
+          // Draw double border for better visibility
+          ctx.strokeRect(x, y, width, height);
+          ctx.strokeRect(x + 1, y + 1, width - 2, height - 2);
+          
+          // Reset shadow
+          ctx.shadowBlur = 0;
+
+          // Prepare label text
           const labelText = `${label} ${(confidence * 100).toFixed(0)}%`;
           const distanceText = distance ? ` | ${distance.toFixed(2)}m` : '';
           const fullText = labelText + distanceText;
 
+          // Enhanced text styling
+          ctx.font = 'bold 14px "SF Pro Display", -apple-system, sans-serif';
           const textMetrics = ctx.measureText(fullText);
-          const textHeight = 20;
-          const padding = 4;
+          const textHeight = 22;
+          const padding = 8;
+          
+          // Calculate label position (avoid going off-screen)
+          const labelY = y > textHeight + padding ? y - 4 : y + height + textHeight + 4;
 
-          // Background for better readability
-          ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
-          ctx.fillRect(
-            x,
-            y - textHeight - padding,
-            textMetrics.width + padding * 2,
-            textHeight + padding
-          );
+          // Draw rounded background with gradient
+          const bgGradient = ctx.createLinearGradient(x, labelY - textHeight, x, labelY);
+          bgGradient.addColorStop(0, `${color}ee`);
+          bgGradient.addColorStop(1, `${color}cc`);
+          
+          ctx.fillStyle = bgGradient;
+          const bgWidth = textMetrics.width + padding * 2;
+          const bgHeight = textHeight + padding;
+          
+          // Rounded rectangle background (manual implementation for compatibility)
+          const radius = 6;
+          const rectX = x;
+          const rectY = labelY - bgHeight;
+          
+          ctx.beginPath();
+          ctx.moveTo(rectX + radius, rectY);
+          ctx.lineTo(rectX + bgWidth - radius, rectY);
+          ctx.quadraticCurveTo(rectX + bgWidth, rectY, rectX + bgWidth, rectY + radius);
+          ctx.lineTo(rectX + bgWidth, rectY + bgHeight - radius);
+          ctx.quadraticCurveTo(rectX + bgWidth, rectY + bgHeight, rectX + bgWidth - radius, rectY + bgHeight);
+          ctx.lineTo(rectX + radius, rectY + bgHeight);
+          ctx.quadraticCurveTo(rectX, rectY + bgHeight, rectX, rectY + bgHeight - radius);
+          ctx.lineTo(rectX, rectY + radius);
+          ctx.quadraticCurveTo(rectX, rectY, rectX + radius, rectY);
+          ctx.closePath();
+          ctx.fill();
 
-          // Draw text
+          // Draw text with outline for better readability
           ctx.fillStyle = '#000000';
-          ctx.fillText(fullText, x + padding, y - padding - 2);
-
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 3;
+          ctx.strokeText(fullText, x + padding, labelY - padding - 2);
+          ctx.fillText(fullText, x + padding, labelY - padding - 2);
         });
 
         // FPS Counter
