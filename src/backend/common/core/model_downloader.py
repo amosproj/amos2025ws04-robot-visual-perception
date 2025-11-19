@@ -4,7 +4,7 @@
 from pathlib import Path
 from typing import Optional
 
-from ultralytics import YOLO 
+from ultralytics import YOLO  # type: ignore[import-untyped]
 
 
 def ensure_yolo_model_downloaded(
@@ -41,18 +41,24 @@ def ensure_yolo_model_downloaded(
     if not model_path.exists():
         print(f"Downloading YOLO model {model_name} to {model_path}...")
         yolo_instance = YOLO(model_name)
-        
+
         downloaded_path = None
-        if hasattr(yolo_instance, 'ckpt_path') and yolo_instance.ckpt_path:
+        if hasattr(yolo_instance, "ckpt_path") and yolo_instance.ckpt_path:
             downloaded_path = Path(yolo_instance.ckpt_path)
-        elif hasattr(yolo_instance, 'weights') and yolo_instance.weights:
+        elif hasattr(yolo_instance, "weights") and yolo_instance.weights:
             downloaded_path = Path(yolo_instance.weights)
-        
-        if downloaded_path and downloaded_path.exists() and downloaded_path != model_path:
+
+        if (
+            downloaded_path
+            and downloaded_path.exists()
+            and downloaded_path != model_path
+        ):
             import shutil
+
             shutil.copy2(str(downloaded_path), str(model_path))
         else:
             import shutil
+
             default_cache = Path.home() / ".ultralytics" / "weights" / model_name
             if default_cache.exists():
                 shutil.copy2(str(default_cache), str(model_path))
@@ -130,4 +136,3 @@ def ensure_midas_model_available(
     except Exception as e:
         print(f"Warning: Could not pre-load MiDaS model: {e}")
         print("Model will be downloaded on first use")
-

@@ -68,10 +68,14 @@ def main() -> None:
         if not args.dev:
             if not yolo_model_path.exists():
                 print(f"Error: YOLO model path does not exist: {yolo_model_path}")
-                print("Hint: Use --dev flag to automatically download models, or provide a valid path to an existing model file.")
+                print(
+                    "Hint: Use --dev flag to automatically download models, or provide a valid path to an existing model file."
+                )
                 sys.exit(1)
             if yolo_model_path.is_dir():
-                print(f"Error: YOLO model path must be a file, not a directory: {yolo_model_path}")
+                print(
+                    f"Error: YOLO model path must be a file, not a directory: {yolo_model_path}"
+                )
                 sys.exit(1)
 
     midas_cache_directory: Optional[Path] = None
@@ -79,11 +83,17 @@ def main() -> None:
         midas_cache_directory = Path(args.midas_model_path).resolve()
         if not args.dev:
             if not midas_cache_directory.exists():
-                print(f"Error: MiDaS cache directory does not exist: {midas_cache_directory}")
-                print("Hint: Use --dev flag to automatically download models, or provide a valid path to an existing cache directory.")
+                print(
+                    f"Error: MiDaS cache directory does not exist: {midas_cache_directory}"
+                )
+                print(
+                    "Hint: Use --dev flag to automatically download models, or provide a valid path to an existing cache directory."
+                )
                 sys.exit(1)
             if midas_cache_directory.is_file():
-                print(f"Error: MiDaS model path must be a directory, not a file: {midas_cache_directory}")
+                print(
+                    f"Error: MiDaS model path must be a directory, not a file: {midas_cache_directory}"
+                )
                 sys.exit(1)
         else:
             midas_cache_directory.mkdir(parents=True, exist_ok=True)
@@ -124,4 +134,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

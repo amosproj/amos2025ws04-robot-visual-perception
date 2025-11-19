@@ -73,7 +73,9 @@ class DistanceEstimator:
             torch.hub.set_dir(str(midas_cache_directory))
 
         self.depth_estimation_model = (
-            torch.hub.load(midas_model, model_type, trust_repo=True).to(self.device).eval()
+            torch.hub.load(midas_model, model_type, trust_repo=True)
+            .to(self.device)
+            .eval()
         )
         # get MiDaS transforms
         midas_transforms = torch.hub.load(midas_model, "transforms", trust_repo=True)
@@ -123,7 +125,9 @@ class DistanceEstimator:
 estimator_instance = None
 
 
-def _get_estimator_instance(midas_cache_directory: Optional[Path] = None) -> DistanceEstimator:
+def _get_estimator_instance(
+    midas_cache_directory: Optional[Path] = None,
+) -> DistanceEstimator:
     """Get or create the singleton distance estimator instance.
 
     Args:
@@ -136,7 +140,9 @@ def _get_estimator_instance(midas_cache_directory: Optional[Path] = None) -> Dis
     """
     global estimator_instance
     if estimator_instance is None:
-        estimator_instance = DistanceEstimator(midas_cache_directory=midas_cache_directory)
+        estimator_instance = DistanceEstimator(
+            midas_cache_directory=midas_cache_directory
+        )
     return estimator_instance
 
 

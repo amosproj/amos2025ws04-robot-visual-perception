@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 from contextlib import asynccontextmanager, suppress
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
-from typing import Optional
+from typing import AsyncContextManager, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,13 +19,14 @@ from analyzer.routes import router, on_shutdown
 def create_lifespan(
     yolo_model_path: Optional[Path] = None,
     midas_cache_directory: Optional[Path] = None,
-):
+) -> Callable[[FastAPI], AsyncContextManager[None]]:
     """Create lifespan context manager with model paths.
 
     Args:
         yolo_model_path: Path to YOLO model file.
         midas_cache_directory: Path to MiDaS model cache directory.
     """
+
     @asynccontextmanager
     async def lifespan_context(app: FastAPI) -> AsyncIterator[None]:
         # Warm up detector and depth estimator so initial /offer handling is instant.
