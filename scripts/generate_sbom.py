@@ -41,30 +41,67 @@ def get_project_root() -> Path:
     return Path(__file__).parent.parent
 
 
+def has_version_range(version: str) -> bool:
+    """Check if a version string contains range specifiers."""
+    return any(prefix in version for prefix in ["^", "~", ">", "<", ">=", "<=", "*", "x"])
+
+
 def get_npm_first_order_deps(package_json_path: Path) -> List[Dict[str, Any]]:
     """Extract first-order npm dependencies from package.json."""
     if not package_json_path.exists():
         return []
 
     with open(package_json_path, "r") as f:
-        data = json.load(f)
+        pkg_data = json.load(f)
+
+    # Check if any dependency has version ranges
+    all_deps = {**pkg_data.get("dependencies", {}), **pkg_data.get("devDependencies", {})}
+    has_ranges = any(has_version_range(v) for v in all_deps.values())
+
+    # If ranges detected, use package-lock.json
+    if has_ranges:
+        package_lock_path = package_json_path.parent / "package-lock.json"
+        if package_lock_path.exists():
+            print(f"Version ranges detected in package.json, using {package_lock_path.name} for resolved versions", file=sys.stderr)
+            with open(package_lock_path, "r") as f:
+                lock_data = json.load(f)
+
+            # Extract resolved versions from package-lock.json
+            # In lockfile v2/v3, resolved versions are under node_modules/PACKAGE_NAME
+            packages = lock_data.get("packages", {})
+
+            resolved_versions = {}
+            for dep_name in all_deps.keys():
+                # Look for the package under node_modules/PACKAGE_NAME
+                node_modules_key = f"node_modules/{dep_name}"
+                if node_modules_key in packages:
+                    version = packages[node_modules_key].get("version")
+                    if version:
+                        resolved_versions[dep_name] = version
+        else:
+            print(f"Warning: Version ranges found but {package_lock_path.name} missing. Using ranges as-is.", file=sys.stderr)
+            resolved_versions = {}
+    else:
+        resolved_versions = {}
 
     deps = []
 
     # Production dependencies
-    for name, version in data.get("dependencies", {}).items():
+    for name, version in pkg_data.get("dependencies", {}).items():
+        resolved_version = resolved_versions.get(name, version)
         deps.append({
             "name": name,
-            "version": version,
+            "version": resolved_version,
             "ecosystem": "npm",
             "is_dev": False
         })
 
     # Dev dependencies
-    for name, version in data.get("devDependencies", {}).items():
+    for name, version in pkg_data.get("devDependencies", {}).items():
+        resolved_version = resolved_versions.get(name, version)
         deps.append({
             "name": name,
-            "version": version,
+            "version": resolved_version,
             "ecosystem": "npm",
             "is_dev": True
         })
