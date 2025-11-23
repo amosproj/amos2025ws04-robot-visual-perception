@@ -8,7 +8,6 @@ SBOM Generator for robot-visual-perception project.
 Generates:
 - SBOM in CycloneDX JSON format (sbom.json)
 - CSV with first-order dependencies (sbom-dependencies.csv)
-- Optional: Updates planning-documents.xlsx in Deliverables/sprint-XX/
 """
 
 import argparse
@@ -54,20 +53,18 @@ def get_npm_first_order_deps(package_json_path: Path) -> List[Dict[str, Any]]:
 
     # Production dependencies
     for name, version in data.get("dependencies", {}).items():
-        version_clean = version.lstrip("^~>=<")
         deps.append({
             "name": name,
-            "version": version_clean,
+            "version": version,
             "ecosystem": "npm",
             "is_dev": False
         })
 
     # Dev dependencies
     for name, version in data.get("devDependencies", {}).items():
-        version_clean = version.lstrip("^~>=<")
         deps.append({
             "name": name,
-            "version": version_clean,
+            "version": version,
             "ecosystem": "npm",
             "is_dev": True
         })
@@ -87,7 +84,7 @@ def get_python_first_order_deps(requirements_path: Path) -> List[Dict[str, Any]]
             if not line or line.startswith("#"):
                 continue
 
-            # Parse package==version
+            # Parse package==version (only exact pins)
             match = re.match(r"^([a-zA-Z0-9\-_.]+)\s*==\s*([0-9.]+)", line)
             if match:
                 name, version = match.groups()
@@ -97,6 +94,11 @@ def get_python_first_order_deps(requirements_path: Path) -> List[Dict[str, Any]]
                     "ecosystem": "pypi",
                     "is_dev": False
                 })
+            else:
+                # Warn if a dependency uses version ranges instead of exact pins
+                if any(op in line for op in [">", "<", "~=", "!="]) and not line.startswith("-"):
+                    print(f"Warning: Dependency with version range found in {requirements_path}: {line}", file=sys.stderr)
+                    print(f"         SBOM should use exact versions. Consider using pip freeze or lock files.", file=sys.stderr)
 
     return deps
 
@@ -405,132 +407,8 @@ def normalize_sbom(sbom: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
-def get_latest_sprint_number() -> Optional[int]:
-    """Get the latest sprint number from Git tags."""
-    try:
-        tag = run_command(["git", "describe", "--tags", "--abbrev=0"])
-        match = re.search(r"sprint-(\d+)", tag)
-        if match:
-            return int(match.group(1))
-    except Exception:
-        pass
-
-    # Fallback: Find highest sprint folder
-    root = get_project_root()
-    deliverables = root / "Deliverables"
-    if not deliverables.exists():
-        return None
-
-    sprint_folders = [
-        int(f.name.replace("sprint-", ""))
-        for f in deliverables.iterdir()
-        if f.is_dir() and f.name.startswith("sprint-")
-    ]
-    return max(sprint_folders) if sprint_folders else None
-
-
-def prepare_sprint_folder(current_sprint: int) -> Path:
-    """Ensure next sprint folder exists and has planning-documents.xlsx."""
-    root = get_project_root()
-    deliverables = root / "Deliverables"
-    next_sprint = current_sprint + 1
-
-    next_sprint_folder = deliverables / f"sprint-{next_sprint:02d}"
-    current_sprint_folder = deliverables / f"sprint-{current_sprint:02d}"
-
-    if not next_sprint_folder.exists():
-        print(f"Creating new sprint folder: {next_sprint_folder.name}")
-        next_sprint_folder.mkdir(parents=True)
-
-    import shutil
-
-    def copy_if_missing(source: Path, target: Path, label: str) -> None:
-        if target.exists():
-            return
-        if source.exists():
-            shutil.copy2(source, target)
-            print(f"Copied {label} from sprint-{current_sprint:02d}")
-        else:
-            print(
-                f"Warning: {source} not found, cannot copy to new sprint",
-                file=sys.stderr,
-            )
-
-    copy_if_missing(
-        current_sprint_folder / "planning-documents.xlsx",
-        next_sprint_folder / "planning-documents.xlsx",
-        "planning-documents.xlsx",
-    )
-    copy_if_missing(
-        current_sprint_folder / "planning-documents.xlsx.license",
-        next_sprint_folder / "planning-documents.xlsx.license",
-        "planning-documents.xlsx.license",
-    )
-
-    return next_sprint_folder
-
-
-def update_excel(csv_data: List[Dict[str, str]], sprint_folder: Path) -> None:
-    """Update planning-documents.xlsx with new BOM data."""
-    try:
-        from openpyxl import load_workbook
-        from openpyxl.styles import PatternFill
-    except ImportError:
-        print(
-            "Error: openpyxl not installed. Run: pip install openpyxl",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    excel_path = sprint_folder / "planning-documents.xlsx"
-    if not excel_path.exists():
-        print(f"Error: {excel_path} not found", file=sys.stderr)
-        sys.exit(1)
-
-    wb = load_workbook(excel_path)
-
-    # Find or create 'Bill of Materials' sheet
-    sheet_name = "Bill of Materials"
-    if sheet_name in wb.sheetnames:
-        ws = wb[sheet_name]
-        wb.remove(ws)
-
-    ws = wb.create_sheet(sheet_name)
-
-    # Write headers
-    headers = list(csv_data[0].keys())
-    ws.append(headers)
-
-    header_fill = PatternFill(
-        fill_type="solid",
-        start_color="FFD9D9D9",
-        end_color="FFD9D9D9",
-    )
-    for cell in ws[1]:
-        cell.fill = header_fill
-
-    # Write data
-    for row in csv_data:
-        ws.append(list(row.values()))
-
-    # Set column widths for better readability
-    # Column widths: #, Context, Name, Version, License, Comment
-    column_widths = [5, 30, 40, 15, 25, 40]
-    for idx, width in enumerate(column_widths, start=1):
-        ws.column_dimensions[chr(64 + idx)].width = width
-
-    # Save
-    wb.save(excel_path)
-    print(f"Updated {excel_path}")
-
-
 def main():
     parser = argparse.ArgumentParser(description="Generate SBOM for the project")
-    parser.add_argument(
-        "--update-excel",
-        action="store_true",
-        help="Update planning-documents.xlsx in Deliverables folder",
-    )
     parser.add_argument(
         "--check",
         action="store_true",
@@ -622,18 +500,6 @@ def main():
     csv_data = generate_csv_for_planning_doc(all_deps)
     write_csv(csv_data, csv_path)
     print(f"Generated: {csv_path} ({len(csv_data)} dependencies)")
-
-    # Update Excel if requested
-    if args.update_excel:
-        print("\nUpdating Excel...")
-        sprint_num = get_latest_sprint_number()
-
-        if sprint_num is None:
-            print("Error: Cannot determine current sprint number", file=sys.stderr)
-            sys.exit(1)
-
-        sprint_folder = prepare_sprint_folder(sprint_num)
-        update_excel(csv_data, sprint_folder)
 
     print("\nDone!")
 
