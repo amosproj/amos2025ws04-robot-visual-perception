@@ -3,7 +3,7 @@
   "specVersion": "1.6",
   "version": 1,
   "metadata": {
-    "timestamp": "2025-11-23T10:39:02.760753Z",
+    "timestamp": "2025-11-23T16:40:15.236021Z",
     "tools": [
       {
         "name": "robot-visual-perception-sbom-generator",
@@ -190,31 +190,66 @@
       "type": "library",
       "name": "aiortc",
       "version": "1.14.0",
-      "purl": "pkg:pypi/aiortc@1.14.0"
+      "purl": "pkg:pypi/aiortc@1.14.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ]
     },
     {
       "type": "library",
       "name": "aioice",
       "version": "0.10.1",
-      "purl": "pkg:pypi/aioice@0.10.1"
+      "purl": "pkg:pypi/aioice@0.10.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ]
     },
     {
       "type": "library",
       "name": "av",
       "version": "16.0.1",
-      "purl": "pkg:pypi/av@16.0.1"
+      "purl": "pkg:pypi/av@16.0.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ]
     },
     {
       "type": "library",
       "name": "pydantic",
       "version": "2.12.3",
-      "purl": "pkg:pypi/pydantic@2.12.3"
+      "purl": "pkg:pypi/pydantic@2.12.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
     },
     {
       "type": "library",
       "name": "uvicorn",
       "version": "0.38.0",
-      "purl": "pkg:pypi/uvicorn@0.38.0"
+      "purl": "pkg:pypi/uvicorn@0.38.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ]
     },
     {
       "type": "library",
@@ -311,7 +346,14 @@
       "type": "library",
       "name": "pytest-asyncio",
       "version": "1.2.0",
-      "purl": "pkg:pypi/pytest-asyncio@1.2.0"
+      "purl": "pkg:pypi/pytest-asyncio@1.2.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
     },
     {
       "type": "library",
