@@ -11,7 +11,7 @@ function App() {
     | string
     | undefined;
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#667eea] to-[#764ba2] text-white">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-purple-from to-brand-purple-to text-white">
       <div className="text-center p-8 w-full max-w-4xl">
         <header>
           <h1 className="text-5xl mb-2 font-bold">OptiBot</h1>

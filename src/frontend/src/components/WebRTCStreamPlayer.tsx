@@ -9,21 +9,12 @@ import { useWebRTCPlayer } from '../hooks/useWebRTCPlayer';
 import VideoOverlay, { VideoOverlayHandle } from './VideoOverlay';
 import { PlayerControls } from './PlayerControls';
 
-// Shared colors used across the component
-
-const COLORS = {
-  dotConnected: '#0f0', // green
-  dotConnecting: '#ff0', // yellow
-  dotError: '#f00', // red
-  dotIdle: '#666', // gray
-};
-
-// Return color for the status indicator dot
-const getStatusColor = (state: string) => {
-  if (state === 'connected') return COLORS.dotConnected;
-  if (state === 'connecting') return COLORS.dotConnecting;
-  if (state === 'error') return COLORS.dotError;
-  return COLORS.dotIdle;
+// Return Tailwind class for the status indicator dot
+const getStatusDotClass = (state: string) => {
+  if (state === 'connected') return 'bg-status-connected';
+  if (state === 'connecting') return 'bg-status-connecting';
+  if (state === 'error') return 'bg-status-error';
+  return 'bg-status-idle';
 };
 
 export interface WebRTCStreamPlayerProps {
@@ -108,17 +99,11 @@ export default function WebRTCStreamPlayer({
     return 'Idle';
   })();
 
-  // Styles computed from shared colors
-
-  const statusDotStyle: React.CSSProperties = {
-    backgroundColor: getStatusColor(connectionState),
-  };
-
   return (
     <div className={`flex flex-col gap-4 ${className || ''}`} style={style}>
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm opacity-80 flex items-center gap-2">
-          <span style={statusDotStyle} className="w-2 h-2 rounded-full" />
+          <span className={`w-2 h-2 rounded-full ${getStatusDotClass(connectionState)}`} />
           {statusText}
         </span>
         <button
@@ -126,7 +111,7 @@ export default function WebRTCStreamPlayer({
           disabled={connectionState === 'idle'}
           className={`px-6 py-2.5 text-white rounded-md text-[15px] font-semibold transition-all duration-200 ${
             connectionState === 'idle'
-              ? 'bg-[#666] cursor-not-allowed opacity-50'
+              ? 'bg-brand-gray cursor-not-allowed opacity-50'
               : 'bg-red-600 hover:bg-red-700 cursor-pointer'
           }`}
         >

@@ -27,10 +27,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
       }`}
     >
       {/* Left side - Play/Pause */}
-      <button
-        onClick={onTogglePlay}
-        className="bg-transparent border-none text-white cursor-pointer p-2 flex items-center justify-center rounded hover:bg-white/20 transition-colors"
-      >
+      <button onClick={onTogglePlay} className="control-btn">
         {!isPlaying ? (
           <Play size={24} fill="white" />
         ) : (
@@ -40,11 +37,8 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
 
       {/* Right side - Fullscreen */}
       <div className="flex gap-1 items-center">
-        <button
-          onClick={onFullscreen}
-          className="bg-transparent border-none text-white cursor-pointer p-2 flex items-center justify-center rounded hover:bg-white/20 transition-colors"
-        >
-          <Maximize size={20} />
+        <button onClick={onFullscreen} className="control-btn">
+          <Maximize size={24} />
         </button>
       </div>
     </div>

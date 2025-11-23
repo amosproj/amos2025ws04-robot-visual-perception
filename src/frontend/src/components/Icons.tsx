@@ -44,7 +44,7 @@ export const Pause: React.FC<IconProps> = ({
   </svg>
 );
 
-export const Maximize: React.FC<IconProps> = ({ size = 20, className }) => (
+export const Maximize: React.FC<IconProps> = ({ size = 24, className }) => (
   <svg
     width={size}
     height={size}
