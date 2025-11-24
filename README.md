@@ -104,8 +104,4 @@ make run-frontend-local
 ```
 Open the shown URL in your console.
 
-## Notes
-- The webcam service mirrors and streams raw frames only; the analyzer handles YOLO inference and overlays.
-- Analyzer inference is throttled to ~10 Hz to keep latency low.
-
 > IMPORTANT: Please read the `CONTRIBUTING.md`.
