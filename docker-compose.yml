@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 services:
+  # Note: Camera device access only works on Linux.
+  # On macOS/Windows, run things locally
   webcam:
     build:
       context: ./src/backend
@@ -16,7 +18,7 @@ services:
       - STUN_SERVER=stun:stun.l.google.com:19302
       - CORS_ORIGINS=*
     devices:
-      - /dev/video0:/dev/video0
+      - /dev/video0:/dev/video0  # Only works on Linux
     networks:
       - robot-net
 

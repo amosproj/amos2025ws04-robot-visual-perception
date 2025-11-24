@@ -212,11 +212,11 @@ make docker-build-frontend # Build frontend image
 make docker-build-backend  # Build backend image
 ```
 
-Run all services with Docker Compose:
+Run all services with Docker Compose (Linux only):
 
 ```bash
 make docker-compose-up     # Start all services (webcam, analyzer, frontend)
 make docker-compose-down   # Stop all services
 ```
 
-Note: Docker Compose requires camera access. On Linux, this works automatically. On macOS, run things locally.
+**Important:** Camera device access (`/dev/video0`) only works on Linux. Docker Desktop on macOS/Windows cannot access hardware devices. For non-Linux systems, run services locally instead.

@@ -9,7 +9,7 @@
 	test test-frontend test-backend \
 	run-backend-local run-frontend-local \
 	docker-build docker-build-frontend docker-build-backend \
-	docker-compose-up docker-compose-down docker-compose-logs
+	docker-compose-up docker-compose-down
 
 help:
 	@echo "make"
@@ -52,11 +52,9 @@ help:
 	@echo "  docker-build-backend"
 	@echo "      builds backend Docker image"
 	@echo "  docker-compose-up"
-	@echo "      starts all services with docker-compose"
+	@echo "      starts all services with docker-compose (Linux only for camera access)"
 	@echo "  docker-compose-down"
 	@echo "      stops all docker-compose services"
-	@echo "  docker-compose-logs"
-	@echo "      follows logs from all docker-compose services"
 
 dev: install
 
@@ -132,8 +130,9 @@ docker-build-analyzer:
 	docker build -f src/backend/Dockerfile.analyzer -t robot-analyzer:latest src/backend
 
 docker-compose-up:
-	docker-compose up
+	@echo "Note: Camera access requires Linux. On macOS/Windows, run things locally."
+	docker compose up
 
 docker-compose-down:
-	docker-compose down
+	docker compose down
 
