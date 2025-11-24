@@ -204,16 +204,19 @@ make test-backend          # Run backend tests with pytest
 
 #### Docker commands
 
-Build and run Docker containers locally:
+Build Docker images (used in CI):
 
 ```bash
 make docker-build          # Build all Docker images
 make docker-build-frontend # Build frontend image
 make docker-build-backend  # Build backend image
-
-make docker-run-frontend   # Run frontend container (opens browser)
-make docker-run-backend    # Run backend container (also opens browser)
-
-make docker-stop           # Stop all running containers
-make docker-clean          # Stop containers and remove images
 ```
+
+Run all services with Docker Compose:
+
+```bash
+make docker-compose-up     # Start all services (webcam, analyzer, frontend)
+make docker-compose-down   # Stop all services
+```
+
+Note: Docker Compose requires camera access. On Linux, this works automatically. On macOS, run things locally.

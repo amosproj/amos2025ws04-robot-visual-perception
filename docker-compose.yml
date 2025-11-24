@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2025 robot-visual-perception
+#
+# SPDX-License-Identifier: MIT
+
+services:
+  webcam:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile.webcam
+    image: robot-webcam:latest
+    container_name: robot-webcam
+    ports:
+      - "8000:8000"
+    environment:
+      - CAMERA_INDEX=0
+      - STUN_SERVER=stun:stun.l.google.com:19302
+      - CORS_ORIGINS=*
+    devices:
+      - /dev/video0:/dev/video0
+    networks:
+      - robot-net
+
+  analyzer:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile.analyzer
+    image: robot-analyzer:latest
+    container_name: robot-analyzer
+    ports:
+      - "8001:8001"
+    environment:
+      - WEBCAM_OFFER_URL=http://webcam:8000/offer
+      - MODEL_PATH=models/yolov8n.pt
+      - STUN_SERVER=stun:stun.l.google.com:19302
+      - CORS_ORIGINS=*
+    volumes:
+      - ./src/backend/models:/app/models
+    depends_on:
+      - webcam
+    networks:
+      - robot-net
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_BACKEND_URL=http://localhost:8001
+    image: robot-frontend:latest
+    container_name: robot-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - analyzer
+    networks:
+      - robot-net
+
+networks:
+  robot-net:
+    driver: bridge

@@ -9,8 +9,7 @@
 	test test-frontend test-backend \
 	run-backend-local run-frontend-local \
 	docker-build docker-build-frontend docker-build-backend \
-	docker-run-frontend docker-run-backend \
-	docker-stop docker-clean
+	docker-compose-up docker-compose-down docker-compose-logs
 
 help:
 	@echo "make"
@@ -52,14 +51,12 @@ help:
 	@echo "      builds frontend Docker image"
 	@echo "  docker-build-backend"
 	@echo "      builds backend Docker image"
-	@echo "  docker-run-frontend"
-	@echo "      runs frontend container on port 8080"
-	@echo "  docker-run-backend"
-	@echo "      runs backend container on port 8000"
-	@echo "  docker-stop"
-	@echo "      stops running containers"
-	@echo "  docker-clean"
-	@echo "      stops containers and removes Docker images"
+	@echo "  docker-compose-up"
+	@echo "      starts all services with docker-compose"
+	@echo "  docker-compose-down"
+	@echo "      stops all docker-compose services"
+	@echo "  docker-compose-logs"
+	@echo "      follows logs from all docker-compose services"
 
 dev: install
 
@@ -123,7 +120,7 @@ docker-build: docker-build-frontend docker-build-backend
 
 docker-build-frontend:
 	docker build \
-		--build-arg VITE_BACKEND_URL=http://host.docker.internal:8001 \
+		--build-arg VITE_BACKEND_URL=http://localhost:8001 \
 		-t robot-frontend:latest src/frontend
 
 docker-build-backend: docker-build-webcam docker-build-analyzer
@@ -134,33 +131,9 @@ docker-build-webcam:
 docker-build-analyzer:
 	docker build -f src/backend/Dockerfile.analyzer -t robot-analyzer:latest src/backend
 
-docker-run-frontend:
-	@echo "Starting frontend container..."
-	@docker run -d --rm -p 8080:80 --name robot-frontend-dev robot-frontend:latest
-	@sleep 1
-	@echo "Opening browser at http://localhost:8080"
-	@open http://localhost:8080 || echo "Please open http://localhost:8080 in your browser"
-	@echo "To stop: docker stop robot-frontend-dev"
+docker-compose-up:
+	docker-compose up
 
-docker-run-backend: docker-run-webcam
-
-docker-run-webcam:
-	@echo "Starting webcam service container..."
-	@docker run -d --rm -p 8000:8000 --name robot-webcam-dev robot-webcam:latest
-	@sleep 1
-	@echo "Webcam service running at http://localhost:8000"
-	@echo "To stop: docker stop robot-webcam-dev"
-
-docker-run-analyzer:
-	@echo "Starting analyzer service container..."
-	@docker run -d --rm -p 8001:8001 --env WEBCAM_OFFER_URL=http://host.docker.internal:8000/offer --name robot-analyzer-dev robot-analyzer:latest
-	@sleep 1
-	@echo "Analyzer service running at http://localhost:8001"
-	@echo "To stop: docker stop robot-analyzer-dev"
-
-docker-stop:
-	@docker stop robot-frontend-dev robot-webcam-dev robot-analyzer-dev 2>/dev/null || true
-
-docker-clean: docker-stop
-	@docker rmi robot-frontend:latest robot-webcam:latest robot-analyzer:latest || true
+docker-compose-down:
+	docker-compose down
 
