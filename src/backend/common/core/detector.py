@@ -13,7 +13,7 @@ from common.config import config
 from common.utils.geometry import get_detections
 
 try:  # pragma: no cover - optional dependency import
-    import onnxruntime as ort  # type: ignore[import-not-found]
+    import onnxruntime as ort  # type: ignore[import-not-found,import-untyped]
 except Exception:  # pragma: no cover - handled during backend selection
     ort = None
 
@@ -178,7 +178,8 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         input_tensor, ratio, dwdh = self._prepare_input(frame_rgb)
         ort_inputs = {self._input_name: input_tensor}
         outputs = self._session.run(self._output_names, ort_inputs)[0]
-        return self._postprocess(outputs, frame_rgb.shape[:2], ratio, dwdh)
+        h, w = frame_rgb.shape[:2]
+        return self._postprocess(outputs, (h, w), ratio, dwdh)
 
     def _prepare_input(
         self, frame_rgb: np.ndarray
