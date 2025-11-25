@@ -100,12 +100,30 @@ class AnalyzerWebSocketManager:
         last_fps_time = asyncio.get_event_loop().time()
         fps_counter = 0
         current_fps = 0.0
+        consecutive_errors = 0
+        max_consecutive_errors = 10
         
         try:
             while self.active_connections:
                 try:
                     # Get frame from webcam
-                    frame = await source_track.recv()
+                    try:
+                        frame = await asyncio.wait_for(source_track.recv(), timeout=5.0)
+                        consecutive_errors = 0  # Reset error counter on success
+                    except asyncio.TimeoutError:
+                        print("Frame receive timeout, skipping...")
+                        consecutive_errors += 1
+                        if consecutive_errors >= max_consecutive_errors:
+                            print("Too many consecutive timeouts, reconnecting...")
+                            raise Exception("WebRTC connection appears unstable")
+                        continue
+                    except Exception as recv_error:
+                        print(f"Error receiving frame: {recv_error}")
+                        consecutive_errors += 1
+                        if consecutive_errors >= max_consecutive_errors:
+                            raise Exception("Too many frame receive errors")
+                        await asyncio.sleep(0.1)
+                        continue
                     frame_array = frame.to_ndarray(format="bgr24")
                     
                     frame_id += 1

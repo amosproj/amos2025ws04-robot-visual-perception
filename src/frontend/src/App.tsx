@@ -36,7 +36,7 @@ function App() {
     disconnect: disconnectAnalyzer
   } = useAnalyzerWebSocket({
     endpoint: 'ws://localhost:8001/ws', // Analyzer service
-    autoConnect: true,
+    autoConnect: false, // Manual control for proper disconnect
   });
 
   // Update overlay when new metadata arrives
@@ -46,10 +46,11 @@ function App() {
     }
   }, [latestMetadata]);
 
-  // Auto-connect to video when component mounts
+  // Auto-connect to services when component mounts
   useEffect(() => {
     connectVideo();
-  }, [connectVideo]);
+    connectAnalyzer(); // Manual connect to analyzer
+  }, [connectVideo, connectAnalyzer]);
 
   const handleClearOverlay = () => {
     overlayRef.current?.clear();
