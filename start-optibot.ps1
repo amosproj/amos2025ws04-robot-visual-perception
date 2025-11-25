@@ -157,8 +157,8 @@ Read-Host 'Press Enter to close'
     Start-Sleep 2
 }
 
-Start-Service "Webcam (8000)" "src\backend" "& venv\Scripts\activate; python -m uvicorn webcam.main:app --host 0.0.0.0 --port 8000 --reload" "Green"
-Start-Service "Analyzer ($BackendPort)" "src\backend" "& venv\Scripts\activate; python -m uvicorn analyzer.main:app --host 0.0.0.0 --port $BackendPort --reload" "Cyan"
+Start-Service "Webcam (8000)" "src\backend" "uv run uvicorn webcam.main:app --host 0.0.0.0 --port 8000 --reload" "Green"
+Start-Service "Analyzer ($BackendPort)" "src\backend" "uv run uvicorn analyzer.main:app --host 0.0.0.0 --port $BackendPort --reload" "Cyan"
 Start-Service "Frontend (3000)" "src\frontend" "npm run dev" "Magenta"
 
 Write-Color Green "`nServices started!"

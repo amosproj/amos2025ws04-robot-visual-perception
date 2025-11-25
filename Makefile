@@ -70,8 +70,10 @@ install-frontend:
 	cd src/frontend && npm install
 
 install-backend:
-	cd src/backend && uv python install   # Auto-uses .python-version (3.11)
-	cd src/backend && uv venv             # Auto-uses .python-version (3.11)
+# Auto-uses .python-version (3.11)
+	cd src/backend && uv python install
+# Auto-uses .python-version (3.11)
+	cd src/backend && uv venv             
 	cd src/backend && uv pip install -r requirements.txt
 	cd src/backend && uv pip install -r requirements-dev.txt
 
@@ -126,7 +128,7 @@ docker-build-frontend:
 
 docker-build-backend: docker-build-webcam docker-build-analyzer
 
-docker-build-webcam:
+docker-build-webcam:Für was benutze ich das "Titel" Feld, wenn ich mit Links arbeite?
 	docker build -f src/backend/Dockerfile.webcam -t robot-webcam:latest src/backend
 
 docker-build-analyzer:
