@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2025 robot-visual-perception
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 // hooks/useAnalyzerWebSocket.ts
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { MetadataFrame } from '../components/VideoOverlay';
@@ -20,11 +26,15 @@ export function useAnalyzerWebSocket({
   autoConnect = true,
 }: AnalyzerWebSocketOptions = {}): UseAnalyzerWebSocketResult {
   const [isConnected, setIsConnected] = useState(false);
-  const [latestMetadata, setLatestMetadata] = useState<MetadataFrame | null>(null);
+  const [latestMetadata, setLatestMetadata] = useState<MetadataFrame | null>(
+    null
+  );
   const [fps, setFps] = useState<number | null>(null);
-  
+
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const reconnectAttempts = useRef(0);
 
   const connect = useCallback(() => {
@@ -39,7 +49,7 @@ export function useAnalyzerWebSocket({
         console.log('✅ Analyzer WebSocket connected');
         setIsConnected(true);
         reconnectAttempts.current = 0;
-        
+
         // Send ping every 30 seconds to keep connection alive
         const pingInterval = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
@@ -53,9 +63,9 @@ export function useAnalyzerWebSocket({
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          
+
           if (data.type === 'pong') return;
-          
+
           // Convert analyzer format to VideoOverlay format
           const metadata: MetadataFrame = {
             timestamp: data.timestamp,
@@ -69,9 +79,9 @@ export function useAnalyzerWebSocket({
               position: det.position,
             })),
           };
-          
+
           setLatestMetadata(metadata);
-          
+
           // Update FPS if available
           if (data.fps !== null && data.fps !== undefined) {
             setFps(Math.round(data.fps * 10) / 10); // Round to 1 decimal
@@ -86,13 +96,18 @@ export function useAnalyzerWebSocket({
         setIsConnected(false);
         setLatestMetadata(null);
         wsRef.current = null;
-        
+
         // Auto-reconnect with exponential backoff
         if (autoConnect && reconnectAttempts.current < 10) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
+          const delay = Math.min(
+            1000 * Math.pow(2, reconnectAttempts.current),
+            30000
+          );
           reconnectAttempts.current++;
-          console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`);
-          
+          console.log(
+            `Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`
+          );
+
           reconnectTimeoutRef.current = setTimeout(connect, delay);
         }
       };
@@ -100,7 +115,6 @@ export function useAnalyzerWebSocket({
       ws.onerror = (error) => {
         console.error('Analyzer WebSocket error:', error);
       };
-
     } catch (error) {
       console.error('Failed to connect to Analyzer WebSocket:', error);
     }
@@ -110,12 +124,12 @@ export function useAnalyzerWebSocket({
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
     }
-    
+
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
-    
+
     setIsConnected(false);
     setLatestMetadata(null);
   }, []);

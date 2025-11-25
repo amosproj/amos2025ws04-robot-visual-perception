@@ -100,7 +100,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       const video = videoRef.current;
       if (!canvas || !video) return;
 
-      const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+      const ctx = canvas.getContext('2d', {
+        alpha: true,
+        desynchronized: true,
+      });
       if (!ctx) return;
 
       // Make canvas exactly match video element position and size
@@ -109,7 +112,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
 
         const videoRect = video.getBoundingClientRect();
         const containerRect = video.parentElement?.getBoundingClientRect();
-        
+
         // Canvas = exact video element size
         canvas.width = videoRect.width;
         canvas.height = videoRect.height;
@@ -133,25 +136,29 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
 
       // Update canvas on video load or resize
       video.addEventListener('loadedmetadata', updateCanvasSize);
-      
+
       // Watch for any changes to video element or container
       const resizeObserver = new ResizeObserver(updateCanvasSize);
       resizeObserver.observe(video);
       if (video.parentElement) {
         resizeObserver.observe(video.parentElement);
       }
-      
+
       // Also listen for window resize (which can affect container layout)
       window.addEventListener('resize', updateCanvasSize);
-      
+
       updateCanvasSize();
 
       const render = (currentTime: number) => {
         // Update canvas position regularly to handle dynamic layout changes
         const videoRect = video.getBoundingClientRect();
         const containerRect = video.parentElement?.getBoundingClientRect();
-        
-        if (containerRect && (canvas.style.width !== `${videoRect.width}px` || canvas.style.height !== `${videoRect.height}px`)) {
+
+        if (
+          containerRect &&
+          (canvas.style.width !== `${videoRect.width}px` ||
+            canvas.style.height !== `${videoRect.height}px`)
+        ) {
           // Size or position changed, update immediately
           updateCanvasSize();
         }
@@ -181,7 +188,16 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           const bboxHeight = box.height * canvasHeight;
 
           // Color scheme
-          const colors = ['#00d4ff','#00ff88','#ff6b9d','#ffd93d','#ff8c42','#a8e6cf','#b4a5ff','#ffb347'];
+          const colors = [
+            '#00d4ff',
+            '#00ff88',
+            '#ff6b9d',
+            '#ffd93d',
+            '#ff8c42',
+            '#a8e6cf',
+            '#b4a5ff',
+            '#ffb347',
+          ];
           const color = colors[index % colors.length];
 
           // Draw bounding box using calculated coordinates
@@ -194,7 +210,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           ctx.shadowBlur = 0;
 
           // Label + distance
-          const labelText = `${label} ${(confidence*100).toFixed(0)}%`;
+          const labelText = `${label} ${(confidence * 100).toFixed(0)}%`;
           const distanceText = distance ? ` | ${distance.toFixed(2)}m` : '';
           const fullText = labelText + distanceText;
 
@@ -202,14 +218,27 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           const textMetrics = ctx.measureText(fullText);
           const textHeight = 18;
           const padding = 6;
-          const labelY = bboxY > textHeight + padding ? bboxY - 4 : bboxY + bboxHeight + textHeight + 4;
+          const labelY =
+            bboxY > textHeight + padding
+              ? bboxY - 4
+              : bboxY + bboxHeight + textHeight + 4;
 
           // Background
-          const bgGradient = ctx.createLinearGradient(bboxX, labelY - textHeight, bboxX, labelY);
+          const bgGradient = ctx.createLinearGradient(
+            bboxX,
+            labelY - textHeight,
+            bboxX,
+            labelY
+          );
           bgGradient.addColorStop(0, `${color}ee`);
           bgGradient.addColorStop(1, `${color}cc`);
           ctx.fillStyle = bgGradient;
-          ctx.fillRect(bboxX, labelY - textHeight - padding/2, textMetrics.width + padding*2, textHeight + padding);
+          ctx.fillRect(
+            bboxX,
+            labelY - textHeight - padding / 2,
+            textMetrics.width + padding * 2,
+            textHeight + padding
+          );
 
           // Text
           ctx.fillStyle = '#000000';
@@ -235,13 +264,13 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       animationFrameRef.current = requestAnimationFrame(render);
 
       return () => {
-        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        if (animationFrameRef.current)
+          cancelAnimationFrame(animationFrameRef.current);
         resizeObserver.disconnect();
         window.removeEventListener('resize', updateCanvasSize);
         video.removeEventListener('loadedmetadata', updateCanvasSize);
       };
     }, [videoRef, onFrameProcessed]);
-
 
     return (
       <canvas

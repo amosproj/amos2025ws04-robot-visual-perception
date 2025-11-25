@@ -12,28 +12,28 @@ import './App.css';
 
 function App() {
   const overlayRef = useRef<VideoOverlayHandle>(null);
-  
+
   const [overlayFps, setOverlayFps] = useState<number>(0);
 
   // WebRTC connection to webcam service (for raw video)
-  const { 
+  const {
     videoRef,
-    connectionState: videoState, 
+    connectionState: videoState,
     latencyMs,
     connect: connectVideo,
-    disconnect: disconnectVideo
+    disconnect: disconnectVideo,
   } = useWebRTCPlayer({
     signalingEndpoint: 'http://localhost:8000', // Webcam service
     autoPlay: true,
   });
 
   // WebSocket connection to analyzer service (for metadata)
-  const { 
-    isConnected: analyzerConnected, 
+  const {
+    isConnected: analyzerConnected,
     latestMetadata,
     fps: analyzerFps,
     connect: connectAnalyzer,
-    disconnect: disconnectAnalyzer
+    disconnect: disconnectAnalyzer,
   } = useAnalyzerWebSocket({
     endpoint: 'ws://localhost:8001/ws', // Analyzer service
     autoConnect: false, // Manual control for proper disconnect
@@ -64,44 +64,57 @@ function App() {
           <div className={`status-item ${videoState}`}>
             <span className="status-label">Video:</span>
             <span className="status-value">{videoState}</span>
-            {latencyMs && <span className="status-detail">({latencyMs}ms)</span>}
+            {latencyMs && (
+              <span className="status-detail">({latencyMs}ms)</span>
+            )}
           </div>
-          
-          <div className={`status-item ${analyzerConnected ? 'connected' : 'disconnected'}`}>
+
+          <div
+            className={`status-item ${analyzerConnected ? 'connected' : 'disconnected'}`}
+          >
             <span className="status-label">Analyzer:</span>
-            <span className="status-value">{analyzerConnected ? 'Connected' : 'Disconnected'}</span>
-            {analyzerFps && analyzerFps > 0 && <span className="status-detail">({analyzerFps} FPS)</span>}
+            <span className="status-value">
+              {analyzerConnected ? 'Connected' : 'Disconnected'}
+            </span>
+            {analyzerFps && analyzerFps > 0 && (
+              <span className="status-detail">({analyzerFps} FPS)</span>
+            )}
           </div>
-          
+
           <div className="status-item">
             <span className="status-label">Overlay:</span>
             <span className="status-value">{overlayFps} FPS</span>
           </div>
-          
+
           <div className="status-item">
             <span className="status-label">Objects:</span>
-            <span className="status-value">{latestMetadata?.detections.length || 0}</span>
+            <span className="status-value">
+              {latestMetadata?.detections.length || 0}
+            </span>
           </div>
         </div>
       </div>
 
       <div className="controls">
-        <button 
+        <button
           onClick={videoState === 'connected' ? disconnectVideo : connectVideo}
           className={`btn ${videoState === 'connected' ? 'btn-danger' : 'btn-primary'}`}
           disabled={videoState === 'connecting'}
         >
-          {videoState === 'connecting' ? 'Connecting...' : 
-           videoState === 'connected' ? 'Disconnect Video' : 'Connect Video'}
+          {videoState === 'connecting'
+            ? 'Connecting...'
+            : videoState === 'connected'
+              ? 'Disconnect Video'
+              : 'Connect Video'}
         </button>
-        
-        <button 
+
+        <button
           onClick={analyzerConnected ? disconnectAnalyzer : connectAnalyzer}
           className={`btn ${analyzerConnected ? 'btn-danger' : 'btn-primary'}`}
         >
           {analyzerConnected ? 'Disconnect Analyzer' : 'Connect Analyzer'}
         </button>
-        
+
         <button onClick={handleClearOverlay} className="btn btn-secondary">
           Clear Overlay
         </button>
@@ -115,7 +128,7 @@ function App() {
           muted
           className="video-stream"
         />
-        
+
         <VideoOverlay
           ref={overlayRef}
           videoRef={videoRef}
@@ -143,7 +156,6 @@ function App() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

@@ -39,7 +39,6 @@ class CameraVideoTrack(VideoStreamTrack):
             if tries >= 100:
                 tries = 0
 
-
         # Horizontally flip the WebCam
         frame = frame[:, ::-1]
 

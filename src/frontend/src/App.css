@@ -36,7 +36,7 @@
   border: 1px solid #404040;
   padding: 15px;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .status-item {
@@ -149,19 +149,19 @@
 }
 
 .video-container {
-  position: relative; 
+  position: relative;
   display: flex;
   justify-content: center;
   margin-bottom: 30px;
 }
 
 .video-stream {
-  display: block; 
+  display: block;
   max-width: 100%;
   width: 640px;
   height: auto;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   background: #000;
 }
 
@@ -170,7 +170,7 @@
   border: 1px solid #404040;
   padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .detection-info h3 {
@@ -226,22 +226,22 @@
   .app {
     padding: 15px;
   }
-  
+
   .status-bar {
     flex-direction: column;
     align-items: center;
     gap: 15px;
   }
-  
+
   .controls {
     flex-direction: column;
     align-items: center;
   }
-  
+
   .video-stream {
     width: 100%;
   }
-  
+
   .header h1 {
     font-size: 2rem;
   }
@@ -249,8 +249,13 @@
 
 /* Loading animations */
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .status-item.connecting .status-value {
@@ -273,7 +278,7 @@
 }
 
 .video-stream:not([src])::before {
-  content: "📹 Waiting for video stream...";
+  content: '📹 Waiting for video stream...';
   color: #b0b0b0;
   font-size: 1.2rem;
   text-align: center;
@@ -287,18 +292,23 @@
 }
 
 @keyframes glow {
-  from { filter: brightness(1); }
-  to { filter: brightness(1.1); }
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(1.1);
+  }
 }
 
 /* Improved pulse animation */
 @keyframes pulse {
-  0%, 100% { 
-    opacity: 1; 
+  0%,
+  100% {
+    opacity: 1;
     transform: scale(1);
   }
-  50% { 
-    opacity: 0.8; 
+  50% {
+    opacity: 0.8;
     transform: scale(1.02);
   }
 }

@@ -223,10 +223,7 @@ export default function WebRTCStreamPlayer({
 
         {/* VideoOverlay - only render when video is ready and overlay is enabled */}
         {enableOverlay && videoReady && (
-          <VideoOverlay
-            ref={overlayRef}
-            videoRef={videoRef}
-          />
+          <VideoOverlay ref={overlayRef} videoRef={videoRef} />
         )}
 
         {/* Controls overlay */}
