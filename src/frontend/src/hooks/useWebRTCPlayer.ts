@@ -85,6 +85,26 @@ export function useWebRTCPlayer({
 
     pc.addTransceiver('video', { direction: 'recvonly' });
 
+    const waitForFirstCandidate = () =>
+      new Promise<void>((resolve) => {
+        let resolved = false;
+        let timeoutId: number;
+        const finish = () => {
+          if (resolved) return;
+          resolved = true;
+          pc.removeEventListener('icecandidate', handler);
+          window.clearTimeout(timeoutId);
+          resolve();
+        };
+        const handler = (event: RTCPeerConnectionIceEvent) => {
+          if (event.candidate || pc.iceGatheringState === 'complete') {
+            finish();
+          }
+        };
+        pc.addEventListener('icecandidate', handler);
+        timeoutId = window.setTimeout(finish, 750);
+      });
+
     pc.ontrack = (e) => {
       const [stream] = e.streams;
       if (!videoRef.current) return;
@@ -99,24 +119,19 @@ export function useWebRTCPlayer({
     try {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      await waitForFirstCandidate();
 
-      await new Promise<void>((resolve) => {
-        if (pc.iceGatheringState === 'complete') return resolve();
-        const handler = () => {
-          if (pc.iceGatheringState === 'complete') {
-            pc.removeEventListener('icegatheringstatechange', handler);
-            resolve();
-          }
-        };
-        pc.addEventListener('icegatheringstatechange', handler);
-      });
+      const localDesc = pc.localDescription;
+      if (!localDesc?.sdp) {
+        throw new Error('Missing local SDP');
+      }
 
       const res = await fetch(offerUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sdp: pc.localDescription?.sdp ?? '',
-          type: 'offer',
+          sdp: localDesc.sdp,
+          type: localDesc.type,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
