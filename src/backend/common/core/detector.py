@@ -4,13 +4,14 @@
 import asyncio
 from typing import Optional
 
-import cv2
 import numpy as np
 import torch
 from ultralytics import YOLO  # type: ignore[import-untyped]
 
 from common.config import config
 from common.utils.geometry import get_detections
+from common.utils.image import letterbox, scale_boxes
+from common.utils.math import non_maximum_supression, xywh_to_xyxy
 
 try:  # pragma: no cover - optional dependency import
     import onnxruntime as ort  # type: ignore[import-not-found,import-untyped]
@@ -184,7 +185,7 @@ class _OnnxRuntimeDetector(_DetectorEngine):
     def _prepare_input(
         self, frame_rgb: np.ndarray
     ) -> tuple[np.ndarray, float, tuple[float, float]]:
-        resized, ratio, dwdh = _letterbox(frame_rgb, self._imgsz)
+        resized, ratio, dwdh = letterbox(frame_rgb, self._imgsz)
         img = resized.astype(np.float32) / 255.0
         img = np.transpose(img, (2, 0, 1))
         img = np.expand_dims(img, axis=0)
@@ -197,6 +198,7 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         ratio: float,
         dwdh: tuple[float, float],
     ) -> list[Detection]:
+        """Convert raw model output into scaled, filtered, and NMS-processed detections in the format (x1, y1, x2, y2, class_id, score)."""
         preds = np.squeeze(output, axis=0)
         if preds.ndim == 1:
             preds = np.expand_dims(preds, 0)
@@ -217,8 +219,8 @@ class _OnnxRuntimeDetector(_DetectorEngine):
 
         preds = preds.reshape(-1, cols)
         xywh = preds[:, :4]
-        boxes = _xywh_to_xyxy(xywh)
-        boxes = _scale_boxes(boxes, ratio, dwdh, original_hw)
+        boxes = xywh_to_xyxy(xywh)
+        boxes = scale_boxes(boxes, ratio, dwdh, original_hw)
 
         if cols == expected_with_obj:
             obj = preds[:, 4:5]
@@ -242,7 +244,7 @@ class _OnnxRuntimeDetector(_DetectorEngine):
             cls_mask = class_ids == cls
             cls_boxes = boxes[cls_mask]
             cls_scores = confidences[cls_mask]
-            keep = _nms(cls_boxes, cls_scores, self._iou)
+            keep = non_maximum_supression(cls_boxes, cls_scores, self._iou)
             for idx in keep:
                 box = cls_boxes[idx]
                 score = cls_scores[idx]
@@ -276,88 +278,3 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         ]
         providers = [p for p in preferred if p in available]
         return providers or available
-
-
-def _letterbox(
-    image: np.ndarray,
-    new_size: int,
-    color: tuple[int, int, int] = (114, 114, 114),
-) -> tuple[np.ndarray, float, tuple[float, float]]:
-    """Resize image with unchanged aspect ratio using padding."""
-    shape = image.shape[:2]  # (h, w)
-    scale = min(new_size / shape[0], new_size / shape[1])
-    new_unpad = (int(round(shape[1] * scale)), int(round(shape[0] * scale)))
-    resized = cv2.resize(image, new_unpad, interpolation=cv2.INTER_LINEAR)
-
-    dw = new_size - new_unpad[0]
-    dh = new_size - new_unpad[1]
-    top = int(np.floor(dh / 2))
-    bottom = int(np.ceil(dh / 2))
-    left = int(np.floor(dw / 2))
-    right = int(np.ceil(dw / 2))
-
-    resized = cv2.copyMakeBorder(
-        resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color
-    )
-    return resized, scale, (dw / 2, dh / 2)
-
-
-def _xywh_to_xyxy(xywh: np.ndarray) -> np.ndarray:
-    xyxy = np.zeros_like(xywh)
-    xyxy[:, 0] = xywh[:, 0] - xywh[:, 2] / 2
-    xyxy[:, 1] = xywh[:, 1] - xywh[:, 3] / 2
-    xyxy[:, 2] = xywh[:, 0] + xywh[:, 2] / 2
-    xyxy[:, 3] = xywh[:, 1] + xywh[:, 3] / 2
-    return xyxy
-
-
-def _scale_boxes(
-    boxes: np.ndarray,
-    ratio: float,
-    dwdh: tuple[float, float],
-    original_hw: tuple[int, int],
-) -> np.ndarray:
-    boxes = boxes.copy()
-    boxes[:, [0, 2]] -= dwdh[0]
-    boxes[:, [1, 3]] -= dwdh[1]
-    boxes[:, :4] /= max(ratio, 1e-6)
-
-    h, w = original_hw
-    boxes[:, [0, 2]] = np.clip(boxes[:, [0, 2]], 0, max(w - 1, 0))
-    boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]], 0, max(h - 1, 0))
-    return boxes
-
-
-def _nms(boxes: np.ndarray, scores: np.ndarray, iou_thres: float) -> list[int]:
-    if boxes.size == 0:
-        return []
-    idxs = scores.argsort()[::-1]
-    keep: list[int] = []
-    while len(idxs) > 0:
-        i = idxs[0]
-        keep.append(i)
-        if len(idxs) == 1:
-            break
-        ious = _iou(boxes[i], boxes[idxs[1:]])
-        idxs = idxs[1:][ious <= iou_thres]
-    return keep
-
-
-def _iou(box: np.ndarray, boxes: np.ndarray) -> np.ndarray:
-    if boxes.size == 0:
-        return np.empty(0, dtype=np.float32)
-    inter_x1 = np.maximum(box[0], boxes[:, 0])
-    inter_y1 = np.maximum(box[1], boxes[:, 1])
-    inter_x2 = np.minimum(box[2], boxes[:, 2])
-    inter_y2 = np.minimum(box[3], boxes[:, 3])
-
-    inter_w = np.clip(inter_x2 - inter_x1, a_min=0.0, a_max=None)
-    inter_h = np.clip(inter_y2 - inter_y1, a_min=0.0, a_max=None)
-    inter_area = inter_w * inter_h
-
-    box_area = max((box[2] - box[0]) * (box[3] - box[1]), 0.0)
-    boxes_area = np.clip(boxes[:, 2] - boxes[:, 0], 0.0, None) * np.clip(
-        boxes[:, 3] - boxes[:, 1], 0.0, None
-    )
-    union = box_area + boxes_area - inter_area + 1e-6
-    return inter_area / union
