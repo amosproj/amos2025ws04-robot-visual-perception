@@ -154,4 +154,4 @@ sbom-check:
 
 export-onnx:
 	@echo "Exporting YOLO model to ONNX (default opset 18)..."
-	cd src/backend && uv run python ../scripts/export_onnx.py
+	cd src/backend && uv run python ../../scripts/export_onnx.py
