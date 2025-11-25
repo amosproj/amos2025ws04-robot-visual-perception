@@ -73,6 +73,14 @@ The analyzer service supports different modes for model management:
 - No network access required at runtime
 - Suitable for containerized deployments
 
+Example development usage:
+```bash
+cd src/backend && uv run python -m analyzer.cli \
+  --dev \
+  --yolo-model-path ./models/yolov8n.pt \
+  --midas-model-path ./models/midas_cache
+```
+
 Example production usage:
 ```bash
 cd src/backend && uv run python -m analyzer.cli \

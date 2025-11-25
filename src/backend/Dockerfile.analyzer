@@ -25,7 +25,7 @@ COPY models/ ./models/
 
 EXPOSE 8001
 
-# Note: In production, models should be pre-downloaded and provided via --yolo-model-path and --midas-model-path
-# For development mode with auto-download, use: python -m analyzer.cli --dev
-CMD ["python", "-m", "analyzer.cli", "--host", "0.0.0.0", "--port", "8001", "--yolo-model-path", "models/yolov8n.pt"]
+CMD ["python", "-m", "analyzer.cli", "--host", "0.0.0.0", "--port", "8001", "--yolo-model-path",
+"models/yolov8n.pt", "--midas-model-path", "models/midas", "--dev"]
+
 
