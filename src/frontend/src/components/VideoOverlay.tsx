@@ -52,6 +52,8 @@ interface VideoOverlayProps {
   onFrameProcessed?: (fps: number) => void;
   /** Optional: custom styling for the container */
   style?: React.CSSProperties;
+  /** Optional: custom class name */
+  className?: string;
   /** Enable test mode with simulated moving bounding box */
   testMode?: boolean;
 }
@@ -72,7 +74,7 @@ export interface VideoOverlayHandle {
  * - In production: call updateMetadata() with real backend data
  */
 const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
-  ({ videoRef, onFrameProcessed, style, testMode = false }, ref) => {
+  ({ videoRef, onFrameProcessed, style, className, testMode = false }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const metadataRef = useRef<MetadataFrame | null>(null);
     const animationFrameRef = useRef<number>();
@@ -254,13 +256,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
     return (
       <canvas
         ref={canvasRef}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          pointerEvents: 'none',
-          ...style,
-        }}
+        className={`absolute top-0 left-0 pointer-events-none ${className || ''}`}
+        style={style}
       />
     );
   }
