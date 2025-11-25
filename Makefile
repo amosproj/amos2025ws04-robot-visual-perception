@@ -136,7 +136,7 @@ docker-build-analyzer:
 
 docker-compose-up:
 	@echo "Note: Camera access requires Linux. On macOS/Windows, run things locally."
-	docker compose up
+	docker compose up --build
 
 docker-compose-down:
 	docker compose down
