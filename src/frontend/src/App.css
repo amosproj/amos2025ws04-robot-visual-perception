@@ -9,8 +9,8 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
-  background: #1a1a1a;
-  color: #e0e0e0;
+  background: #1a1a1a !important; /* Force dark background */
+  color: #e0e0e0 !important; /* Force light text */
   min-height: 100vh;
 }
 
@@ -94,19 +94,19 @@
 }
 
 .btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 140px;
+  padding: 10px 20px !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  min-width: 140px !important;
 }
 
 .btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
 }
 
 .btn-primary {
