@@ -94,6 +94,7 @@ def _get_detector() -> _Detector:
 
 class _DetectorEngine:
     def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
+        """Run inference on an RGB frame and return parsed detections."""
         raise NotImplementedError
 
 
@@ -107,6 +108,7 @@ class _TorchDetector(_DetectorEngine):
         self._conf = config.DETECTOR_CONF_THRESHOLD
 
     def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
+        """Run a single-frame inference with the torch-backed YOLO model."""
         inference_results = self._model.predict(
             frame_rgb,
             imgsz=self._imgsz,
@@ -118,6 +120,7 @@ class _TorchDetector(_DetectorEngine):
         return get_detections(inference_results)
 
     def _resolve_device(self, override: Optional[str]) -> str:
+        """Pick the torch device, favoring explicit override, then CUDA/MPS, else CPU."""
         if override:
             return override
         if torch.cuda.is_available():
@@ -127,6 +130,7 @@ class _TorchDetector(_DetectorEngine):
         return "cpu"
 
     def _resolve_half_precision(self, pref: Optional[str]) -> bool:
+        """Return whether to run the model in FP16."""
         if pref is None:
             pref = "auto"
         pref = pref.lower()
@@ -171,6 +175,7 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         self._num_classes = config.DETECTOR_NUM_CLASSES
 
     def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
+        """Run ONNX Runtime inference and return scaled, filtered detections."""
         input_tensor, ratio, dwdh = self._prepare_input(frame_rgb)
         ort_inputs = {self._input_name: input_tensor}
         outputs = self._session.run(self._output_names, ort_inputs)[0]
@@ -180,6 +185,7 @@ class _OnnxRuntimeDetector(_DetectorEngine):
     def _prepare_input(
         self, frame_rgb: np.ndarray
     ) -> tuple[np.ndarray, float, tuple[float, float]]:
+        """Resize, normalize, and batch the input frame for ONNX Runtime."""
         resized, ratio, dwdh = letterbox(frame_rgb, self._imgsz)
         img = resized.astype(np.float32) / 255.0
         img = np.transpose(img, (2, 0, 1))
@@ -258,6 +264,7 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         return detections[: self._max_det]
 
     def _resolve_providers(self) -> list[str]:
+        """Choose ONNX Runtime execution providers, preferring GPU-capable ones."""
         configured = config.ONNX_PROVIDERS
         if configured:
             return configured
