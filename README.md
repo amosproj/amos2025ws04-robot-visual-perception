@@ -32,7 +32,16 @@ For manual setup or other platforms, see the sections below.
 - WebRTC DataChannel sending metadata to the client
 - React + Vite frontend showing the remote stream and detection stats
 
-## Run backend (WebRTC)
+## Run with Docker Compose (Linux only)
+
+**Note:** Camera access in Docker only works on Linux.
+
+```bash
+make docker-compose-up
+```
+
+## Run locally (All platforms)
+
 Prereqs: Python 3.11
 
 1) Install dependencies
