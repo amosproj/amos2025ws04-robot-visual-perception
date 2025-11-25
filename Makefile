@@ -172,9 +172,9 @@ docker-clean: docker-stop
 # SBOM generation targets
 sbom:
 	@echo "Generating SBOM and dependency CSV..."
-	@uv venv && uv run python scripts/generate_sbom.py
+	@uv run python scripts/generate_sbom.py
 
 sbom-check:
 	@echo "Checking if SBOM is up-to-date..."
-	@uv venv && uv run python scripts/generate_sbom.py --check
+	@uv run python scripts/generate_sbom.py --check
 
