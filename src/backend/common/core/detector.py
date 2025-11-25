@@ -100,11 +100,6 @@ class _DetectorEngine:
 class _TorchDetector(_DetectorEngine):
     def __init__(self) -> None:
         model_path = config.MODEL_PATH
-        if not model_path.exists():
-            raise FileNotFoundError(
-                f"YOLO model not found at '{model_path}'. Set MODEL_PATH accordingly."
-            )
-
         self._model = YOLO(str(model_path))
         self._device = self._resolve_device(config.TORCH_DEVICE)
         self._half = self._resolve_half_precision(config.TORCH_HALF_PRECISION)
