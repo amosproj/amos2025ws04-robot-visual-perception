@@ -7,15 +7,50 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useWebRTCPlayer } from '../hooks/useWebRTCPlayer';
 import VideoOverlay, { VideoOverlayHandle } from './VideoOverlay';
-import { PlayerControls } from './PlayerControls';
 
-// Return Tailwind class for the status indicator dot
-const getStatusDotClass = (state: string) => {
-  if (state === 'connected') return 'bg-status-connected';
-  if (state === 'connecting') return 'bg-status-connecting';
-  if (state === 'error') return 'bg-status-error';
-  return 'bg-status-idle';
+// Shared colors used across the component
+const COLORS = {
+  dotConnected: '#0f0', // green
+  dotConnecting: '#ff0', // yellow
+  dotError: '#f00', // red
+  dotIdle: '#666', // gray
+  danger: '#dc2626', // red
+  dangerHover: '#b91c1c', // red
+  controlHover: 'rgba(255,255,255,0.2)', // white
 };
+
+// Return color for the status indicator dot
+const getStatusColor = (state: string) => {
+  if (state === 'connected') return COLORS.dotConnected;
+  if (state === 'connecting') return COLORS.dotConnecting;
+  if (state === 'error') return COLORS.dotError;
+  return COLORS.dotIdle;
+};
+
+const Play = ({ size = 24, fill = 'white' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={fill}>
+    <path d="M8 5v14l11-7z" />
+  </svg>
+);
+
+const Pause = ({ size = 24, fill = 'white' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={fill}>
+    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+  </svg>
+);
+
+const Maximize = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+  </svg>
+);
 
 export interface WebRTCStreamPlayerProps {
   signalingEndpoint?: string;
@@ -98,28 +133,76 @@ export default function WebRTCStreamPlayer({
     return 'Idle';
   })();
 
+  // Styles computed from shared colors
+  const statusDotStyle: React.CSSProperties = {
+    width: 8,
+    height: 8,
+    borderRadius: '50%',
+    backgroundColor: getStatusColor(connectionState),
+  };
+
   return (
-    <div className={`flex flex-col gap-4 ${className || ''}`} style={style}>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm opacity-80 flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${getStatusDotClass(connectionState)}`} />
+    <div
+      className={className}
+      style={{ display: 'flex', flexDirection: 'column', gap: 16, ...style }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 14,
+            opacity: 0.8,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <span style={statusDotStyle} />
           {statusText}
         </span>
         <button
           onClick={disconnect}
           disabled={connectionState === 'idle'}
-          className={`px-6 py-2.5 text-white rounded-md text-[15px] font-semibold transition-all duration-200 ${
-            connectionState === 'idle'
-              ? 'bg-brand-gray cursor-not-allowed opacity-50'
-              : 'bg-red-600 hover:bg-red-700 cursor-pointer'
-          }`}
+          style={{
+            padding: '10px 24px',
+            backgroundColor:
+              connectionState === 'idle' ? COLORS.dotIdle : COLORS.danger,
+            color: 'white',
+            border: 'none',
+            borderRadius: 6,
+            fontSize: 15,
+            fontWeight: 600,
+            cursor: connectionState === 'idle' ? 'not-allowed' : 'pointer',
+            opacity: connectionState === 'idle' ? 0.5 : 1,
+            transition: 'all 0.2s',
+          }}
+          onMouseOver={(e) => {
+            if (connectionState !== 'idle') {
+              e.currentTarget.style.backgroundColor = COLORS.dangerHover;
+            }
+          }}
+          onMouseOut={(e) => {
+            if (connectionState !== 'idle') {
+              e.currentTarget.style.backgroundColor = COLORS.danger;
+            }
+          }}
         >
           Disconnect
         </button>
       </div>
 
       <div
-        className="w-full max-w-full relative group rounded-lg overflow-hidden bg-black aspect-video"
+        style={{
+          width: '100%',
+          maxWidth: '100%',
+          position: 'relative',
+        }}
         onMouseEnter={() => setShowControls(true)}
         onMouseLeave={() => setShowControls(false)}
       >
@@ -128,7 +211,14 @@ export default function WebRTCStreamPlayer({
           autoPlay={autoPlay}
           playsInline
           muted={muted}
-          className="w-full h-full object-contain block"
+          style={{
+            width: '100%',
+            maxWidth: '100%',
+            aspectRatio: '16 / 9',
+            background: '#000',
+            borderRadius: 8,
+            display: 'block',
+          }}
         />
 
         {/* VideoOverlay - only render when video is ready and overlay is enabled */}
@@ -137,12 +227,79 @@ export default function WebRTCStreamPlayer({
         )}
 
         {/* Controls overlay */}
-        <PlayerControls
-          isPlaying={connectionState === 'connected' && !isPaused}
-          showControls={showControls}
-          onTogglePlay={togglePlayPause}
-          onFullscreen={enterFullscreen}
-        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: '12px',
+            background:
+              'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)',
+            opacity: showControls ? 1 : 0,
+            transition: 'opacity 0.3s',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderRadius: '0 0 8px 8px',
+          }}
+        >
+          {/* Left side - Play/Pause */}
+          <button
+            onClick={togglePlayPause}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'white',
+              cursor: 'pointer',
+              padding: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 4,
+              transition: 'background 0.2s',
+            }}
+            onMouseOver={(e) =>
+              (e.currentTarget.style.background = COLORS.controlHover)
+            }
+            onMouseOut={(e) =>
+              (e.currentTarget.style.background = 'transparent')
+            }
+          >
+            {connectionState !== 'connected' || isPaused ? (
+              <Play size={24} fill="white" />
+            ) : (
+              <Pause size={24} fill="white" />
+            )}
+          </button>
+
+          {/* Right side - Fullscreen */}
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <button
+              onClick={enterFullscreen}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'white',
+                cursor: 'pointer',
+                padding: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 4,
+                transition: 'background 0.2s',
+              }}
+              onMouseOver={(e) =>
+                (e.currentTarget.style.background = COLORS.controlHover)
+              }
+              onMouseOut={(e) =>
+                (e.currentTarget.style.background = 'transparent')
+              }
+            >
+              <Maximize size={20} />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
