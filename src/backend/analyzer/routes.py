@@ -10,7 +10,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from common.core.session import WebcamSession
 from common.config import config
-
+import cv2
+import matplotlib.pyplot as plt
 from common.core.detector import _get_detector
 from common.utils.geometry import _get_estimator_instance
 
@@ -101,7 +102,7 @@ class AnalyzerWebSocketManager:
         fps_counter = 0
         current_fps = 0.0
         consecutive_errors = 0
-        max_consecutive_errors = 10
+        max_consecutive_errors = 5
         
         try:
             while self.active_connections:
@@ -117,13 +118,26 @@ class AnalyzerWebSocketManager:
                             print("Too many consecutive timeouts, reconnecting...")
                             raise Exception("WebRTC connection appears unstable")
                         continue
-                    except Exception as recv_error:
-                        print(f"Error receiving frame: {recv_error}")
+                    except Exception:
+                        print("source_track broke / ended, attempting reconnect...")
                         consecutive_errors += 1
+
                         if consecutive_errors >= max_consecutive_errors:
-                            raise Exception("Too many frame receive errors")
+                            # full reconnect
+                            await self._webcam_session.close()
+                            await asyncio.sleep(1.0)
+                            try:
+                                print("Reconnecting webcam session...")
+                                new_track = await self._webcam_session.connect()
+                                source_track = new_track
+                                consecutive_errors = 0
+                                continue
+                            except Exception as conn_err:
+                                print("Reconnect failed:", conn_err)
+                                raise  # let the outer loop terminate
                         await asyncio.sleep(0.1)
                         continue
+
                     frame_array = frame.to_ndarray(format="bgr24")
                     
                     frame_id += 1

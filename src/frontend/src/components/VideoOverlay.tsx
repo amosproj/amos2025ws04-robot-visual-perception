@@ -100,59 +100,40 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       const video = videoRef.current;
       if (!canvas || !video) return;
 
-      const ctx = canvas.getContext('2d', {
-        alpha: true,
-        desynchronized: true, // reduce latency
-      });
+      const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
       if (!ctx) return;
 
-      // Update canvas size to match video EXACTLY
+      // Update canvas size and position to match video rendering
       const updateCanvasSize = () => {
-        // Wait for video to load its metadata
-        if (video.videoWidth === 0 || video.videoHeight === 0) {
-          return;
-        }
+        if (video.videoWidth === 0 || video.videoHeight === 0) return;
 
-        const rect = video.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
+        const videoRect = video.getBoundingClientRect();
 
-        // Set canvas size to match video display size
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        canvas.style.width = `${rect.width}px`;
-        canvas.style.height = `${rect.height}px`;
+        // Canvas pixel size matches rendered video size
+        canvas.width = videoRect.width * dpr;
+        canvas.height = videoRect.height * dpr;
+        canvas.style.width = `${videoRect.width}px`;
+        canvas.style.height = `${videoRect.height}px`;
 
-        // Position canvas exactly over video
+        // Canvas positioned absolutely over video
         canvas.style.position = 'absolute';
-        canvas.style.top = '0px';
-        canvas.style.left = '0px';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
 
-        ctx.scale(dpr, dpr);
-        
-        console.log(`Canvas resized: ${rect.width}x${rect.height}, video: ${video.videoWidth}x${video.videoHeight}`);
+        // Reset transformation to account for DPR
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       };
 
-      // Listen for video metadata loaded
-      const handleVideoLoad = () => {
-        console.log('Video loaded, updating canvas size');
-        updateCanvasSize();
-      };
-
-      video.addEventListener('loadedmetadata', handleVideoLoad);
-      video.addEventListener('resize', updateCanvasSize);
-      
-      updateCanvasSize();
-      const resizeObserver = new ResizeObserver(() => {
-        // Small delay to ensure video has updated
-        setTimeout(updateCanvasSize, 10);
-      });
+      // Update canvas on video load or resize
+      video.addEventListener('loadedmetadata', updateCanvasSize);
+      const resizeObserver = new ResizeObserver(updateCanvasSize);
       resizeObserver.observe(video);
+      updateCanvasSize();
 
-      // Rendering function with timestamp check
       const render = (currentTime: number) => {
         const metadata = metadataRef.current;
 
-        // Only render if we have new data
         if (!metadata || metadata.timestamp === lastRenderedTimestamp.current) {
           animationFrameRef.current = requestAnimationFrame(render);
           return;
@@ -160,104 +141,67 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
 
         lastRenderedTimestamp.current = metadata.timestamp;
 
-        const dpr = window.devicePixelRatio || 1;
-        const displayWidth = canvas.width / dpr;
-        const displayHeight = canvas.height / dpr;
+        const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
+        const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
 
         // Clear canvas
-        ctx.clearRect(0, 0, displayWidth, displayHeight);
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-        if (!metadata.detections.length) {
-          animationFrameRef.current = requestAnimationFrame(render);
-          return;
-        }
-
-        // Draw each bounding box with enhanced dark mode styling
         metadata.detections.forEach((detection, index) => {
           const { box, label, confidence, distance } = detection;
 
-          // Convert normalized coordinates to pixel coordinates
-          const x = box.x * displayWidth;
-          const y = box.y * displayHeight;
-          const width = box.width * displayWidth;
-          const height = box.height * displayHeight;
+          // Map normalized coordinates to canvas
+          const x = box.x * canvasWidth;
+          const y = box.y * canvasHeight;
+          const width = box.width * canvasWidth;
+          const height = box.height * canvasHeight;
 
-          // Color scheme for different objects
-          const colors = [
-            '#00d4ff', // cyan
-            '#00ff88', // green
-            '#ff6b9d', // pink
-            '#ffd93d', // yellow
-            '#ff8c42', // orange
-            '#a8e6cf', // mint
-            '#b4a5ff', // purple
-            '#ffb347'  // peach
-          ];
+          // Clamp to canvas bounds
+          const clampedX = Math.max(0, Math.min(x, canvasWidth - 1));
+          const clampedY = Math.max(0, Math.min(y, canvasHeight - 1));
+          const clampedWidth = Math.max(1, Math.min(width, canvasWidth - clampedX));
+          const clampedHeight = Math.max(1, Math.min(height, canvasHeight - clampedY));
+
+          // Color scheme
+          const colors = ['#00d4ff','#00ff88','#ff6b9d','#ffd93d','#ff8c42','#a8e6cf','#b4a5ff','#ffb347'];
           const color = colors[index % colors.length];
 
-          // Draw glowing bounding box
+          // Draw bounding box
           ctx.shadowColor = color;
           ctx.shadowBlur = 8;
           ctx.strokeStyle = color;
           ctx.lineWidth = 3;
-          
-          // Draw double border for better visibility
-          ctx.strokeRect(x, y, width, height);
-          ctx.strokeRect(x + 1, y + 1, width - 2, height - 2);
-          
-          // Reset shadow
+          ctx.strokeRect(clampedX, clampedY, clampedWidth, clampedHeight);
+          ctx.strokeRect(clampedX + 1, clampedY + 1, clampedWidth - 2, clampedHeight - 2);
           ctx.shadowBlur = 0;
 
-          // Prepare label text
-          const labelText = `${label} ${(confidence * 100).toFixed(0)}%`;
+          // Label + distance
+          const labelText = `${label} ${(confidence*100).toFixed(0)}%`;
           const distanceText = distance ? ` | ${distance.toFixed(2)}m` : '';
           const fullText = labelText + distanceText;
 
-          // Enhanced text styling
           ctx.font = 'bold 14px "SF Pro Display", -apple-system, sans-serif';
           const textMetrics = ctx.measureText(fullText);
-          const textHeight = 22;
-          const padding = 8;
-          
-          // Calculate label position (avoid going off-screen)
-          const labelY = y > textHeight + padding ? y - 4 : y + height + textHeight + 4;
+          const textHeight = 18;
+          const padding = 6;
+          const labelY = clampedY > textHeight + padding ? clampedY - 4 : clampedY + clampedHeight + textHeight + 4;
 
-          // Draw rounded background with gradient
-          const bgGradient = ctx.createLinearGradient(x, labelY - textHeight, x, labelY);
+          // Background
+          const bgGradient = ctx.createLinearGradient(clampedX, labelY - textHeight, clampedX, labelY);
           bgGradient.addColorStop(0, `${color}ee`);
           bgGradient.addColorStop(1, `${color}cc`);
-          
           ctx.fillStyle = bgGradient;
-          const bgWidth = textMetrics.width + padding * 2;
-          const bgHeight = textHeight + padding;
-          
-          // Rounded rectangle background (manual implementation for compatibility)
-          const radius = 6;
-          const rectX = x;
-          const rectY = labelY - bgHeight;
-          
-          ctx.beginPath();
-          ctx.moveTo(rectX + radius, rectY);
-          ctx.lineTo(rectX + bgWidth - radius, rectY);
-          ctx.quadraticCurveTo(rectX + bgWidth, rectY, rectX + bgWidth, rectY + radius);
-          ctx.lineTo(rectX + bgWidth, rectY + bgHeight - radius);
-          ctx.quadraticCurveTo(rectX + bgWidth, rectY + bgHeight, rectX + bgWidth - radius, rectY + bgHeight);
-          ctx.lineTo(rectX + radius, rectY + bgHeight);
-          ctx.quadraticCurveTo(rectX, rectY + bgHeight, rectX, rectY + bgHeight - radius);
-          ctx.lineTo(rectX, rectY + radius);
-          ctx.quadraticCurveTo(rectX, rectY, rectX + radius, rectY);
-          ctx.closePath();
-          ctx.fill();
+          ctx.fillRect(clampedX, labelY - textHeight - padding/2, textMetrics.width + padding*2, textHeight + padding);
 
-          // Draw text with outline for better readability
+          // Text
           ctx.fillStyle = '#000000';
           ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 3;
-          ctx.strokeText(fullText, x + padding, labelY - padding - 2);
-          ctx.fillText(fullText, x + padding, labelY - padding - 2);
+          ctx.strokeText(fullText, clampedX + padding, labelY - padding / 2);
+          ctx.fillText(fullText, clampedX + padding, labelY - padding / 2);
         });
 
-        // FPS Counter
+        // FPS
         const fpsCounter = fpsCounterRef.current;
         fpsCounter.frames++;
         if (currentTime - fpsCounter.lastTime >= 1000) {
@@ -273,12 +217,11 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       animationFrameRef.current = requestAnimationFrame(render);
 
       return () => {
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
         resizeObserver.disconnect();
       };
     }, [videoRef, onFrameProcessed]);
+
 
     return (
       <canvas
