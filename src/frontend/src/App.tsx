@@ -12,7 +12,7 @@ function App() {
     | undefined;
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-purple-from to-brand-purple-to text-white">
-      <div className="text-center p-8 w-full max-w-4xl">
+      <div className="text-center p-8 w-full max-w-7xl">
         <header>
           <h1 className="text-5xl mb-2 font-bold">OptiBot</h1>
           <p className="text-xl opacity-90 mb-8">
@@ -26,6 +26,8 @@ function App() {
             muted
             enableOverlay={true}
             overlayTestMode={true}
+            enableMetadataWidget={true}
+            metadataCompact={false}
             className="backdrop-blur-md bg-white/10 rounded-2xl p-8 border border-white/20 shadow-xl"
           />
         </main>

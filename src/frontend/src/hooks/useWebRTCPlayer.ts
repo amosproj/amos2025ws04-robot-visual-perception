@@ -37,6 +37,16 @@ export interface UseWebRTCPlayerOptions {
   autoPlay?: boolean;
 }
 
+// Network and video quality stats
+export interface WebRTCStats {
+  packetLoss?: number;
+  jitter?: number;
+  bitrate?: number;
+  framesDropped?: number;
+  framesReceived?: number;
+  framesDecoded?: number;
+}
+
 // Hook result
 export interface UseWebRTCPlayerResult {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -44,6 +54,7 @@ export interface UseWebRTCPlayerResult {
   errorReason: string;
   isPaused: boolean;
   latencyMs?: number;
+  stats?: WebRTCStats;
   connect: () => Promise<void>;
   disconnect: () => void;
   togglePlayPause: () => Promise<void>;
@@ -66,12 +77,14 @@ export function useWebRTCPlayer({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const statsPollRef = useRef<number | null>(null);
+  const prevBytesRef = useRef<{ bytes: number; timestamp: number } | null>(null);
 
   const [connectionState, setConnectionState] =
     useState<ConnectionState>('idle');
   const [errorReason, setErrorReason] = useState('');
   const [isPaused, setIsPaused] = useState(false);
   const [latencyMs, setLatencyMs] = useState<number | undefined>(undefined);
+  const [stats, setStats] = useState<WebRTCStats | undefined>(undefined);
 
   const connect = useCallback(async () => {
     if (pcRef.current) return;
@@ -84,6 +97,26 @@ export function useWebRTCPlayer({
     pcRef.current = pc;
 
     pc.addTransceiver('video', { direction: 'recvonly' });
+
+    const waitForFirstCandidate = () =>
+      new Promise<void>((resolve) => {
+        let resolved = false;
+        let timeoutId: number;
+        const finish = () => {
+          if (resolved) return;
+          resolved = true;
+          pc.removeEventListener('icecandidate', handler);
+          window.clearTimeout(timeoutId);
+          resolve();
+        };
+        const handler = (event: RTCPeerConnectionIceEvent) => {
+          if (event.candidate || pc.iceGatheringState === 'complete') {
+            finish();
+          }
+        };
+        pc.addEventListener('icecandidate', handler);
+        timeoutId = window.setTimeout(finish, 750);
+      });
 
     pc.ontrack = (e) => {
       const [stream] = e.streams;
@@ -99,24 +132,19 @@ export function useWebRTCPlayer({
     try {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      await waitForFirstCandidate();
 
-      await new Promise<void>((resolve) => {
-        if (pc.iceGatheringState === 'complete') return resolve();
-        const handler = () => {
-          if (pc.iceGatheringState === 'complete') {
-            pc.removeEventListener('icegatheringstatechange', handler);
-            resolve();
-          }
-        };
-        pc.addEventListener('icegatheringstatechange', handler);
-      });
+      const localDesc = pc.localDescription;
+      if (!localDesc?.sdp) {
+        throw new Error('Missing local SDP');
+      }
 
       const res = await fetch(offerUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sdp: pc.localDescription?.sdp ?? '',
-          type: 'offer',
+          sdp: localDesc.sdp,
+          type: localDesc.type,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -152,6 +180,8 @@ export function useWebRTCPlayer({
     setIsPaused(false);
     setConnectionState('idle');
     setLatencyMs(undefined);
+    setStats(undefined);
+    prevBytesRef.current = null;
     if (statsPollRef.current) {
       window.clearInterval(statsPollRef.current);
       statsPollRef.current = null;
@@ -222,9 +252,13 @@ export function useWebRTCPlayer({
       try {
         const pc = pcRef.current;
         if (!pc) return;
-        const stats = await pc.getStats();
+        const rtcStats = await pc.getStats();
+
         let rttSeconds: number | undefined;
-        stats.forEach((report) => {
+        const newStats: WebRTCStats = {};
+
+        rtcStats.forEach((report) => {
+          // Latency tracking (existing code)
           if (
             report.type === 'candidate-pair' &&
             (report as any).nominated &&
@@ -244,10 +278,51 @@ export function useWebRTCPlayer({
               rttSeconds = v;
             }
           }
+
+          // Network and video quality stats
+          if (report.type === 'inbound-rtp' && (report as any).mediaType === 'video') {
+            const r = report as any;
+
+            // Packet loss
+            const packetsLost = r.packetsLost || 0;
+            const packetsReceived = r.packetsReceived || 0;
+            const totalPackets = packetsLost + packetsReceived;
+            newStats.packetLoss = totalPackets > 0 ? (packetsLost / totalPackets) * 100 : 0;
+
+            // Jitter (convert seconds to milliseconds)
+            if (r.jitter != null) {
+              newStats.jitter = r.jitter * 1000;
+            }
+
+            // Frame stats
+            newStats.framesDropped = r.framesDropped;
+            newStats.framesReceived = r.framesReceived;
+            newStats.framesDecoded = r.framesDecoded;
+
+            // Bitrate calculation (from bytes received delta)
+            const bytesReceived = r.bytesReceived || 0;
+            const now = Date.now();
+
+            if (prevBytesRef.current) {
+              const bytesDelta = bytesReceived - prevBytesRef.current.bytes;
+              const timeDelta = (now - prevBytesRef.current.timestamp) / 1000; // seconds
+
+              if (timeDelta > 0) {
+                // Convert bytes/sec to Mbps
+                const bitsPerSecond = (bytesDelta * 8) / timeDelta;
+                newStats.bitrate = bitsPerSecond / (1024 * 1024);
+              }
+            }
+
+            prevBytesRef.current = { bytes: bytesReceived, timestamp: now };
+          }
         });
+
         if (rttSeconds != null) {
           setLatencyMs(Math.max(0, Math.round(rttSeconds * 1000)));
         }
+
+        setStats(newStats);
       } catch {}
     };
 
@@ -268,6 +343,7 @@ export function useWebRTCPlayer({
     errorReason,
     isPaused,
     latencyMs,
+    stats,
     connect,
     disconnect,
     togglePlayPause,

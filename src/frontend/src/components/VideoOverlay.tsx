@@ -50,6 +50,8 @@ interface VideoOverlayProps {
   videoRef: React.RefObject<HTMLVideoElement>;
   /** Callback when metadata frame is processed (for debugging/stats) */
   onFrameProcessed?: (fps: number) => void;
+  /** Callback when metadata is updated (for syncing with parent components) */
+  onMetadataUpdated?: (metadata: MetadataFrame) => void;
   /** Optional: custom styling for the container */
   style?: React.CSSProperties;
   /** Optional: custom class name */
@@ -74,7 +76,7 @@ export interface VideoOverlayHandle {
  * - In production: call updateMetadata() with real backend data
  */
 const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
-  ({ videoRef, onFrameProcessed, style, className, testMode = false }, ref) => {
+  ({ videoRef, onFrameProcessed, onMetadataUpdated, style, className, testMode = false }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const metadataRef = useRef<MetadataFrame | null>(null);
     const animationFrameRef = useRef<number>();
@@ -84,6 +86,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
     useImperativeHandle(ref, () => ({
       updateMetadata: (metadata: MetadataFrame) => {
         metadataRef.current = metadata;
+        onMetadataUpdated?.(metadata);
       },
       clear: () => {
         metadataRef.current = null;
@@ -109,6 +112,18 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         const width = 0.25 + Math.sin(time * 1.2) * 0.05; // slight size variation
         const height = 0.25 + Math.cos(time * 1.2) * 0.05;
 
+        // Calculate dynamic 3D position based on 2D position and distance
+        const distance = 1.5 + Math.sin(time * 0.3) * 0.5;
+        // Map normalized 2D coordinates to 3D space
+        // x: horizontal position (center of frame = 0)
+        // y: vertical position (center of frame = 0, inverted because y increases downward in screen coords)
+        // z: distance from camera
+        const pos3D = {
+          x: (x + width / 2 - 0.5) * distance * 2, // centered, scaled by distance
+          y: -(y + height / 2 - 0.5) * distance * 2, // inverted and centered
+          z: distance,
+        };
+
         const testMetadata: MetadataFrame = {
           timestamp: Date.now(),
           frameId: frameCount++,
@@ -118,17 +133,18 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
               label: 'Test Object',
               confidence: 0.95,
               box: { x, y, width, height },
-              distance: 1.5 + Math.sin(time * 0.3) * 0.5,
-              position: { x: 0, y: 0, z: 1.5 },
+              distance,
+              position: pos3D,
             },
           ],
         };
 
         metadataRef.current = testMetadata;
+        onMetadataUpdated?.(testMetadata);
       }, 16); // ~60 fps for test data generation
 
       return () => clearInterval(interval);
-    }, [testMode]);
+    }, [testMode, onMetadataUpdated]);
 
     // Main render loop using requestAnimationFrame
     useEffect(() => {
@@ -155,7 +171,9 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         canvas.style.width = `${rect.width}px`;
         canvas.style.height = `${rect.height}px`;
 
-        // Scale context to account for device pixel ratio
+        // Reset transform to identity matrix before applying new scale
+        // This prevents cumulative scaling that causes flickering
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.scale(dpr, dpr);
       };
 
