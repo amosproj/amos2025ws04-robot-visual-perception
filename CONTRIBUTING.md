@@ -220,3 +220,15 @@ make docker-compose-down   # Stop all services
 ```
 
 **Important:** Camera device access (`/dev/video0`) only works on Linux. Docker Desktop on macOS/Windows cannot access hardware devices. For non-Linux systems, run services locally instead.
+
+## Generating the Bill of Material (BOM)
+
+To generate the Bill of Material (BOM) for the current sprint, run:
+
+```bash
+make sbom
+```
+
+This will list the first level dependencies inside `sbom-dependencies.csv`.
+
+You can also look into the latest GitHub Action run which will have the current SBOM published as artifact.

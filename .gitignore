@@ -45,3 +45,6 @@ bin/
 .pytest_cache/
 venv/
 yolov8n.pt
+
+sbom.json
+sbom-dependencies.csv

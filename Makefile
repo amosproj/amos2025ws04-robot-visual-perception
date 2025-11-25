@@ -7,6 +7,7 @@
 	lint lint-frontend lint-backend lint-licensing type-check-backend \
 	format format-frontend format-backend \
 	test test-frontend test-backend \
+	sbom sbom-check \
 	run-backend-local run-frontend-local \
 	docker-build docker-build-frontend docker-build-backend \
 	docker-compose-up docker-compose-down
@@ -41,6 +42,10 @@ help:
 	@echo "      runs frontend tests with vitest"
 	@echo "  test-backend"
 	@echo "      runs backend tests with pytest"
+	@echo "  sbom"
+	@echo "      generates SBOM (sbom.json) and dependency CSV"
+	@echo "  sbom-check"
+	@echo "      checks if SBOM is up-to-date with dependencies"
 	@echo "  run-backend-local"
 	@echo "      runs backend locally with uvicorn"
 	@echo "  run-frontend-local"
@@ -135,4 +140,13 @@ docker-compose-up:
 
 docker-compose-down:
 	docker compose down
+
+# SBOM generation targets
+sbom:
+	@echo "Generating SBOM and dependency CSV..."
+	@uv run python scripts/generate_sbom.py
+
+sbom-check:
+	@echo "Checking if SBOM is up-to-date..."
+	@uv run python scripts/generate_sbom.py --check
 
