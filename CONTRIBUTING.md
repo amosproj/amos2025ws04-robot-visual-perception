@@ -217,3 +217,17 @@ make docker-run-backend    # Run backend container (also opens browser)
 make docker-stop           # Stop all running containers
 make docker-clean          # Stop containers and remove images
 ```
+
+
+## Generating the Bill of Material (BOM)
+
+To generate the Bill of Material (BOM) for the current sprint, run:
+
+```bash
+make sbom
+```
+
+This will list the first level dependencies inside `sbom-dependencies.csv`.
+
+You can also look into the latest GitHub Action run which will have the current SBOM published as artifact.
+
