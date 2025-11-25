@@ -60,6 +60,8 @@ help:
 	@echo "      starts all services with docker-compose (Linux only for camera access)"
 	@echo "  docker-compose-down"
 	@echo "      stops all docker-compose services"
+	@echo "  export-onnx"
+	@echo "      exports YOLO to ONNX (default opset 18; honors MODEL_PATH/ONNX_MODEL_PATH)"
 
 dev: install
 
@@ -150,3 +152,6 @@ sbom-check:
 	@echo "Checking if SBOM is up-to-date..."
 	@uv run python scripts/generate_sbom.py --check
 
+export-onnx:
+	@echo "Exporting YOLO model to ONNX (default opset 18)..."
+	cd src/backend && uv run python ../scripts/export_onnx.py

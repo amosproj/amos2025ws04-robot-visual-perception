@@ -67,6 +67,8 @@ Optional environment variables (more relevant later):
 - `TORCH_DEVICE` – force PyTorch to use `cuda:0`, `cpu`, etc. (defaults to best available)
 - `TORCH_HALF_PRECISION` – `auto` (default), `true`, or `false`
 - `ONNX_MODEL_PATH` – defaults to `models/yolov8n.onnx`
+- `ONNX_OPSET` – opset used during ONNX export (default: 18 via `make export-onnx`)
+- `ONNX_SIMPLIFY` – simplify the exported ONNX graph (`true`/`false`, default: true)
 - `ONNX_PROVIDERS` – comma separated list such as `CUDAExecutionProvider,CPUExecutionProvider`
 - `DETECTOR_IMAGE_SIZE`, `DETECTOR_CONF_THRESHOLD`, `DETECTOR_IOU_THRESHOLD`, `DETECTOR_MAX_DETECTIONS`, `DETECTOR_NUM_CLASSES`
 
@@ -94,9 +96,15 @@ Open the shown URL in your console.
 - Switch to ONNX Runtime (`DETECTOR_BACKEND=onnx`) for production-style inference. Export a model once via:
 
   ```bash
+  make export-onnx
+  ```
+
+  Or manually with uv (use opset 18+ to avoid `Resize` downgrade failures):
+
+  ```bash
   uv run python - <<'PY'
 from ultralytics import YOLO
-YOLO("models/yolov8n.pt").export(format="onnx", opset=13, imgsz=640, simplify=True)
+YOLO("models/yolov8n.pt").export(format="onnx", opset=18, imgsz=640, simplify=True)
 PY
 mv yolov8n.onnx models/yolov8n.onnx
   ```
