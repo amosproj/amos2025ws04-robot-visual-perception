@@ -39,7 +39,7 @@ export interface MetadataWidgetProps {
   /** Stream-related metadata (latency, connection, etc.) */
   streamMetadata: StreamMetadata;
   /** Detection metadata from AI backend */
-  detectionMetadata?: MetadataFrame;
+  detectionMetadata?: MetadataFrame | null;
   /** Optional: custom class name */
   className?: string;
   /** Optional: custom style */
@@ -85,31 +85,20 @@ export default function MetadataWidget({
     return 'text-status-idle';
   };
 
-  // Format timestamp
-  const formatTimestamp = (ts?: number) => {
-    if (!ts) return 'N/A';
-    return new Date(ts).toLocaleTimeString('de-DE', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      fractionalSecondDigits: 3,
-    });
-  };
 
   return (
     <div
-      className={`bg-gray-900 bg-opacity-90 text-white rounded-lg p-4 ${className}`}
+      className={`backdrop-blur-md bg-white/40 text-gray-900 rounded-xl p-6 border border-gray-200 shadow-xl ${className || ''}`}
       style={style}
     >
       {/* Stream Information Section */}
       <div className="mb-4">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-400 mb-2">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-600 mb-2">
           Video Stream
         </h3>
         <div className="space-y-1 text-sm">
           <div className="flex justify-between items-center">
-            <span className="text-gray-300">Status:</span>
+            <span className="text-gray-700">Status:</span>
             <span className={`font-semibold ${getStatusColor(connectionState)}`}>
               {connectionState.charAt(0).toUpperCase() + connectionState.slice(1)}
             </span>
@@ -118,12 +107,12 @@ export default function MetadataWidget({
           {connectionState === 'connected' && (
             <>
               <div className="flex justify-between items-center">
-                <span className="text-gray-300">Latency:</span>
+                <span className="text-gray-700">Latency:</span>
                 <span
                   className={`font-semibold ${
                     latencyMs !== undefined && latencyMs < 100
-                      ? 'text-green-400'
-                      : 'text-yellow-400'
+                      ? 'text-green-600'
+                      : 'text-yellow-600'
                   }`}
                 >
                   {latencyMs !== undefined ? `${latencyMs} ms` : 'N/A'}
@@ -132,8 +121,8 @@ export default function MetadataWidget({
 
               {videoResolution && (
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Resolution:</span>
-                  <span className="font-semibold text-blue-400">
+                  <span className="text-gray-700">Resolution:</span>
+                  <span className="font-semibold text-blue-600">
                     {videoResolution.width} × {videoResolution.height}
                   </span>
                 </div>
@@ -141,25 +130,25 @@ export default function MetadataWidget({
 
               {videoFps !== undefined && (
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Camera FPS:</span>
-                  <span className="font-semibold text-blue-400">{videoFps}</span>
+                  <span className="text-gray-700">Camera FPS:</span>
+                  <span className="font-semibold text-blue-600">{videoFps.toFixed(1)}</span>
                 </div>
               )}
 
               {renderFps !== undefined && (
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Render FPS:</span>
-                  <span className="font-semibold text-blue-400">{renderFps}</span>
+                  <span className="text-gray-700">Render FPS:</span>
+                  <span className="font-semibold text-blue-600">{renderFps}</span>
                 </div>
               )}
 
               {/* Network Quality Metrics */}
               {packetLoss !== undefined && (
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Packet Loss:</span>
+                  <span className="text-gray-700">Packet Loss:</span>
                   <span
                     className={`font-semibold ${
-                      packetLoss < 1 ? 'text-green-400' : packetLoss < 5 ? 'text-yellow-400' : 'text-red-400'
+                      packetLoss < 1 ? 'text-green-600' : packetLoss < 5 ? 'text-yellow-600' : 'text-red-600'
                     }`}
                   >
                     {packetLoss.toFixed(2)}%
@@ -169,8 +158,8 @@ export default function MetadataWidget({
 
               {jitter !== undefined && (
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Jitter:</span>
-                  <span className="font-semibold text-purple-400">
+                  <span className="text-gray-700">Jitter:</span>
+                  <span className="font-semibold text-purple-600">
                     {jitter.toFixed(1)} ms
                   </span>
                 </div>
@@ -178,8 +167,8 @@ export default function MetadataWidget({
 
               {bitrate !== undefined && (
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Bitrate:</span>
-                  <span className="font-semibold text-cyan-400">
+                  <span className="text-gray-700">Bitrate:</span>
+                  <span className="font-semibold text-cyan-600">
                     {bitrate.toFixed(2)} Mbps
                   </span>
                 </div>
@@ -188,10 +177,10 @@ export default function MetadataWidget({
               {/* Video Quality Metrics */}
               {framesDropped !== undefined && (
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Frames Dropped:</span>
+                  <span className="text-gray-700">Frames Dropped:</span>
                   <span
                     className={`font-semibold ${
-                      framesDropped === 0 ? 'text-green-400' : 'text-yellow-400'
+                      framesDropped === 0 ? 'text-green-600' : 'text-yellow-600'
                     }`}
                   >
                     {framesDropped}
@@ -201,8 +190,8 @@ export default function MetadataWidget({
 
               {framesReceived !== undefined && (
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Frames Received:</span>
-                  <span className="font-semibold text-gray-400">
+                  <span className="text-gray-700">Frames Received:</span>
+                  <span className="font-semibold text-gray-600">
                     {framesReceived}
                   </span>
                 </div>
@@ -210,8 +199,8 @@ export default function MetadataWidget({
 
               {framesDecoded !== undefined && (
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Frames Decoded:</span>
-                  <span className="font-semibold text-gray-400">
+                  <span className="text-gray-700">Frames Decoded:</span>
+                  <span className="font-semibold text-gray-600">
                     {framesDecoded}
                   </span>
                 </div>
@@ -223,7 +212,7 @@ export default function MetadataWidget({
 
       {/* Detection Information Section */}
       <div>
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-400 mb-2">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-600 mb-2">
           Object Detection
         </h3>
 
@@ -231,29 +220,11 @@ export default function MetadataWidget({
           <>
             <div className="space-y-1 text-sm mb-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-300">Objects detected:</span>
-                <span className="font-semibold text-green-400">
+                <span className="text-gray-700">Objects detected:</span>
+                <span className="font-semibold text-green-600">
                   {detections.length}
                 </span>
               </div>
-
-              {!compact && (
-                <>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-300">Frame ID:</span>
-                    <span className="font-mono text-xs text-blue-400">
-                      {detectionMetadata.frameId}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-300">Timestamp:</span>
-                    <span className="font-mono text-xs text-blue-400">
-                      {formatTimestamp(detectionMetadata.timestamp)}
-                    </span>
-                  </div>
-                </>
-              )}
             </div>
 
             {/* List of detected objects */}
@@ -270,7 +241,7 @@ export default function MetadataWidget({
             )}
           </>
         ) : (
-          <div className="text-sm text-gray-400 italic">
+          <div className="text-sm text-gray-600 italic">
             {connectionState === 'connected'
               ? 'Waiting for detection data...'
               : 'No data available'}
@@ -294,25 +265,25 @@ function DetectionItem({
   const { label, confidence, distance, position } = detection;
 
   return (
-    <div className="bg-gray-800 bg-opacity-60 rounded p-2 border-l-2 border-green-400">
+    <div className="bg-gray-100 rounded-lg p-3 border-l-4 border-green-600">
       <div className="flex justify-between items-start mb-1">
-        <span className="font-semibold text-green-300">{label}</span>
-        <span className="text-xs text-gray-400">
+        <span className="font-semibold text-gray-900">{label}</span>
+        <span className="text-xs text-gray-700 bg-gray-200 px-2 py-0.5 rounded font-medium">
           {(confidence * 100).toFixed(1)}%
         </span>
       </div>
 
       {distance !== undefined && (
-        <div className="text-sm text-gray-300">
-          <span className="text-gray-400">Distance:</span>{' '}
-          <span className="font-semibold text-yellow-300">
+        <div className="text-sm text-gray-800">
+          <span className="text-gray-600">Distance:</span>{' '}
+          <span className="font-semibold text-orange-600">
             {distance.toFixed(2)} m
           </span>
         </div>
       )}
 
       {!compact && position && (
-        <div className="text-xs text-gray-400 mt-1 font-mono">
+        <div className="text-xs text-gray-600 mt-1 font-mono">
           Position: ({position.x.toFixed(2)}, {position.y.toFixed(2)},{' '}
           {position.z.toFixed(2)})
         </div>

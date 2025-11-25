@@ -2,38 +2,288 @@
 #
 # SPDX-License-Identifier: MIT
 import asyncio
-import contextlib
-import os
-from typing import Dict, List
+import json
+from typing import Any
 
-from fastapi import APIRouter, HTTPException, Response
+from aiortc import MediaStreamTrack
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-from aiortc import (
-    RTCPeerConnection,
-    RTCSessionDescription,
-    RTCConfiguration,
-    RTCIceServer,
-    RTCDataChannel,
-)
-from aiortc.rtcrtpsender import RTCRtpSender
-
 from common.core.session import WebcamSession
 from common.config import config
-from analyzer.tracks import AnalyzedVideoTrack
+from common.core.detector import _get_detector
+from common.utils.geometry import _get_estimator_instance
+
+
+class MetadataMessage(BaseModel):
+    """Metadata message model."""
+
+    timestamp: float
+    frame_id: int
+    detections: list[dict]
+    fps: float | None = None
+    video_info: dict[str, Any] | None = None  # {"width": 640, "height": 480, "source_fps": 30}
+
+
+class AnalyzerWebSocketManager:
+    """Manages WebSocket connections and frame processing for the analyzer service."""
+
+    def __init__(self) -> None:
+        self.active_connections: set[WebSocket] = set()
+        self._webcam_session: WebcamSession | None = None
+        self._processing_task: asyncio.Task[None] | None = None
+
+    async def connect(self, websocket: WebSocket) -> None:
+        """Accept a new WebSocket connection."""
+        await websocket.accept()
+        self.active_connections.add(websocket)
+
+        # Start processing if this is the first client
+        if len(self.active_connections) == 1:
+            await self._start_processing()
+
+    async def disconnect(self, websocket: WebSocket) -> None:
+        """Handle WebSocket disconnection."""
+        self.active_connections.discard(websocket)
+
+        # Stop processing if no more clients
+        if not self.active_connections:
+            await self._stop_processing()
+
+    async def handle_message(self, websocket: WebSocket, message: str) -> None:
+        """Handle incoming WebSocket message."""
+        try:
+            data = json.loads(message)
+
+            if data.get("type") == "ping":
+                await websocket.send_text(json.dumps({"type": "pong"}))
+        except (json.JSONDecodeError, KeyError):
+            # Ignore malformed messages
+            pass
+
+    async def _start_processing(self) -> None:
+        """Start webcam connection and frame processing."""
+        if self._processing_task and not self._processing_task.done():
+            return  # Already running
+
+        try:
+            # Connect to webcam service
+            upstream_url = config.WEBCAM_OFFER_URL
+            self._webcam_session = WebcamSession(upstream_url)
+            source_track = await self._webcam_session.connect()
+
+            # Start processing task
+            self._processing_task = asyncio.create_task(
+                self._process_frames(source_track)
+            )
+
+        except Exception as e:
+            print(f"Error starting processing: {e}")
+            await self._stop_processing()
+
+    async def _stop_processing(self) -> None:
+        """Stop webcam connection and frame processing."""
+        if self._processing_task:
+            self._processing_task.cancel()
+            try:
+                await self._processing_task
+            except asyncio.CancelledError:
+                pass
+            self._processing_task = None
+
+        if self._webcam_session:
+            await self._webcam_session.close()
+            self._webcam_session = None
+
+    async def _process_frames(self, source_track: MediaStreamTrack) -> None:
+        """Process frames from webcam and send metadata to all WebSocket clients."""
+        detector = _get_detector()
+        estimator = _get_estimator_instance()
+
+        frame_id = 0
+        last_fps_time = asyncio.get_event_loop().time()
+        fps_counter = 0
+        current_fps = 0.0
+        consecutive_errors = 0
+        max_consecutive_errors = 5
+
+        # Video info (will be populated from first frame)
+        video_width: int | None = None
+        video_height: int | None = None
+        source_fps: float | None = None
+
+        try:
+            while self.active_connections:
+                try:
+                    # Get frame from webcam
+                    try:
+                        frame = await asyncio.wait_for(source_track.recv(), timeout=5.0)
+                        consecutive_errors = 0  # Reset error counter on success
+                    except asyncio.TimeoutError:
+                        print("Frame receive timeout, skipping...")
+                        consecutive_errors += 1
+                        if consecutive_errors >= max_consecutive_errors:
+                            print("Too many consecutive timeouts, reconnecting...")
+                            raise Exception("WebRTC connection appears unstable")
+                        continue
+                    except Exception:
+                        print("source_track broke / ended, attempting reconnect...")
+                        consecutive_errors += 1
+
+                        if consecutive_errors >= max_consecutive_errors:
+                            # full reconnect
+                            if self._webcam_session is not None:
+                                await self._webcam_session.close()
+                            await asyncio.sleep(1.0)
+                            try:
+                                print("Reconnecting webcam session...")
+                                if self._webcam_session is not None:
+                                    new_track = await self._webcam_session.connect()
+                                    source_track = new_track
+                                    consecutive_errors = 0
+                                    continue
+                            except Exception as conn_err:
+                                print("Reconnect failed:", conn_err)
+                                raise  # let the outer loop terminate
+                        await asyncio.sleep(0.1)
+                        continue
+
+                    # Convert frame to numpy array - frame should be VideoFrame from aiortc
+                    try:
+                        frame_array = frame.to_ndarray(format="bgr24")  # type: ignore[union-attr]
+                    except AttributeError:
+                        print(
+                            f"Received frame without to_ndarray method: {type(frame)}"
+                        )
+                        continue
+
+                    # Extract video info from first frame
+                    if video_width is None or video_height is None:
+                        height, width = frame_array.shape[:2]
+                        video_width = width
+                        video_height = height
+
+                    frame_id += 1
+                    fps_counter += 1
+
+                    # Calculate FPS every second
+                    current_time = asyncio.get_event_loop().time()
+                    if current_time - last_fps_time >= 1.0:
+                        current_fps = fps_counter / (current_time - last_fps_time)
+                        source_fps = current_fps  # Update source_fps with latest measurement
+                        fps_counter = 0
+                        last_fps_time = current_time
+
+                    # Run ML inference every 3rd frame and collect detections
+                    detections_data = []
+                    if frame_id % 3 == 0:
+                        # YOLO detection
+                        detections = await detector.infer(frame_array)
+
+                        if not detections:
+                            continue
+
+                        # Distance estimation
+                        distances = estimator.estimate_distance_m(
+                            frame_array, detections
+                        )
+
+                        # Format detection data
+                        for i, (x1, y1, x2, y2, cls_id, confidence) in enumerate(
+                            detections
+                        ):
+                            height, width = frame_array.shape[:2]
+                            detections_data.append(
+                                {
+                                    "box": {
+                                        "x": x1 / width,  # Normalized coordinates
+                                        "y": y1 / height,
+                                        "width": (x2 - x1) / width,
+                                        "height": (y2 - y1) / height,
+                                    },
+                                    "label": cls_id,
+                                    "confidence": float(confidence),
+                                    "distance": float(distances[i]),
+                                }
+                            )
+
+                    if not self.active_connections or not detections_data:
+                        continue
+
+                    # Create and send metadata message
+                    await self._send_metadata(
+                        current_time, frame_id, detections_data, current_fps,
+                        video_width, video_height, source_fps
+                    )
+
+                    # Small delay to prevent overwhelming
+                    await asyncio.sleep(0.033)  # ~30 FPS processing
+
+                except Exception as e:
+                    print(f"Frame processing error: {e}")
+                    await asyncio.sleep(0.1)
+
+        except asyncio.CancelledError:
+            print("Frame processing cancelled")
+        except Exception as e:
+            print(f"Processing task error: {e}")
+
+    async def _send_metadata(
+        self,
+        timestamp: float,
+        frame_id: int,
+        detections_data: list[dict[str, Any]],
+        current_fps: float,
+        video_width: int | None,
+        video_height: int | None,
+        source_fps: float | None,
+    ) -> None:
+        """Send metadata to all active WebSocket clients."""
+        # Build video_info dict if we have the data
+        video_info = None
+        if video_width is not None and video_height is not None:
+            video_info = {
+                "width": video_width,
+                "height": video_height,
+                "source_fps": source_fps if source_fps is not None else current_fps,
+            }
+
+        metadata = MetadataMessage(
+            timestamp=timestamp * 1000,  # milliseconds
+            frame_id=frame_id,
+            detections=detections_data,
+            fps=current_fps if frame_id % 30 == 0 else None,  # Send FPS every 30 frames
+            video_info=video_info if frame_id % 30 == 0 else None,  # Send video_info every 30 frames
+        )
+        message = json.dumps(metadata.model_dump())
+        dead_connections = set()
+
+        # Send to all active WebSocket clients
+        for websocket in self.active_connections.copy():
+            try:
+                await websocket.send_text(message)
+            except Exception:
+                dead_connections.add(websocket)
+
+        # Remove dead connections
+        self.active_connections -= dead_connections
+
+    async def shutdown(self) -> None:
+        """Cleanup on service shutdown."""
+        await self._stop_processing()
+
+        # Close all WebSocket connections
+        for websocket in self.active_connections.copy():
+            try:
+                await websocket.close()
+            except Exception:
+                pass
+        self.active_connections.clear()
+
+
+# Create a global instance of the WebSocket manager
+websocket_manager = AnalyzerWebSocketManager()
 
 router = APIRouter()
-
-# Global state for this service
-pcs: List[RTCPeerConnection] = []
-_data_channels: Dict[int, RTCDataChannel] = {}
-_sessions: Dict[int, WebcamSession] = {}
-
-
-class SDPModel(BaseModel):
-    """SDP offer/answer model."""
-
-    sdp: str
-    type: str
 
 
 @router.get("/health")
@@ -42,112 +292,29 @@ def health() -> dict[str, str]:
     return {"status": "ok", "service": "analyzer"}
 
 
-@router.options("/offer")
-@router.options("/offer/")
-def options_offer() -> Response:
-    """Handle CORS preflight."""
-    return Response(status_code=204)
-
-
-@router.post("/offer")
-@router.post("/offer/")
-async def offer(sdp: SDPModel) -> dict[str, str]:
+@router.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket) -> None:
     """
-    WebRTC signaling endpoint for analyzer service.
+    WebSocket endpoint for metadata streaming.
 
-    This endpoint:
-    1. Connects to upstream webcam service
-    2. Receives video stream
-    3. Processes with YOLO detection
-    4. Returns annotated stream to client
+    Connects to webcam service, processes frames with ML,
+    and sends metadata to clients like the frontend.
     """
-    if sdp.type != "offer":
-        raise HTTPException(400, "type must be 'offer'")
-
-    cfg = RTCConfiguration(iceServers=[RTCIceServer(urls=[config.STUN_SERVER])])
-    pc = RTCPeerConnection(configuration=cfg)
-    pcs.append(pc)
-
-    pc_id = id(pc)
-    _data_channels[pc_id] = pc.createDataChannel("meta")
-    ice_ready = asyncio.get_event_loop().create_future()
-
-    # Connect to upstream webcam service
-    upstream_url = os.getenv("WEBCAM_OFFER_URL", "http://localhost:8000/offer")
-    session = WebcamSession(upstream_url)
+    await websocket_manager.connect(websocket)
 
     try:
-        source_track = await session.connect()
-    except Exception as exc:
-        await session.close()
-        with contextlib.suppress(Exception):
-            await pc.close()
-        pcs.remove(pc)
-        _data_channels.pop(pc_id, None)
-        raise HTTPException(502, f"Webcam upstream error: {exc}") from exc
+        # Keep connection alive
+        while True:
+            # Wait for client messages (ping/pong or control)
+            message = await websocket.receive_text()
+            await websocket_manager.handle_message(websocket, message)
 
-    _sessions[pc_id] = session
-
-    # Wrap source track with analysis
-    processed = AnalyzedVideoTrack(source_track, pc_id)
-    pc.addTrack(processed)
-
-    # Prefer H.264 for better compatibility
-    try:
-        caps = RTCRtpSender.getCapabilities("video").codecs
-        h264 = [c for c in caps if getattr(c, "mimeType", "").lower() == "video/h264"]
-        if h264:
-            for t in pc.getTransceivers():
-                if t.kind == "video":
-                    t.setCodecPreferences(
-                        [c for c in h264 if getattr(c, "name", "") != "avc1.640029"]
-                    )
-    except Exception:
+    except WebSocketDisconnect:
         pass
-
-    if pc.iceGatheringState == "complete":
-        if not ice_ready.done():
-            ice_ready.set_result(True)
-
-    @pc.on("icegatheringstatechange")
-    def on_ice_gathering_state_change() -> None:
-        if pc.iceGatheringState == "complete" and not ice_ready.done():
-            ice_ready.set_result(True)
-
-    @pc.on("iceconnectionstatechange")
-    async def on_ice_state_change() -> None:
-        if pc.iceConnectionState in ("failed", "closed", "disconnected"):
-            await _cleanup_pc(pc)
-
-    offer_desc = RTCSessionDescription(sdp=sdp.sdp, type=sdp.type)
-    await pc.setRemoteDescription(offer_desc)
-    answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
-
-    with contextlib.suppress(asyncio.TimeoutError):
-        await asyncio.wait_for(ice_ready, timeout=config.ICE_GATHERING_TIMEOUT)
-
-    return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
+    finally:
+        await websocket_manager.disconnect(websocket)
 
 
 async def on_shutdown() -> None:
     """Cleanup on service shutdown."""
-    await asyncio.gather(*[_cleanup_pc(pc) for pc in list(pcs)], return_exceptions=True)
-
-
-async def _cleanup_pc(pc: RTCPeerConnection) -> None:
-    """Clean up a peer connection and associated resources."""
-    pc_id = id(pc)
-    if pc in pcs:
-        pcs.remove(pc)
-    with contextlib.suppress(Exception):
-        await pc.close()
-
-    channel = _data_channels.pop(pc_id, None)
-    if channel is not None:
-        with contextlib.suppress(Exception):
-            channel.close()
-
-    session = _sessions.pop(pc_id, None)
-    if session is not None:
-        await session.close()
+    await websocket_manager.shutdown()

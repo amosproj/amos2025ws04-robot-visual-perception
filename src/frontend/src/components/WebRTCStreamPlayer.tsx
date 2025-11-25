@@ -6,9 +6,10 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useWebRTCPlayer } from '../hooks/useWebRTCPlayer';
-import VideoOverlay, { VideoOverlayHandle, MetadataFrame } from './VideoOverlay';
+import { useAnalyzerWebSocket } from '../hooks/useAnalyzerWebSocket';
+import VideoOverlay, { VideoOverlayHandle } from './VideoOverlay';
 import { PlayerControls } from './PlayerControls';
-import MetadataWidget from './MetadataWidget';
+import MetadataWidget, { StreamMetadata } from './MetadataWidget';
 
 // Return Tailwind class for the status indicator dot
 const getStatusDotClass = (state: string) => {
@@ -20,14 +21,13 @@ const getStatusDotClass = (state: string) => {
 
 export interface WebRTCStreamPlayerProps {
   signalingEndpoint?: string;
+  analyzerEndpoint?: string;
   className?: string;
   style?: React.CSSProperties;
   muted?: boolean;
   autoPlay?: boolean;
   /** Enable VideoOverlay with bounding boxes */
   enableOverlay?: boolean;
-  /** Enable test mode for VideoOverlay (shows animated test box) */
-  overlayTestMode?: boolean;
   /** Enable metadata widget to display stream and detection info */
   enableMetadataWidget?: boolean;
   /** Compact mode for metadata widget (less details) */
@@ -35,31 +35,30 @@ export interface WebRTCStreamPlayerProps {
 }
 
 /**
- * A simple React component that shows a remote WebRTC video stream and
- * basic playback controls. It uses the `useWebRTCPlayer` hook to manage
- * the underlying RTCPeerConnection and expose control functions.
+ * A React component that shows a remote WebRTC video stream with
+ * bounding box overlays and metadata from the analyzer service.
  *
  * Props:
- * - `signalingEndpoint` : optional backend URL used for signaling (offer/answer)
+ * - `signalingEndpoint` : backend URL for WebRTC signaling (offer/answer)
+ * - `analyzerEndpoint`  : WebSocket URL for analyzer metadata
  * - `autoPlay`          : when true, attempts to start playback automatically
  * - `muted`             : start the video muted (useful to avoid autoplay blocks)
  * - `enableOverlay`     : enable drawing bounding-box overlays from metadata
- * - `overlayTestMode`   : when `enableOverlay` is true, show simulated boxes
- *
- * The component renders a small status indicator (Idle / Connecting / Error / Connected)
- * and a Disconnect button. It also exposes play/pause and fullscreen actions.
+ * - `enableMetadataWidget` : show comprehensive stats widget
+ * - `metadataCompact`   : use compact mode for metadata widget
  */
 export default function WebRTCStreamPlayer({
   signalingEndpoint,
+  analyzerEndpoint = 'ws://localhost:8001/ws',
   className,
   style,
   muted = true,
   autoPlay = false,
-  enableOverlay = false,
-  overlayTestMode = false,
-  enableMetadataWidget = false,
+  enableOverlay = true,
+  enableMetadataWidget = true,
   metadataCompact = false,
 }: WebRTCStreamPlayerProps) {
+  // WebRTC connection for video stream
   const {
     videoRef,
     connectionState,
@@ -68,9 +67,21 @@ export default function WebRTCStreamPlayer({
     latencyMs,
     stats,
     togglePlayPause,
-    disconnect,
+    disconnect: disconnectVideo,
     enterFullscreen,
   } = useWebRTCPlayer({ signalingEndpoint, autoPlay });
+
+  // WebSocket connection for analyzer metadata
+  const {
+    isConnected: analyzerConnected,
+    latestMetadata,
+    fps: analyzerFps,
+    videoInfo,
+    disconnect: disconnectAnalyzer,
+  } = useAnalyzerWebSocket({
+    endpoint: analyzerEndpoint,
+    autoConnect: true,
+  });
 
   const overlayRef = useRef<VideoOverlayHandle | null>(null);
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
@@ -78,25 +89,14 @@ export default function WebRTCStreamPlayer({
   const [videoReady, setVideoReady] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMetadata, setShowMetadata] = useState(true);
-  const [videoResolution, setVideoResolution] = useState<{
-    width: number;
-    height: number;
-  }>();
-  const [renderFps, setRenderFps] = useState<number>();
-  const [videoFps, setVideoFps] = useState<number>();
-  const [currentMetadata, setCurrentMetadata] = useState<MetadataFrame>();
+  const [renderFps, setRenderFps] = useState<number>(0);
 
-  // Monitor video ready state for overlay and capture video resolution
+  // Monitor video ready state for overlay
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     const handleLoadedMetadata = () => {
-      // Capture video resolution
-      setVideoResolution({
-        width: video.videoWidth,
-        height: video.videoHeight,
-      });
       // Wait a bit to ensure video is fully ready before enabling overlay
       setTimeout(() => setVideoReady(true), 200);
     };
@@ -106,82 +106,20 @@ export default function WebRTCStreamPlayer({
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       setVideoReady(false);
-      setVideoResolution(undefined);
     };
   }, [videoRef]);
 
-  // TODO: Handle data channel for metadata stream from backend
-  // When backend sends metadata via WebRTC data channel, do the following:
-  // 1. Update the overlay: overlayRef.current?.updateMetadata(metadata)
-  // 2. Update local state for widget: setCurrentMetadata(metadata)
-  // Example implementation:
-  // useEffect(() => {
-  //   const pc = pcRef.current; // Get from useWebRTCPlayer hook
-  //   if (!pc) return;
-  //   const dataChannel = pc.createDataChannel('metadata');
-  //   dataChannel.onmessage = (event) => {
-  //     const metadata: MetadataFrame = JSON.parse(event.data);
-  //     overlayRef.current?.updateMetadata(metadata);
-  //     setCurrentMetadata(metadata);
-  //   };
-  // }, [connectionState]);
+  // Update overlay when new metadata arrives from analyzer
+  useEffect(() => {
+    if (latestMetadata && overlayRef.current) {
+      overlayRef.current.updateMetadata(latestMetadata);
+    }
+  }, [latestMetadata]);
 
   // Callback for when overlay processes a frame (for FPS tracking)
   const handleFrameProcessed = (overlayFps: number) => {
     setRenderFps(overlayFps);
   };
-
-  // Callback for when overlay metadata is updated (sync to widget)
-  const handleMetadataUpdated = (metadata: MetadataFrame) => {
-    setCurrentMetadata(metadata);
-  };
-
-  // Track video FPS (camera framerate)
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || connectionState !== 'connected') return;
-
-    let lastFrameTime = 0;
-    let frameCount = 0;
-    let rafId: number;
-
-    const measureFps = (now: number) => {
-      if (lastFrameTime === 0) {
-        lastFrameTime = now;
-      }
-
-      frameCount++;
-      const elapsed = now - lastFrameTime;
-
-      if (elapsed >= 1000) {
-        // Update every second
-        const fps = Math.round((frameCount * 1000) / elapsed);
-        setVideoFps(fps);
-        frameCount = 0;
-        lastFrameTime = now;
-      }
-
-      // Use requestVideoFrameCallback if available, otherwise requestAnimationFrame
-      if ('requestVideoFrameCallback' in video) {
-        (video as any).requestVideoFrameCallback(measureFps);
-      } else {
-        rafId = requestAnimationFrame(measureFps);
-      }
-    };
-
-    // Start measuring
-    if ('requestVideoFrameCallback' in video) {
-      (video as any).requestVideoFrameCallback(measureFps);
-    } else {
-      rafId = requestAnimationFrame(measureFps);
-    }
-
-    return () => {
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-      }
-    };
-  }, [videoRef, connectionState]);
 
   // Monitor fullscreen state changes
   useEffect(() => {
@@ -196,17 +134,32 @@ export default function WebRTCStreamPlayer({
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener(
+      'webkitfullscreenchange',
+      handleFullscreenChange
+    );
     document.addEventListener('msfullscreenchange', handleFullscreenChange);
 
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('msfullscreenchange', handleFullscreenChange);
+      document.removeEventListener(
+        'webkitfullscreenchange',
+        handleFullscreenChange
+      );
+      document.removeEventListener(
+        'msfullscreenchange',
+        handleFullscreenChange
+      );
     };
   }, []);
 
-  // Compose a single status text for display (keeps JSX simple)
+  // Disconnect both video and analyzer on manual disconnect
+  const handleDisconnect = () => {
+    disconnectVideo();
+    disconnectAnalyzer();
+  };
+
+  // Compose a single status text for display
   const statusText = (() => {
     if (connectionState === 'connected') return 'Connected';
     if (connectionState === 'connecting') return 'Connecting…';
@@ -214,13 +167,49 @@ export default function WebRTCStreamPlayer({
     return 'Idle';
   })();
 
+  // Build comprehensive stream metadata for widget
+  const streamMetadata: StreamMetadata = {
+    connectionState,
+    latencyMs,
+    // Prefer backend video info, fallback to client stats
+    videoResolution: videoInfo
+      ? { width: videoInfo.width, height: videoInfo.height }
+      : stats?.videoResolution,
+    renderFps,
+    videoFps: videoInfo?.source_fps ?? stats?.videoFps,
+    // Client-side network quality
+    packetLoss: stats?.packetLoss,
+    jitter: stats?.jitter,
+    bitrate: stats?.bitrate,
+    // Client-side video quality
+    framesDropped: stats?.framesDropped,
+    framesReceived: stats?.framesReceived,
+    framesDecoded: stats?.framesDecoded,
+  };
+
   return (
     <div className={`flex flex-col gap-4 ${className || ''}`} style={style}>
+      {/* Status Bar */}
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm opacity-80 flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${getStatusDotClass(connectionState)}`} />
-          {statusText}
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="text-sm opacity-80 flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${getStatusDotClass(connectionState)}`}
+            />
+            Video: {statusText}
+          </span>
+          <span className="text-sm opacity-80 flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${analyzerConnected ? 'bg-status-connected' : 'bg-status-idle'}`}
+            />
+            Analyzer: {analyzerConnected ? 'Connected' : 'Disconnected'}
+          </span>
+          {latestMetadata && (
+            <span className="text-sm opacity-80">
+              Objects: {latestMetadata.detections.length}
+            </span>
+          )}
+        </div>
         <div className="flex gap-3">
           {enableMetadataWidget && (
             <button
@@ -235,7 +224,7 @@ export default function WebRTCStreamPlayer({
             </button>
           )}
           <button
-            onClick={disconnect}
+            onClick={handleDisconnect}
             disabled={connectionState === 'idle'}
             className={`px-6 py-2.5 text-white rounded-md text-[15px] font-semibold transition-all duration-200 ${
               connectionState === 'idle'
@@ -248,73 +237,60 @@ export default function WebRTCStreamPlayer({
         </div>
       </div>
 
-      <div className="flex gap-4">
+      {/* Video and Metadata Container */}
+      <div className="flex gap-4 items-start">
+        {/* Video Container - fixed width to prevent shifting */}
         <div
           ref={videoContainerRef}
-          className="flex-1 relative group rounded-lg overflow-hidden bg-black aspect-video"
+          className="relative group rounded-lg overflow-hidden bg-black aspect-video"
+          style={{ width: isFullscreen ? '100%' : 'calc(100% - 21rem)' }}
           onMouseEnter={() => setShowControls(true)}
           onMouseLeave={() => setShowControls(false)}
         >
-        <video
-          ref={videoRef}
-          autoPlay={autoPlay}
-          playsInline
-          muted={muted}
-          className="w-full h-full object-contain block"
-        />
-
-        {/* VideoOverlay - only render when video is ready and overlay is enabled */}
-        {enableOverlay && videoReady && (
-          <VideoOverlay
-            ref={overlayRef}
-            videoRef={videoRef}
-            testMode={overlayTestMode}
-            onFrameProcessed={handleFrameProcessed}
-            onMetadataUpdated={handleMetadataUpdated}
+          <video
+            ref={videoRef}
+            autoPlay={autoPlay}
+            playsInline
+            muted={muted}
+            className="w-full h-full object-contain block"
           />
-        )}
 
-        {/* Controls overlay */}
-        <PlayerControls
-          isPlaying={connectionState === 'connected' && !isPaused}
-          showControls={showControls}
-          onTogglePlay={togglePlayPause}
-          onFullscreen={enterFullscreen}
-        />
-
-        {/* Fullscreen Metadata Overlay - shown top-left in fullscreen mode */}
-        {enableMetadataWidget && showMetadata && isFullscreen && (
-          <div className="absolute top-4 left-4 z-50 max-h-[calc(100vh-2rem)] overflow-y-auto">
-            <MetadataWidget
-              streamMetadata={{
-                latencyMs,
-                connectionState,
-                videoResolution,
-                renderFps,
-                videoFps,
-                ...stats,
-              }}
-              detectionMetadata={currentMetadata}
-              compact={metadataCompact}
-              className="w-80"
+          {/* VideoOverlay - only render when video is ready and overlay is enabled */}
+          {enableOverlay && videoReady && (
+            <VideoOverlay
+              ref={overlayRef}
+              videoRef={videoRef}
+              onFrameProcessed={handleFrameProcessed}
             />
-          </div>
-        )}
+          )}
+
+          {/* Controls overlay */}
+          <PlayerControls
+            isPlaying={connectionState === 'connected' && !isPaused}
+            showControls={showControls}
+            onTogglePlay={togglePlayPause}
+            onFullscreen={enterFullscreen}
+          />
+
+          {/* Fullscreen Metadata Overlay - shown top-left in fullscreen mode */}
+          {enableMetadataWidget && showMetadata && isFullscreen && (
+            <div className="absolute top-4 left-4 z-50 max-h-[calc(100vh-2rem)] overflow-y-auto">
+              <MetadataWidget
+                streamMetadata={streamMetadata}
+                detectionMetadata={latestMetadata}
+                compact={metadataCompact}
+                className="w-80"
+              />
+            </div>
+          )}
         </div>
 
         {/* Metadata Widget - shown to the right of video in normal mode */}
         {enableMetadataWidget && showMetadata && !isFullscreen && (
           <div className="w-80 flex-shrink-0">
             <MetadataWidget
-              streamMetadata={{
-                latencyMs,
-                connectionState,
-                videoResolution,
-                renderFps,
-                videoFps,
-                ...stats,
-              }}
-              detectionMetadata={currentMetadata}
+              streamMetadata={streamMetadata}
+              detectionMetadata={latestMetadata}
               compact={metadataCompact}
             />
           </div>

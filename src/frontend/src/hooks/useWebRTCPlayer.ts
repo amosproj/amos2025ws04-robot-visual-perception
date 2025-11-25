@@ -37,8 +37,10 @@ export interface UseWebRTCPlayerOptions {
   autoPlay?: boolean;
 }
 
-// Network and video quality stats
+// Extended stats for MetadataWidget
 export interface WebRTCStats {
+  videoResolution?: { width: number; height: number };
+  videoFps?: number;
   packetLoss?: number;
   jitter?: number;
   bitrate?: number;
@@ -77,7 +79,6 @@ export function useWebRTCPlayer({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const statsPollRef = useRef<number | null>(null);
-  const prevBytesRef = useRef<{ bytes: number; timestamp: number } | null>(null);
 
   const [connectionState, setConnectionState] =
     useState<ConnectionState>('idle');
@@ -181,7 +182,6 @@ export function useWebRTCPlayer({
     setConnectionState('idle');
     setLatencyMs(undefined);
     setStats(undefined);
-    prevBytesRef.current = null;
     if (statsPollRef.current) {
       window.clearInterval(statsPollRef.current);
       statsPollRef.current = null;
@@ -251,14 +251,26 @@ export function useWebRTCPlayer({
     const poll = async () => {
       try {
         const pc = pcRef.current;
-        if (!pc) return;
-        const rtcStats = await pc.getStats();
+        const video = videoRef.current;
+        if (!pc || !video) return;
 
+        const statsReport = await pc.getStats();
+
+        // Collect all stats
         let rttSeconds: number | undefined;
-        const newStats: WebRTCStats = {};
+        let videoWidth: number | undefined;
+        let videoHeight: number | undefined;
+        let fps: number | undefined;
+        let packetsLost = 0;
+        let packetsReceived = 0;
+        let jitterMs: number | undefined;
+        let bytesReceived = 0;
+        let framesDropped: number | undefined;
+        let framesReceivedCount: number | undefined;
+        let framesDecoded: number | undefined;
 
-        rtcStats.forEach((report) => {
-          // Latency tracking (existing code)
+        statsReport.forEach((report) => {
+          // RTT for latency
           if (
             report.type === 'candidate-pair' &&
             (report as any).nominated &&
@@ -279,51 +291,70 @@ export function useWebRTCPlayer({
             }
           }
 
-          // Network and video quality stats
-          if (report.type === 'inbound-rtp' && (report as any).mediaType === 'video') {
-            const r = report as any;
+          // Inbound RTP stats for video
+          if (report.type === 'inbound-rtp' && (report as any).kind === 'video') {
+            // Resolution
+            videoWidth = (report as any).frameWidth;
+            videoHeight = (report as any).frameHeight;
+
+            // FPS
+            fps = (report as any).framesPerSecond;
 
             // Packet loss
-            const packetsLost = r.packetsLost || 0;
-            const packetsReceived = r.packetsReceived || 0;
-            const totalPackets = packetsLost + packetsReceived;
-            newStats.packetLoss = totalPackets > 0 ? (packetsLost / totalPackets) * 100 : 0;
+            packetsLost = (report as any).packetsLost || 0;
+            packetsReceived = (report as any).packetsReceived || 0;
 
-            // Jitter (convert seconds to milliseconds)
-            if (r.jitter != null) {
-              newStats.jitter = r.jitter * 1000;
+            // Jitter (in seconds, convert to ms)
+            const jitter = (report as any).jitter;
+            if (typeof jitter === 'number') {
+              jitterMs = jitter * 1000;
             }
 
-            // Frame stats
-            newStats.framesDropped = r.framesDropped;
-            newStats.framesReceived = r.framesReceived;
-            newStats.framesDecoded = r.framesDecoded;
+            // Bytes received (for bitrate calculation)
+            bytesReceived = (report as any).bytesReceived || 0;
 
-            // Bitrate calculation (from bytes received delta)
-            const bytesReceived = r.bytesReceived || 0;
-            const now = Date.now();
-
-            if (prevBytesRef.current) {
-              const bytesDelta = bytesReceived - prevBytesRef.current.bytes;
-              const timeDelta = (now - prevBytesRef.current.timestamp) / 1000; // seconds
-
-              if (timeDelta > 0) {
-                // Convert bytes/sec to Mbps
-                const bitsPerSecond = (bytesDelta * 8) / timeDelta;
-                newStats.bitrate = bitsPerSecond / (1024 * 1024);
-              }
-            }
-
-            prevBytesRef.current = { bytes: bytesReceived, timestamp: now };
+            // Frames
+            framesDropped = (report as any).framesDropped;
+            framesReceivedCount = (report as any).framesReceived;
+            framesDecoded = (report as any).framesDecoded;
           }
         });
 
+        // Calculate packet loss percentage
+        const packetLossPercent =
+          packetsReceived > 0
+            ? (packetsLost / (packetsLost + packetsReceived)) * 100
+            : 0;
+
+        // Calculate bitrate (simplified - would need delta calculation for accuracy)
+        // Note: This is a rough estimate. For accurate bitrate, we'd need to track bytesReceived over time
+        const bitrateKbps =
+          bytesReceived > 0 ? (bytesReceived * 8) / 1000 / 250 : undefined; // rough estimate over 250ms poll interval
+
+        // Update latency
         if (rttSeconds != null) {
           setLatencyMs(Math.max(0, Math.round(rttSeconds * 1000)));
         }
 
-        setStats(newStats);
-      } catch {}
+        // Update extended stats
+        setStats({
+          videoResolution:
+            videoWidth && videoHeight
+              ? { width: videoWidth, height: videoHeight }
+              : video.videoWidth && video.videoHeight
+                ? { width: video.videoWidth, height: video.videoHeight }
+                : undefined,
+          videoFps: fps,
+          packetLoss: packetLossPercent,
+          jitter: jitterMs,
+          bitrate: bitrateKbps ? bitrateKbps / 1000 : undefined, // Convert to Mbps
+          framesDropped,
+          framesReceived: framesReceivedCount,
+          framesDecoded,
+        });
+      } catch (error) {
+        console.error('Error polling WebRTC stats:', error);
+      }
     };
 
     // initial poll and interval

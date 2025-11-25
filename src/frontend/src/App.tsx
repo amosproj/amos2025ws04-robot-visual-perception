@@ -10,6 +10,7 @@ function App() {
   const envUrl = (import.meta as any)?.env?.VITE_BACKEND_URL as
     | string
     | undefined;
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-purple-from to-brand-purple-to text-white">
       <div className="text-center p-8 w-full max-w-7xl">
@@ -21,11 +22,11 @@ function App() {
         </header>
         <main>
           <WebRTCStreamPlayer
-            signalingEndpoint={envUrl}
+            signalingEndpoint={envUrl || 'http://localhost:8000'}
+            analyzerEndpoint="ws://localhost:8001/ws"
             autoPlay
             muted
             enableOverlay={true}
-            overlayTestMode={true}
             enableMetadataWidget={true}
             metadataCompact={false}
             className="backdrop-blur-md bg-white/10 rounded-2xl p-8 border border-white/20 shadow-xl"

@@ -50,14 +50,8 @@ interface VideoOverlayProps {
   videoRef: React.RefObject<HTMLVideoElement>;
   /** Callback when metadata frame is processed (for debugging/stats) */
   onFrameProcessed?: (fps: number) => void;
-  /** Callback when metadata is updated (for syncing with parent components) */
-  onMetadataUpdated?: (metadata: MetadataFrame) => void;
   /** Optional: custom styling for the container */
   style?: React.CSSProperties;
-  /** Optional: custom class name */
-  className?: string;
-  /** Enable test mode with simulated moving bounding box */
-  testMode?: boolean;
 }
 
 export interface VideoOverlayHandle {
@@ -76,77 +70,31 @@ export interface VideoOverlayHandle {
  * - In production: call updateMetadata() with real backend data
  */
 const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
-  ({ videoRef, onFrameProcessed, onMetadataUpdated, style, className, testMode = false }, ref) => {
+  ({ videoRef, onFrameProcessed, style }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const metadataRef = useRef<MetadataFrame | null>(null);
     const animationFrameRef = useRef<number>();
     const fpsCounterRef = useRef({ lastTime: 0, frames: 0, fps: 0 });
+    const lastRenderedTimestamp = useRef<number>(0);
 
     // Expose methods to parent component
     useImperativeHandle(ref, () => ({
       updateMetadata: (metadata: MetadataFrame) => {
         metadataRef.current = metadata;
-        onMetadataUpdated?.(metadata);
       },
       clear: () => {
         metadataRef.current = null;
+        lastRenderedTimestamp.current = 0;
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
         if (ctx && canvas) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          const dpr = window.devicePixelRatio || 1;
+          ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
         }
       },
     }));
 
-    // Generate simulated test data (moving bounding box)
-    useEffect(() => {
-      if (!testMode) return;
-
-      let frameCount = 0;
-      const interval = setInterval(() => {
-        const time = Date.now() / 1000;
-
-        // Create a moving test bounding box
-        const x = 0.3 + Math.sin(time * 0.5) * 0.2; // oscillate x position
-        const y = 0.3 + Math.cos(time * 0.7) * 0.2; // oscillate y position
-        const width = 0.25 + Math.sin(time * 1.2) * 0.05; // slight size variation
-        const height = 0.25 + Math.cos(time * 1.2) * 0.05;
-
-        // Calculate dynamic 3D position based on 2D position and distance
-        const distance = 1.5 + Math.sin(time * 0.3) * 0.5;
-        // Map normalized 2D coordinates to 3D space
-        // x: horizontal position (center of frame = 0)
-        // y: vertical position (center of frame = 0, inverted because y increases downward in screen coords)
-        // z: distance from camera
-        const pos3D = {
-          x: (x + width / 2 - 0.5) * distance * 2, // centered, scaled by distance
-          y: -(y + height / 2 - 0.5) * distance * 2, // inverted and centered
-          z: distance,
-        };
-
-        const testMetadata: MetadataFrame = {
-          timestamp: Date.now(),
-          frameId: frameCount++,
-          detections: [
-            {
-              id: 'test-object-1',
-              label: 'Test Object',
-              confidence: 0.95,
-              box: { x, y, width, height },
-              distance,
-              position: pos3D,
-            },
-          ],
-        };
-
-        metadataRef.current = testMetadata;
-        onMetadataUpdated?.(testMetadata);
-      }, 16); // ~60 fps for test data generation
-
-      return () => clearInterval(interval);
-    }, [testMode, onMetadataUpdated]);
-
-    // Main render loop using requestAnimationFrame
+    // Main render loop
     useEffect(() => {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -154,98 +102,153 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
 
       const ctx = canvas.getContext('2d', {
         alpha: true,
-        desynchronized: true, // reduce latency
+        desynchronized: true,
       });
       if (!ctx) return;
 
-      // Update canvas size to match video
+      // Make canvas exactly match video element position and size
       const updateCanvasSize = () => {
-        const rect = video.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
+        if (video.videoWidth === 0 || video.videoHeight === 0) return;
 
-        // Set internal resolution (accounting for device pixel ratio)
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
+        const videoRect = video.getBoundingClientRect();
+        const containerRect = video.parentElement?.getBoundingClientRect();
 
-        // Set display size
-        canvas.style.width = `${rect.width}px`;
-        canvas.style.height = `${rect.height}px`;
+        // Canvas = exact video element size
+        canvas.width = videoRect.width;
+        canvas.height = videoRect.height;
+        canvas.style.width = `${videoRect.width}px`;
+        canvas.style.height = `${videoRect.height}px`;
 
-        // Reset transform to identity matrix before applying new scale
-        // This prevents cumulative scaling that causes flickering
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(dpr, dpr);
+        // Position canvas exactly where the video is within its container
+        canvas.style.position = 'absolute';
+        if (containerRect) {
+          // Calculate video position relative to container
+          const offsetX = videoRect.left - containerRect.left;
+          const offsetY = videoRect.top - containerRect.top;
+          canvas.style.top = `${offsetY}px`;
+          canvas.style.left = `${offsetX}px`;
+        } else {
+          canvas.style.top = '0';
+          canvas.style.left = '0';
+        }
+        canvas.style.zIndex = '10';
       };
 
-      // Initial size and resize observer
-      updateCanvasSize();
+      // Update canvas on video load or resize
+      video.addEventListener('loadedmetadata', updateCanvasSize);
+
+      // Watch for any changes to video element or container
       const resizeObserver = new ResizeObserver(updateCanvasSize);
       resizeObserver.observe(video);
+      if (video.parentElement) {
+        resizeObserver.observe(video.parentElement);
+      }
 
-      // Rendering function
+      // Also listen for window resize (which can affect container layout)
+      window.addEventListener('resize', updateCanvasSize);
+
+      updateCanvasSize();
+
       const render = (currentTime: number) => {
-        if (!canvas || !video) return;
+        // Update canvas position regularly to handle dynamic layout changes
+        const videoRect = video.getBoundingClientRect();
+        const containerRect = video.parentElement?.getBoundingClientRect();
 
-        const dpr = window.devicePixelRatio || 1;
-        const displayWidth = canvas.width / dpr;
-        const displayHeight = canvas.height / dpr;
+        if (
+          containerRect &&
+          (canvas.style.width !== `${videoRect.width}px` ||
+            canvas.style.height !== `${videoRect.height}px`)
+        ) {
+          // Size or position changed, update immediately
+          updateCanvasSize();
+        }
+
+        const metadata = metadataRef.current;
+
+        // Canvas is same size as video element
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
 
         // Clear canvas
-        ctx.clearRect(0, 0, displayWidth, displayHeight);
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-        // Get current metadata
-        const metadata = metadataRef.current;
-        if (!metadata || !metadata.detections.length) {
+        // If no metadata, just continue to next frame
+        if (!metadata) {
           animationFrameRef.current = requestAnimationFrame(render);
           return;
         }
 
-        // Draw each bounding box
-        metadata.detections.forEach((detection) => {
+        // Render all detections
+        metadata.detections.forEach((detection, index) => {
           const { box, label, confidence, distance } = detection;
 
-          // Convert normalized coordinates to pixel coordinates
-          const x = box.x * displayWidth;
-          const y = box.y * displayHeight;
-          const width = box.width * displayWidth;
-          const height = box.height * displayHeight;
+          const bboxX = box.x * canvasWidth;
+          const bboxY = box.y * canvasHeight;
+          const bboxWidth = box.width * canvasWidth;
+          const bboxHeight = box.height * canvasHeight;
 
-          // Draw bounding box
-          ctx.strokeStyle = '#00ff00';
+          // Color scheme
+          const colors = [
+            '#00d4ff',
+            '#00ff88',
+            '#ff6b9d',
+            '#ffd93d',
+            '#ff8c42',
+            '#a8e6cf',
+            '#b4a5ff',
+            '#ffb347',
+          ];
+          const color = colors[index % colors.length];
+
+          // Draw bounding box using calculated coordinates
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 8;
+          ctx.strokeStyle = color;
           ctx.lineWidth = 3;
-          ctx.strokeRect(x, y, width, height);
+          ctx.strokeRect(bboxX, bboxY, bboxWidth, bboxHeight);
+          ctx.strokeRect(bboxX + 1, bboxY + 1, bboxWidth - 2, bboxHeight - 2);
+          ctx.shadowBlur = 0;
 
-          // Draw label background
+          // Label + distance
           const labelText = `${label} ${(confidence * 100).toFixed(0)}%`;
           const distanceText = distance ? ` | ${distance.toFixed(2)}m` : '';
           const fullText = labelText + distanceText;
 
-          ctx.font = 'bold 14px sans-serif';
+          ctx.font = 'bold 14px "SF Pro Display", -apple-system, sans-serif';
           const textMetrics = ctx.measureText(fullText);
-          const textHeight = 20;
-          const padding = 4;
+          const textHeight = 18;
+          const padding = 6;
+          const labelY =
+            bboxY > textHeight + padding
+              ? bboxY - 4
+              : bboxY + bboxHeight + textHeight + 4;
 
-          // Background for better readability
-          ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+          // Background
+          const bgGradient = ctx.createLinearGradient(
+            bboxX,
+            labelY - textHeight,
+            bboxX,
+            labelY
+          );
+          bgGradient.addColorStop(0, `${color}ee`);
+          bgGradient.addColorStop(1, `${color}cc`);
+          ctx.fillStyle = bgGradient;
           ctx.fillRect(
-            x,
-            y - textHeight - padding,
+            bboxX,
+            labelY - textHeight - padding / 2,
             textMetrics.width + padding * 2,
             textHeight + padding
           );
 
-          // Draw text
-          ctx.fillStyle = '#000000';
-          ctx.fillText(fullText, x + padding, y - padding - 2);
-
-          // Optional: Draw center point
-          ctx.fillStyle = '#00ff00';
-          ctx.beginPath();
-          ctx.arc(x + width / 2, y + height / 2, 4, 0, Math.PI * 2);
-          ctx.fill();
+          // Text with better contrast
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 4;
+          ctx.strokeText(fullText, bboxX + padding, labelY - padding / 2);
+          ctx.fillText(fullText, bboxX + padding, labelY - padding / 2);
         });
 
-        // FPS Counter
+        // FPS
         const fpsCounter = fpsCounterRef.current;
         fpsCounter.frames++;
         if (currentTime - fpsCounter.lastTime >= 1000) {
@@ -255,32 +258,35 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           onFrameProcessed?.(fpsCounter.fps);
         }
 
-        // Continue animation loop
         animationFrameRef.current = requestAnimationFrame(render);
       };
 
-      // Start render loop
       animationFrameRef.current = requestAnimationFrame(render);
 
-      // Cleanup
       return () => {
-        if (animationFrameRef.current) {
+        if (animationFrameRef.current)
           cancelAnimationFrame(animationFrameRef.current);
-        }
         resizeObserver.disconnect();
+        window.removeEventListener('resize', updateCanvasSize);
+        video.removeEventListener('loadedmetadata', updateCanvasSize);
       };
     }, [videoRef, onFrameProcessed]);
 
     return (
       <canvas
         ref={canvasRef}
-        className={`absolute top-0 left-0 pointer-events-none ${className || ''}`}
-        style={style}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          pointerEvents: 'none',
+          willChange: 'transform',
+          transform: 'translateZ(0)', // GPU acceleration
+          ...style,
+        }}
       />
     );
   }
 );
-
-VideoOverlay.displayName = 'VideoOverlay';
 
 export default VideoOverlay;
