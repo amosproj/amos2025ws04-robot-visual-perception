@@ -221,11 +221,13 @@ make docker-clean          # Stop containers and remove images
 
 ## Generating the Bill of Material (BOM)
 
-To generate the Bill of Material (BOM) for the current sprint and save it in an excel file, run:
+To generate the Bill of Material (BOM) for the current sprint, run:
 
 ```bash
-make sbom-update-excel
+make sbom
 ```
 
-This will create the `planning-document.xlsx` file in the corresponding `sprint-XX` folder (where XX is the current sprint number) along with a license file for the excel file.
+This will list the first level dependencies inside `sbom-dependencies.csv`.
+
+You can also look into the latest GitHub Action run which will have the current SBOM published as artifact.
 
