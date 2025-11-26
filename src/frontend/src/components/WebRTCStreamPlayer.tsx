@@ -6,8 +6,8 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useWebRTCPlayer } from '../hooks/useWebRTCPlayer';
-import VideoOverlay, { VideoOverlayHandle } from './VideoOverlay';
-import { PlayerControls } from './PlayerControls';
+import VideoOverlay, { VideoOverlayHandle } from './video/VideoOverlay';
+import { PlayerControls } from './video/PlayerControls';
 
 // Return Tailwind class for the status indicator dot
 const getStatusDotClass = (state: string) => {

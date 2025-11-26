@@ -6,7 +6,7 @@
 
 // hooks/useAnalyzerWebSocket.ts
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { MetadataFrame } from '../components/VideoOverlay';
+import type { MetadataFrame } from '../components/video/VideoOverlay';
 
 interface AnalyzerWebSocketOptions {
   endpoint?: string;
