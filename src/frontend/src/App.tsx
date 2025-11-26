@@ -7,15 +7,15 @@
 import { useRef, useEffect, useState } from 'react';
 import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
-import VideoOverlay, { VideoOverlayHandle } from './components/video/VideoOverlay';
+
 import './App.css';
 import Header from './components/Header';
 import ConnectionControls from './components/ConnectionControls';
 import DetectionInfo from './components/DetectionInfo';
-import { PlayerControls } from './components/video/PlayerControls';
+import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
 
 function App() {
-  const overlayRef = useRef<VideoOverlayHandle>(null);
+  const videoPlayerRef = useRef<VideoPlayerHandle>(null);
 
   const [overlayFps, setOverlayFps] = useState<number>(0);
 
@@ -24,8 +24,11 @@ function App() {
     videoRef,
     connectionState: videoState,
     latencyMs,
+    isPaused,
     connect: connectVideo,
     disconnect: disconnectVideo,
+    togglePlayPause,
+    enterFullscreen,
   } = useWebRTCPlayer({
     signalingEndpoint: 'http://localhost:8000', // Webcam service
     autoPlay: true,
@@ -45,8 +48,8 @@ function App() {
 
   // Update overlay when new metadata arrives
   useEffect(() => {
-    if (latestMetadata && overlayRef.current) {
-      overlayRef.current.updateMetadata(latestMetadata);
+    if (latestMetadata && videoPlayerRef.current) {
+      videoPlayerRef.current.updateOverlay(latestMetadata);
     }
   }, [latestMetadata]);
 
@@ -57,7 +60,7 @@ function App() {
   }, [connectVideo, connectAnalyzer]);
 
   const handleClearOverlay = () => {
-    overlayRef.current?.clear();
+    videoPlayerRef.current?.clearOverlay();
   };
 
   return (
@@ -79,24 +82,15 @@ function App() {
         onDisconnectAnalyzer={disconnectAnalyzer}
         onClearOverlay={handleClearOverlay}
       />
-      <div className="video-container">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="video-stream"
-        />
-
-        <VideoOverlay
-          ref={overlayRef}
-          videoRef={videoRef}
-          onFrameProcessed={setOverlayFps}
-        />
-        <PlayerControls 
-          isPlaying={videoState === 'connected'}
-        />
-      </div>
+      <VideoPlayer
+        ref={videoPlayerRef}
+        videoRef={videoRef}
+        videoState={videoState}
+        isPaused={isPaused}
+        onTogglePlay={togglePlayPause}
+        onFullscreen={enterFullscreen}
+        onOverlayFpsUpdate={setOverlayFps}
+      />
 
       {latestMetadata && latestMetadata.detections.length > 0 && (
         <DetectionInfo
