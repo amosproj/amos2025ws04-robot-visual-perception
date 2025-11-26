@@ -102,11 +102,12 @@ class AnalyzedVideoTrack(VideoStreamTrack):
 
         return numpy_to_video_frame(overlay, video_frame.pts, video_frame.time_base)
 
-    async def stop(self) -> None:  # type: ignore
-        """Stop the track and clean up resources."""
+    async def _stop_async(self) -> None:
+        """Async cleanup for stopping the track. Can be scheduled from a sync stop()."""
+        # Ensure background loop stops
         self._running = False
 
-        # Cancel the inference task if it exists
+        # Cancel the inference task if it exists and wait for its cancellation
         if self._inference_task is not None and not self._inference_task.done():
             self._inference_task.cancel()
             try:
@@ -115,11 +116,42 @@ class AnalyzedVideoTrack(VideoStreamTrack):
                 pass  # Task cancellation is expected
 
         # Clean up resources
+        self._inference_task = None
         self._latest_frame = None
         self._last_detections = None
         self._last_distances = None
 
-        # Call parent stop method - don't await since it returns None
+    def stop(self) -> None:  # type: ignore
+        """Synchronous stop called by aiortc; schedule async cleanup.
+
+        aiortc expects VideoStreamTrack.stop to be a regular (non-async) method.
+        Schedule the async cleanup on the running loop if available; otherwise
+        run a temporary loop to perform cleanup synchronously.
+        """
+        # Mark as not running immediately so background loop quickly exits
+        self._running = False
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None and loop.is_running():
+            # Schedule background cleanup without awaiting so stop remains sync
+            try:
+                asyncio.create_task(self._stop_async())
+            except Exception:
+                # Fallback: run synchronously if scheduling failed
+                loop.run_until_complete(self._stop_async())
+        else:
+            # No running loop available: create one to run cleanup synchronously
+            _loop = asyncio.new_event_loop()
+            try:
+                _loop.run_until_complete(self._stop_async())
+            finally:
+                _loop.close()
+
+        # Call parent stop method (synchronous)
         super().stop()
 
     def __del__(self) -> None:
