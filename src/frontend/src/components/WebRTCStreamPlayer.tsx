@@ -103,7 +103,9 @@ export default function WebRTCStreamPlayer({
     <div className={`flex flex-col gap-4 ${className || ''}`} style={style}>
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm opacity-80 flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${getStatusDotClass(connectionState)}`} />
+          <span
+            className={`w-2 h-2 rounded-full ${getStatusDotClass(connectionState)}`}
+          />
           {statusText}
         </span>
         <button
