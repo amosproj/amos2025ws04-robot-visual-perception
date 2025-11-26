@@ -67,6 +67,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
       <VideoOverlay
         ref={overlayRef}
         videoRef={videoRef}
+        isPaused={isPaused}
         onFrameProcessed={onOverlayFpsUpdate}
       />
       

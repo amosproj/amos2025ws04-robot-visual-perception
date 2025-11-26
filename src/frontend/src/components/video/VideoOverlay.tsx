@@ -48,6 +48,8 @@ export interface MetadataFrame {
 interface VideoOverlayProps {
   /** Reference to the video element being overlayed */
   videoRef: React.RefObject<HTMLVideoElement>;
+  /** Whether the video is currently paused */
+  isPaused?: boolean;
   /** Callback when metadata frame is processed (for debugging/stats) */
   onFrameProcessed?: (fps: number) => void;
   /** Optional: custom styling for the container */
@@ -70,7 +72,7 @@ export interface VideoOverlayHandle {
  * - In production: call updateMetadata() with real backend data
  */
 const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
-  ({ videoRef, onFrameProcessed, style }, ref) => {
+  ({ videoRef, isPaused, onFrameProcessed, style }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const metadataRef = useRef<MetadataFrame | null>(null);
     const animationFrameRef = useRef<number>();
@@ -163,18 +165,23 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           updateCanvasSize();
         }
 
+        // Canvas is same size as video element
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+
         const metadata = metadataRef.current;
 
-        if (!metadata || metadata.timestamp === lastRenderedTimestamp.current) {
+        // Don't render bounding boxes if video is paused or no metadata
+        if (!metadata || metadata.timestamp === lastRenderedTimestamp.current || isPaused) {
+          // If paused, clear the canvas but keep the animation loop running for when it resumes
+          if (isPaused) {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+          }
           animationFrameRef.current = requestAnimationFrame(render);
           return;
         }
 
         lastRenderedTimestamp.current = metadata.timestamp;
-
-        // Canvas is same size as video element
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
 
         // Clear canvas
         ctx.clearRect(0, 0, canvasWidth, canvasHeight);

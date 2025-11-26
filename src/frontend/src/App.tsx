@@ -46,12 +46,19 @@ function App() {
     autoConnect: false, // Manual control for proper disconnect
   });
 
-  // Update overlay when new metadata arrives
+  // Update overlay when new metadata arrives (but not when video is paused)
   useEffect(() => {
-    if (latestMetadata && videoPlayerRef.current) {
+    if (latestMetadata && videoPlayerRef.current && !isPaused) {
       videoPlayerRef.current.updateOverlay(latestMetadata);
     }
-  }, [latestMetadata]);
+  }, [latestMetadata, isPaused]);
+
+  // Clear overlay when video is paused
+  useEffect(() => {
+    if (isPaused && videoPlayerRef.current) {
+      videoPlayerRef.current.clearOverlay();
+    }
+  }, [isPaused]);
 
   // Auto-connect to services when component mounts
   useEffect(() => {
