@@ -1,0 +1,299 @@
+/*
+ * SPDX-FileCopyrightText: 2025 robot-visual-perception
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+
+/**
+ * Metadata for a single detected object with bounding box
+ */
+export interface BoundingBox {
+  /** Unique identifier for this detection */
+  id: string;
+  /** Object class/label (e.g., "person", "chair", "robot") */
+  label: string;
+  /** Confidence score (0-1) */
+  confidence: number;
+  /** Bounding box in normalized coordinates (0-1) */
+  box: {
+    x: number; // left edge (0 = left side of frame)
+    y: number; // top edge (0 = top of frame)
+    width: number; // box width (0-1)
+    height: number; // box height (0-1)
+  };
+  /** Optional: Distance from camera in meters */
+  distance?: number;
+  /** Optional: 3D position (x, y, z) in meters */
+  position?: {
+    x: number;
+    y: number;
+    z: number;
+  };
+}
+
+/**
+ * Metadata stream message containing detection results
+ */
+export interface MetadataFrame {
+  /** Timestamp in milliseconds */
+  timestamp: number;
+  /** Frame number */
+  frameId: number;
+  /** Array of detected objects with bounding boxes */
+  detections: BoundingBox[];
+}
+
+interface VideoOverlayProps {
+  /** Reference to the video element being overlayed */
+  videoRef: React.RefObject<HTMLVideoElement>;
+  /** Whether the video is currently paused */
+  isPaused?: boolean;
+  /** Callback when metadata frame is processed (for debugging/stats) */
+  onFrameProcessed?: (fps: number) => void;
+  /** Optional: custom styling for the container */
+  style?: React.CSSProperties;
+}
+
+export interface VideoOverlayHandle {
+  /** Send metadata to be rendered (will be called by backend data stream) */
+  updateMetadata: (metadata: MetadataFrame) => void;
+  /** Clear all bounding boxes */
+  clear: () => void;
+}
+
+/**
+ * Video overlay component that draws bounding boxes
+ * directly to a canvas element
+ *
+ * Usage:
+ * - In test mode: automatically generates a moving test bounding box
+ * - In production: call updateMetadata() with real backend data
+ */
+const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
+  ({ videoRef, isPaused, onFrameProcessed, style }, ref) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const metadataRef = useRef<MetadataFrame | null>(null);
+    const animationFrameRef = useRef<number>();
+    const fpsCounterRef = useRef({ lastTime: 0, frames: 0, fps: 0 });
+    const lastRenderedTimestamp = useRef<number>(0);
+
+    // Expose methods to parent component
+    useImperativeHandle(ref, () => ({
+      updateMetadata: (metadata: MetadataFrame) => {
+        metadataRef.current = metadata;
+      },
+      clear: () => {
+        metadataRef.current = null;
+        lastRenderedTimestamp.current = 0;
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (ctx && canvas) {
+          const dpr = window.devicePixelRatio || 1;
+          ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+        }
+      },
+    }));
+
+    // Main render loop
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      if (!canvas || !video) return;
+
+      const ctx = canvas.getContext('2d', {
+        alpha: true,
+        desynchronized: true,
+      });
+      if (!ctx) return;
+
+      // Make canvas exactly match video element position and size
+      const updateCanvasSize = () => {
+        if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+        const videoRect = video.getBoundingClientRect();
+        const containerRect = video.parentElement?.getBoundingClientRect();
+
+        // Canvas = exact video element size
+        canvas.width = videoRect.width;
+        canvas.height = videoRect.height;
+        canvas.style.width = `${videoRect.width}px`;
+        canvas.style.height = `${videoRect.height}px`;
+
+        // Position canvas exactly where the video is within its container
+        canvas.style.position = 'absolute';
+        if (containerRect) {
+          // Calculate video position relative to container
+          const offsetX = videoRect.left - containerRect.left;
+          const offsetY = videoRect.top - containerRect.top;
+          canvas.style.top = `${offsetY}px`;
+          canvas.style.left = `${offsetX}px`;
+        } else {
+          canvas.style.top = '0';
+          canvas.style.left = '0';
+        }
+        canvas.style.zIndex = '10';
+      };
+
+      // Update canvas on video load or resize
+      video.addEventListener('loadedmetadata', updateCanvasSize);
+
+      // Watch for any changes to video element or container
+      const resizeObserver = new ResizeObserver(updateCanvasSize);
+      resizeObserver.observe(video);
+      if (video.parentElement) {
+        resizeObserver.observe(video.parentElement);
+      }
+
+      // Also listen for window resize (which can affect container layout)
+      window.addEventListener('resize', updateCanvasSize);
+
+      updateCanvasSize();
+
+      const render = (currentTime: number) => {
+        // Update canvas position regularly to handle dynamic layout changes
+        const videoRect = video.getBoundingClientRect();
+        const containerRect = video.parentElement?.getBoundingClientRect();
+
+        if (
+          containerRect &&
+          (canvas.style.width !== `${videoRect.width}px` ||
+            canvas.style.height !== `${videoRect.height}px`)
+        ) {
+          // Size or position changed, update immediately
+          updateCanvasSize();
+        }
+
+        // Canvas is same size as video element
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+
+        const metadata = metadataRef.current;
+
+        // Don't render bounding boxes if video is paused or no metadata
+        if (!metadata || metadata.timestamp === lastRenderedTimestamp.current || isPaused) {
+          // If paused, clear the canvas but keep the animation loop running for when it resumes
+          if (isPaused) {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+          }
+          animationFrameRef.current = requestAnimationFrame(render);
+          return;
+        }
+
+        lastRenderedTimestamp.current = metadata.timestamp;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+        metadata.detections.forEach((detection, index) => {
+          const { box, label, confidence, distance } = detection;
+
+          const bboxX = box.x * canvasWidth;
+          const bboxY = box.y * canvasHeight;
+          const bboxWidth = box.width * canvasWidth;
+          const bboxHeight = box.height * canvasHeight;
+
+          // Color scheme
+          const colors = [
+            '#00d4ff',
+            '#00ff88',
+            '#ff6b9d',
+            '#ffd93d',
+            '#ff8c42',
+            '#a8e6cf',
+            '#b4a5ff',
+            '#ffb347',
+          ];
+          const color = colors[index % colors.length];
+
+          // Draw bounding box using calculated coordinates
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 8;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 3;
+          ctx.strokeRect(bboxX, bboxY, bboxWidth, bboxHeight);
+          ctx.strokeRect(bboxX + 1, bboxY + 1, bboxWidth - 2, bboxHeight - 2);
+          ctx.shadowBlur = 0;
+
+          // Label + distance
+          const labelText = `${label} ${(confidence * 100).toFixed(0)}%`;
+          const distanceText = distance ? ` | ${distance.toFixed(2)}m` : '';
+          const fullText = labelText + distanceText;
+
+          ctx.font = 'bold 14px "SF Pro Display", -apple-system, sans-serif';
+          const textMetrics = ctx.measureText(fullText);
+          const textHeight = 18;
+          const padding = 6;
+          const labelY =
+            bboxY > textHeight + padding
+              ? bboxY - 4
+              : bboxY + bboxHeight + textHeight + 4;
+
+          // Background
+          const bgGradient = ctx.createLinearGradient(
+            bboxX,
+            labelY - textHeight,
+            bboxX,
+            labelY
+          );
+          bgGradient.addColorStop(0, `${color}ee`);
+          bgGradient.addColorStop(1, `${color}cc`);
+          ctx.fillStyle = bgGradient;
+          ctx.fillRect(
+            bboxX,
+            labelY - textHeight - padding / 2,
+            textMetrics.width + padding * 2,
+            textHeight + padding
+          );
+
+          // Text
+          ctx.fillStyle = '#000000';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 3;
+          ctx.strokeText(fullText, bboxX + padding, labelY - padding / 2);
+          ctx.fillText(fullText, bboxX + padding, labelY - padding / 2);
+        });
+
+        // FPS
+        const fpsCounter = fpsCounterRef.current;
+        fpsCounter.frames++;
+        if (currentTime - fpsCounter.lastTime >= 1000) {
+          fpsCounter.fps = fpsCounter.frames;
+          fpsCounter.frames = 0;
+          fpsCounter.lastTime = currentTime;
+          onFrameProcessed?.(fpsCounter.fps);
+        }
+
+        animationFrameRef.current = requestAnimationFrame(render);
+      };
+
+      animationFrameRef.current = requestAnimationFrame(render);
+
+      return () => {
+        if (animationFrameRef.current)
+          cancelAnimationFrame(animationFrameRef.current);
+        resizeObserver.disconnect();
+        window.removeEventListener('resize', updateCanvasSize);
+        video.removeEventListener('loadedmetadata', updateCanvasSize);
+      };
+    }, [videoRef, onFrameProcessed]);
+
+    return (
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          pointerEvents: 'none',
+          willChange: 'transform',
+          transform: 'translateZ(0)', // GPU acceleration
+          ...style,
+        }}
+      />
+    );
+  }
+);
+
+export default VideoOverlay;
