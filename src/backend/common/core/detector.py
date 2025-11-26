@@ -203,7 +203,7 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         return self._postprocess(outputs, (h, w), ratio, dwdh)
 
     def _prepare_input(
-            self, frame_rgb: np.ndarray
+        self, frame_rgb: np.ndarray
     ) -> tuple[np.ndarray, float, tuple[float, float]]:
         """Resize, normalize, and batch the input frame for ONNX Runtime."""
         resized, ratio, dwdh = letterbox(frame_rgb, self._imgsz)
@@ -213,11 +213,11 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         return np.ascontiguousarray(img), ratio, dwdh
 
     def _postprocess(
-            self,
-            output: np.ndarray,
-            original_hw: tuple[int, int],
-            ratio: float,
-            dwdh: tuple[float, float],
+        self,
+        output: np.ndarray,
+        original_hw: tuple[int, int],
+        ratio: float,
+        dwdh: tuple[float, float],
     ) -> list[Detection]:
         """Convert raw model output into scaled, filtered, and NMS-processed detections in the format (x1, y1, x2, y2, class_id, score)."""
         preds = np.squeeze(output, axis=0)
@@ -300,4 +300,3 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         ]
         providers = [p for p in preferred if p in available]
         return providers or available
-
