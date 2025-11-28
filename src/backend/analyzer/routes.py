@@ -89,7 +89,7 @@ async def offer(sdp: SDPModel) -> dict[str, str]:
     _sessions[pc_id] = session
 
     # Wrap source track with analysis
-    processed = AnalyzedVideoTrack(source_track, pc_id)
+    processed = AnalyzedVideoTrack(source_track, pc_id, _data_channels[pc_id])
     pc.addTrack(processed)
 
     # Prefer H.264 for better compatibility
