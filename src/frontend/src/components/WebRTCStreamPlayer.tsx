@@ -4,10 +4,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useWebRTCPlayer } from '../hooks/useWebRTCPlayer';
 import VideoOverlay, { VideoOverlayHandle } from './VideoOverlay';
 import { PlayerControls } from './PlayerControls';
+import { MetadataFrame } from '../types/metadata';
 
 // Return Tailwind class for the status indicator dot
 const getStatusDotClass = (state: string) => {
@@ -53,6 +54,11 @@ export default function WebRTCStreamPlayer({
   enableOverlay = false,
   overlayTestMode = false,
 }: WebRTCStreamPlayerProps) {
+  const overlayRef = useRef<VideoOverlayHandle | null>(null);
+  const handleMetadata = useCallback((metadata: MetadataFrame) => {
+    overlayRef.current?.updateMetadata(metadata);
+  }, []);
+
   const {
     videoRef,
     connectionState,
@@ -62,9 +68,7 @@ export default function WebRTCStreamPlayer({
     togglePlayPause,
     disconnect,
     enterFullscreen,
-  } = useWebRTCPlayer({ signalingEndpoint, autoPlay });
-
-  const overlayRef = useRef<VideoOverlayHandle | null>(null);
+  } = useWebRTCPlayer({ signalingEndpoint, autoPlay, onMetadata: handleMetadata });
   const [showControls, setShowControls] = useState(true);
   const [videoReady, setVideoReady] = useState(false);
 
@@ -85,9 +89,6 @@ export default function WebRTCStreamPlayer({
       setVideoReady(false);
     };
   }, [videoRef]);
-
-  // TODO: Handle data channel for metadata stream from backend
-  // When backend sends metadata, call: overlayRef.current?.updateMetadata(metadata)
 
   // Compose a single status text for display (keeps JSX simple)
   const statusText = (() => {
