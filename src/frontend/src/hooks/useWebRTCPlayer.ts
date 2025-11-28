@@ -5,6 +5,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MetadataFrame } from '../types/metadata';
 
 // ConnectionState: short union for connection lifecycle
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
@@ -35,6 +36,7 @@ export function normalizeOfferUrl(raw?: string): string {
 export interface UseWebRTCPlayerOptions {
   signalingEndpoint?: string;
   autoPlay?: boolean;
+  onMetadata?: (frame: MetadataFrame) => void;
 }
 
 // Hook result
@@ -54,6 +56,7 @@ export interface UseWebRTCPlayerResult {
 export function useWebRTCPlayer({
   signalingEndpoint,
   autoPlay = false,
+  onMetadata,
 }: UseWebRTCPlayerOptions): UseWebRTCPlayerResult {
   const offerUrl = useMemo(() => {
     const envUrl = (import.meta as any)?.env?.VITE_BACKEND_URL as
@@ -116,6 +119,20 @@ export function useWebRTCPlayer({
       };
     };
 
+    pc.ondatachannel = (event) => {
+      const channel = event.channel;
+      if (channel.label !== 'meta') return;
+      channel.onmessage = (ev) => {
+        if (!onMetadata) return;
+        try {
+          const parsed = JSON.parse(ev.data);
+          onMetadata(parsed as MetadataFrame);
+        } catch (err) {
+          console.warn('Failed to parse metadata message', err);
+        }
+      };
+    };
+
     try {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -147,7 +164,7 @@ export function useWebRTCPlayer({
       } catch {}
       pcRef.current = null;
     }
-  }, [offerUrl, autoPlay]);
+  }, [offerUrl, autoPlay, onMetadata]);
 
   const disconnect = useCallback(() => {
     const pc = pcRef.current;
