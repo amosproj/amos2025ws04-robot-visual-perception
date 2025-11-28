@@ -63,12 +63,15 @@ def draw_detections(
     Returns:
         Frame with bounding boxes and annotated labels drawn on it.
     """
-    _, w = frame.shape[:2]
+    h, w = frame.shape[:2]
+    fx, fy, cx, cy = compute_camera_intrinsics(w, h)
 
     # Draw bounding boxes and labels for each detection
     for (x1, y1, x2, y2, cls_id, conf), dist_m in zip(detections, distances_m):
-        # Estimate distance and create label
-        label = f"{cls_id}:{conf:.2f} {dist_m:.1f}m"
+        px, py, pz = unproject_bbox_center_to_camera(
+            x1, y1, x2, y2, dist_m, fx, fy, cx, cy
+        )
+        label = f"{cls_id}:{conf:.2f} {dist_m:.1f}m X:{px:.2f} Y:{py:.2f} Z:{pz:.2f}"
         # Draw bounding box
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
