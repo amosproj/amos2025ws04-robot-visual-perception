@@ -26,6 +26,17 @@ class Config:
         "true",
         "yes",
     )
+    CAMERA_FOV_X_DEG: float = float(os.getenv("CAMERA_FOV_X_DEG", "78.0"))
+    CAMERA_FOV_Y_DEG: float = float(os.getenv("CAMERA_FOV_Y_DEG", "65.0"))
+    CAMERA_FX: float = float(os.getenv("CAMERA_FX", "0"))
+    CAMERA_FY: float = float(os.getenv("CAMERA_FY", "0"))
+    CAMERA_CX: float = float(os.getenv("CAMERA_CX", "0"))
+    CAMERA_CY: float = float(os.getenv("CAMERA_CY", "0"))
+    LOG_INTRINSICS: bool = os.getenv("LOG_INTRINSICS", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
     # WebRTC settings
     STUN_SERVER: str = os.getenv("STUN_SERVER", "stun:stun.l.google.com:19302")
