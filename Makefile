@@ -6,6 +6,7 @@
 	dev install install-frontend install-backend \
 	lint lint-frontend lint-backend lint-licensing type-check-backend \
 	format format-frontend format-backend \
+	format-check format-check-frontend format-check-backend \
 	test test-frontend test-backend \
 	sbom sbom-check \
 	run-backend-local run-frontend-local \
@@ -36,6 +37,12 @@ help:
 	@echo "      formats frontend code with prettier"
 	@echo "  format-backend"
 	@echo "      formats backend code with ruff"
+	@echo "  format-check"
+	@echo "      checks code formatting without modifying files (CI)"
+	@echo "  format-check-frontend"
+	@echo "      checks frontend formatting with prettier"
+	@echo "  format-check-backend"
+	@echo "      checks backend formatting with ruff"
 	@echo "  test"
 	@echo "      runs all tests (frontend and backend)"
 	@echo "  test-frontend"
@@ -98,6 +105,14 @@ format-frontend:
 
 format-backend:
 	cd src/backend && uv run ruff format .
+
+format-check: format-check-frontend format-check-backend
+
+format-check-frontend:
+	cd src/frontend && npx prettier --check .
+
+format-check-backend:
+	cd src/backend && uv run ruff format --check .
 
 test: test-frontend test-backend
 
