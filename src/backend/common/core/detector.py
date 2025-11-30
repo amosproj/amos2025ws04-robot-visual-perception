@@ -1,14 +1,18 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
+from __future__ import annotations
+
 import asyncio
+
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Callable
 
 import numpy as np
 import torch
 from ultralytics import YOLO  # type: ignore[import-untyped]
 
+from common.core.contracts import Detection, ObjectDetectionBackend, ObjectDetector
 from common.config import config
 from common.utils.geometry import get_detections
 from common.utils.image import letterbox, scale_boxes
@@ -18,45 +22,61 @@ try:  # pragma: no cover - optional dependency import
     import onnxruntime as ort  # type: ignore[import-not-found,import-untyped]
 except Exception:  # pragma: no cover - handled during backend selection
     ort = None
+BackendFactory = Callable[[Optional[Path]], ObjectDetectionBackend]
+_backend_registry: dict[str, BackendFactory] = {}
 
 
-Detection = tuple[int, int, int, int, int, float]
+def register_detector_backend(name: str, factory: BackendFactory) -> None:
+    """Register a detector backend factory by name."""
+    normalized = name.strip().lower()
+    if not normalized:
+        raise ValueError("Detector backend name cannot be empty")
+    _backend_registry[normalized] = factory
 
 
-class _Detector:
+def available_detector_backends() -> list[str]:
+    """Return the list of known detector backends."""
+    return sorted(_backend_registry)
+
+
+def _build_engine(model_path: Optional[Path], backend: Optional[str]) -> ObjectDetectionBackend:
+    backend_name = (backend or config.DETECTOR_BACKEND).lower()
+    try:
+        factory = _backend_registry[backend_name]
+    except KeyError:
+        known = ", ".join(available_detector_backends())
+        raise ValueError(
+            f"Unsupported DETECTOR_BACKEND '{backend_name}'. Known backends: {known or 'none'}."
+        ) from None
+    return factory(model_path)
+
+
+class _Detector(ObjectDetector):
     def __init__(
         self, model_path: Optional[Path] = None, backend: Optional[str] = None
     ) -> None:
-        """Initialize the YOLO object detector.
+        """Initialize the object detector for the chosen backend.
 
-        Loads the YOLO model using the chosen backend and optional model path.
-        If model_path is None, the configured path from `config` is used.
+        Selects a registered backend (torch/onnx by default) and sets up
+        internal state for asynchronous inference and caching.
 
         Args:
             model_path: Optional path to a model file to override config.
             backend: Optional backend name ('torch' or 'onnx'). If None, uses config.DETECTOR_BACKEND.
         """
-        backend_name = (backend or config.DETECTOR_BACKEND).lower()
 
-        # Create the appropriate engine, forwarding model_path override
-        self._engine: "_DetectorEngine"
-        if backend_name == "onnx":
-            self._engine = _OnnxRuntimeDetector(model_path=model_path)
-        elif backend_name == "torch":
-            self._engine = _TorchDetector(model_path=model_path)
-        else:
-            raise ValueError(
-                f"Unsupported DETECTOR_BACKEND '{backend_name}'. Use 'torch' or 'onnx'."
-            )
-
+        self._engine: ObjectDetectionBackend = _build_engine(model_path, backend)
         self._last_det: Optional[list[Detection]] = None
         self._last_time: float = 0.0
         self._lock = asyncio.Lock()
 
-    async def infer(self, frame_rgb: np.ndarray) -> list[Detection]:
-        """Run YOLO inference asynchronously on a single frame.
 
-        Performs object detection on the given RGB image using the loaded YOLO model.
+    async def infer(
+        self, frame_rgb: np.ndarray
+    ) -> list[Detection]:
+        """Run detection asynchronously on a single frame.
+
+        Performs object detection on the given RGB image using the loaded backend.
         Uses simple caching to avoid repeated inference calls within 100 ms.
 
         Args:
@@ -103,7 +123,13 @@ def _get_detector(model_path: Optional[Path] = None) -> _Detector:
     return _detector_instance
 
 
+# Public alias to encourage non-underscored access in new code
+get_detector = _get_detector
+
+
 class _DetectorEngine:
+    """Base class for synchronous detector backends."""
+
     def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
         """Run inference on an RGB frame and return parsed detections."""
         raise NotImplementedError
@@ -303,3 +329,8 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         ]
         providers = [p for p in preferred if p in available]
         return providers or available
+
+
+# Register built-in backends
+register_detector_backend("torch", _TorchDetector)
+register_detector_backend("onnx", _OnnxRuntimeDetector)
