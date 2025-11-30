@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 import asyncio
 import json
+import cv2
 from typing import Any
 
 from aiortc import MediaStreamTrack
@@ -30,6 +31,13 @@ class AnalyzerWebSocketManager:
         self.active_connections: set[WebSocket] = set()
         self._webcam_session: WebcamSession | None = None
         self._processing_task: asyncio.Task[None] | None = None
+
+        self.max_consecutive_errors = 5
+        # adaptive downscaling parameters
+        self.target_scale_init = 0.8
+        self.smooth_factor = 0.15
+        self.min_scale = 0.3
+        self.max_scale = 1.0
 
     async def connect(self, websocket: WebSocket) -> None:
         """Accept a new WebSocket connection."""
@@ -103,7 +111,8 @@ class AnalyzerWebSocketManager:
         fps_counter = 0
         current_fps = 0.0
         consecutive_errors = 0
-        max_consecutive_errors = 5
+
+        target_scale = self.target_scale_init
 
         try:
             while self.active_connections:
@@ -115,7 +124,7 @@ class AnalyzerWebSocketManager:
                     except asyncio.TimeoutError:
                         print("Frame receive timeout, skipping...")
                         consecutive_errors += 1
-                        if consecutive_errors >= max_consecutive_errors:
+                        if consecutive_errors >= self.max_consecutive_errors:
                             print("Too many consecutive timeouts, reconnecting...")
                             raise Exception("WebRTC connection appears unstable")
                         continue
@@ -123,7 +132,7 @@ class AnalyzerWebSocketManager:
                         print("source_track broke / ended, attempting reconnect...")
                         consecutive_errors += 1
 
-                        if consecutive_errors >= max_consecutive_errors:
+                        if consecutive_errors >= self.max_consecutive_errors:
                             # full reconnect
                             if self._webcam_session is not None:
                                 await self._webcam_session.close()
@@ -160,32 +169,53 @@ class AnalyzerWebSocketManager:
                         fps_counter = 0
                         last_fps_time = current_time
 
-                    # Run ML inference every 3rd frame and collect detections
+                        if current_fps < 10:
+                            target_scale -= self.smooth_factor
+                        elif current_fps < 18:
+                            target_scale -= self.smooth_factor * 0.5
+                        else:
+                            target_scale += self.smooth_factor * 0.8
+
+                        target_scale = max(self.min_scale, min(self.max_scale, target_scale))
+                        print(f"[Adaptive Res] Scale={target_scale:.2f} | FPS={current_fps:.1f}")
+                    
+                    # Resize frame for processing
+                    if target_scale < 0.98:
+                        new_w = int(frame_array.shape[1] * target_scale)
+                        new_h = int(frame_array.shape[0] * target_scale)
+                        frame_small = cv2.resize(frame_array, (new_w, new_h))
+                    else:
+                        frame_small = frame_array
+
+                    # Run ML inference on frame and collect detections
                     detections_data = []
-                    if frame_id % 3 == 0:
+                    if frame_id % 5 == 0:
                         # YOLO detection
-                        detections = await detector.infer(frame_array)
+                        detections = await detector.infer(frame_small)
 
                         if not detections:
                             continue
 
                         # Distance estimation
                         distances = estimator.estimate_distance_m(
-                            frame_array, detections
+                            frame_small, detections
                         )
-
+                        orig_h, orig_w = frame_array.shape[:2]
                         # Format detection data
                         for i, (x1, y1, x2, y2, cls_id, confidence) in enumerate(
                             detections
                         ):
-                            height, width = frame_array.shape[:2]
+                            x1 = int(x1 / target_scale)
+                            y1 = int(y1 / target_scale)
+                            x2 = int(x2 / target_scale)
+                            y2 = int(y2 / target_scale)
                             detections_data.append(
                                 {
                                     "box": {
-                                        "x": x1 / width,  # Normalized coordinates
-                                        "y": y1 / height,
-                                        "width": (x2 - x1) / width,
-                                        "height": (y2 - y1) / height,
+                                        "x": x1 / orig_w,  # Normalized coordinates
+                                        "y": y1 / orig_h,
+                                        "width": (x2 - x1) / orig_w,
+                                        "height": (y2 - y1) / orig_h,
                                     },
                                     "label": cls_id,
                                     "confidence": float(confidence),
