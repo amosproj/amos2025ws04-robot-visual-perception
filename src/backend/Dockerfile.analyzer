@@ -3,7 +3,11 @@
 # SPDX-License-Identifier: MIT
 FROM python:3.11-slim
 
+ARG ONNX_RUNTIME=onnx-cpu
+
 WORKDIR /app
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # Install system dependencies for opencv
 RUN apt-get update && apt-get install -y \
@@ -11,8 +15,9 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml uv.lock ./
+# core + inference + onnx runtime
+RUN uv sync --frozen --no-dev --extra inference --extra ${ONNX_RUNTIME}
 
 COPY common/ ./common/
 COPY analyzer/ ./analyzer/
@@ -20,5 +25,5 @@ COPY models/ ./models/
 
 EXPOSE 8001
 
-CMD ["uvicorn", "analyzer.main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uv", "run", "uvicorn", "analyzer.main:app", "--host", "0.0.0.0", "--port", "8001"]
 

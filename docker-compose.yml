@@ -24,6 +24,8 @@ services:
 
   analyzer:
     build:
+      args:
+        - ONNX_RUNTIME=onnx-cpu
       context: ./src/backend
       dockerfile: Dockerfile.analyzer
     image: robot-analyzer:latest
