@@ -51,8 +51,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
   }));
 
   return (
-    <div 
-      className="video-container"
+    <div
+      className="relative flex justify-center mb-8"
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
     >
@@ -61,7 +61,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
         autoPlay
         playsInline
         muted
-        className="video-stream"
+        className="block max-w-full w-[640px] h-auto rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] bg-black"
       />
 
       <VideoOverlay
@@ -70,8 +70,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
         isPaused={isPaused}
         onFrameProcessed={onOverlayFpsUpdate}
       />
-      
-      <PlayerControls 
+
+      <PlayerControls
         isPlaying={videoState === 'connected' && !isPaused}
         showControls={showControls}
         onTogglePlay={onTogglePlay}

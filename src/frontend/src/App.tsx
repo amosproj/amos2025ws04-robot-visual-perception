@@ -8,7 +8,6 @@ import { useRef, useEffect, useState } from 'react';
 import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 
-import './App.css';
 import Header from './components/Header';
 import ConnectionControls from './components/ConnectionControls';
 import DetectionInfo from './components/DetectionInfo';
@@ -71,7 +70,7 @@ function App() {
   };
 
   return (
-    <div className="app">
+    <div className="font-sans max-w-[1200px] mx-auto p-5 bg-[#1a1a1a] text-[#e0e0e0] min-h-screen">
       <Header
         videoState={videoState}
         latencyMs={latencyMs}
