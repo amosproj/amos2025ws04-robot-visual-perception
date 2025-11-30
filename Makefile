@@ -11,6 +11,7 @@
 	sbom sbom-check \
 	run-backend-local run-frontend-local \
 	docker-build docker-build-frontend docker-build-backend \
+	docker-build-analyzer docker-build-analyzer-cuda docker-build-analyzer-rocm \
 	docker-compose-up docker-compose-down
 
 help:
@@ -62,7 +63,13 @@ help:
 	@echo "  docker-build-frontend"
 	@echo "      builds frontend Docker image"
 	@echo "  docker-build-backend"
-	@echo "      builds backend Docker image"
+	@echo "      builds backend Docker images (webcam + analyzer with CPU runtime)"
+	@echo "  docker-build-analyzer"
+	@echo "      builds analyzer image with ONNX CPU runtime (default)"
+	@echo "  docker-build-analyzer-cuda"
+	@echo "      builds analyzer image with ONNX CUDA runtime (nvidia GPU)"
+	@echo "  docker-build-analyzer-rocm"
+	@echo "      builds analyzer image with ONNX ROCm runtime (amd GPU)"
 	@echo "  docker-compose-up"
 	@echo "      starts all services with docker-compose (Linux only for camera access)"
 	@echo "  docker-compose-down"
@@ -79,12 +86,10 @@ install-frontend:
 	cd src/frontend && npm install
 
 install-backend:
-# Auto-uses .python-version (3.11)
+	# Auto-uses .python-version (3.11)
 	cd src/backend && uv python install
-# Auto-uses .python-version (3.11)
-	cd src/backend && uv venv             
-	cd src/backend && uv pip install -r requirements.txt
-	cd src/backend && uv pip install -r requirements-dev.txt
+	# core + dev + inference + onnx-tools + onnx-cpu
+	cd src/backend && uv sync --extra dev --extra inference --extra onnx-tools --extra onnx-cpu
 
 lint: lint-frontend lint-backend lint-licensing
 
@@ -149,7 +154,13 @@ docker-build-webcam:
 	docker build -f src/backend/Dockerfile.webcam -t robot-webcam:latest src/backend
 
 docker-build-analyzer:
-	docker build -f src/backend/Dockerfile.analyzer -t robot-analyzer:latest src/backend
+	docker build -f src/backend/Dockerfile.analyzer --build-arg ONNX_RUNTIME=onnx-cpu -t robot-analyzer:latest src/backend
+
+docker-build-analyzer-cuda:
+	docker build -f src/backend/Dockerfile.analyzer --build-arg ONNX_RUNTIME=onnx-cuda -t robot-analyzer:cuda src/backend
+
+docker-build-analyzer-rocm:
+	docker build -f src/backend/Dockerfile.analyzer --build-arg ONNX_RUNTIME=onnx-rocm -t robot-analyzer:rocm src/backend
 
 docker-compose-up:
 	@echo "Note: Camera access requires Linux. On macOS/Windows, run things locally."

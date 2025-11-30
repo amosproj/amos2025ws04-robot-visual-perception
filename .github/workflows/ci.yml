@@ -209,7 +209,7 @@ jobs:
         run: sed -i '/devices:/,+1d' docker-compose.yml
       
       - name: Start services
-        run: docker compose up -d && sleep 15
+        run: docker compose up -d && sleep 30
       
       - name: Test health endpoints
         run: |
