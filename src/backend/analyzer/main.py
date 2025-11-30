@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from common import __version__
 from common.config import config
-from common.core.detector import _get_detector
+from common.core.detector import get_detector
 from common.core.depth import get_depth_estimator
 from analyzer.routes import router, on_shutdown
 
@@ -30,7 +30,7 @@ def create_lifespan(
     @asynccontextmanager
     async def lifespan_context(app: FastAPI) -> AsyncIterator[None]:
         # Warm up detector and depth estimator so initial /offer handling is instant.
-        _get_detector(yolo_model_path)
+        get_detector(yolo_model_path)
         get_depth_estimator(midas_cache_directory)
         yield
         with suppress(Exception):
