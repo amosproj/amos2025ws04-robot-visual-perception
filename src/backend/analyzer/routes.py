@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from common.core.session import WebcamSession
 from common.config import config
 from common.core.detector import _get_detector
-from common.utils.geometry import _get_estimator_instance
+from common.core.depth import get_depth_estimator
 
 
 class MetadataMessage(BaseModel):
@@ -96,7 +96,7 @@ class AnalyzerWebSocketManager:
     async def _process_frames(self, source_track: MediaStreamTrack) -> None:
         """Process frames from webcam and send metadata to all WebSocket clients."""
         detector = _get_detector()
-        estimator = _get_estimator_instance()
+        estimator = get_depth_estimator()
 
         frame_id = 0
         last_fps_time = asyncio.get_event_loop().time()
