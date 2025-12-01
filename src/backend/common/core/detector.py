@@ -48,9 +48,6 @@ class _Detector:
             raise ValueError(
                 f"Unsupported DETECTOR_BACKEND '{backend_name}'. Use 'torch' or 'onnx'."
             )
-            raise ValueError(
-                f"Unsupported DETECTOR_BACKEND '{backend_name}'. Use 'torch' or 'onnx'."
-            )
 
         self._last_det: Optional[list[Detection]] = None
         self._last_time: float = 0.0
@@ -78,9 +75,6 @@ class _Detector:
             if self._last_det is not None and (now - self._last_time) < 0.10:
                 return self._last_det
 
-            loop = asyncio.get_running_loop()
-            detections = await loop.run_in_executor(
-                None, self._engine.predict, frame_rgb
             loop = asyncio.get_running_loop()
             detections = await loop.run_in_executor(
                 None, self._engine.predict, frame_rgb
@@ -212,7 +206,7 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         return self._postprocess(outputs, (h, w), ratio, dwdh)
 
     def _prepare_input(
-            self, frame_rgb: np.ndarray
+        self, frame_rgb: np.ndarray
     ) -> tuple[np.ndarray, float, tuple[float, float]]:
         """Resize, normalize, and batch the input frame for ONNX Runtime."""
         resized, ratio, dwdh = letterbox(frame_rgb, self._imgsz)
@@ -222,11 +216,11 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         return np.ascontiguousarray(img), ratio, dwdh
 
     def _postprocess(
-            self,
-            output: np.ndarray,
-            original_hw: tuple[int, int],
-            ratio: float,
-            dwdh: tuple[float, float],
+        self,
+        output: np.ndarray,
+        original_hw: tuple[int, int],
+        ratio: float,
+        dwdh: tuple[float, float],
     ) -> list[Detection]:
         """Convert raw model output into scaled, filtered, and NMS-processed detections in the format (x1, y1, x2, y2, class_id, score)."""
         preds = np.squeeze(output, axis=0)
@@ -309,4 +303,3 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         ]
         providers = [p for p in preferred if p in available]
         return providers or available
-
