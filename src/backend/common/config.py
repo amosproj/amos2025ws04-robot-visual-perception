@@ -15,6 +15,7 @@ class Config:
     # Depth estimation settings
     REGION_SIZE = int(os.getenv("REGION_SIZE", "5"))
     SCALE_FACTOR = float(os.getenv("SCALE_FACTOR", "432.0"))
+    UPDATE_FREQ = int(os.getenv("UPDATE_FREQ", "2"))
 
     # WebRTC settings
     STUN_SERVER: str = os.getenv("STUN_SERVER", "stun:stun.l.google.com:19302")

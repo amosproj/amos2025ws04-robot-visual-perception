@@ -189,7 +189,8 @@ class AnalyzerWebSocketManager:
 
                     # Run ML inference on frame and collect detections
                     detections_data = []
-                    if frame_id % 5 == 0:
+                    run_detect = (frame_id % (2 if current_fps < 15 else 4) == 0)
+                    if run_detect:
                         # YOLO detection
                         detections = await detector.infer(frame_small)
 

@@ -52,7 +52,10 @@ class DistanceEstimator:
             config.REGION_SIZE
         )  # size of region around bbox center to sample depth
         self.scale_factor = config.SCALE_FACTOR  # empirical calibration factor
+        self.update_freq = config.UPDATE_FREQ  # frames between depth updates
 
+        self.update_id = 0
+        self.last_depths: list[float] = []
         self.model_type = model_type
         self.midas_model = midas_model
         self.device = (
@@ -74,6 +77,9 @@ class DistanceEstimator:
         """Estimate distance in meters for each detection based on depth map.
 
         Returns list of distances in meters."""
+        self.update_id += 1
+        if self.update_id % self.update_freq == 0 and len(self.last_depths) == len(dets):
+            return self.last_depths
         h, w, _ = frame_rgb.shape
 
         input_batch = self.transform(frame_rgb).to(self.device)
@@ -103,6 +109,7 @@ class DistanceEstimator:
             depth_value = max(np.mean(region), 1e-6)  # avoid div by zero
 
             distances.append(float(self.scale_factor / depth_value))
+        self.last_depths = distances
         return distances
 
 
