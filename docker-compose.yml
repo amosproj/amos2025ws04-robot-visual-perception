@@ -17,8 +17,8 @@ services:
       - CAMERA_INDEX=0
       - STUN_SERVER=stun:stun.l.google.com:19302
       - CORS_ORIGINS=*
-    devices:
-      - /dev/video0:/dev/video0  # Only works on Linux
+    # devices:
+    #   - /dev/video0:/dev/video0  # Only works on Linux
     networks:
       - robot-net
 
