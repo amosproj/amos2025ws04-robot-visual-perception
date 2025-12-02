@@ -10,13 +10,15 @@ import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 
 import Header from './components/Header';
 import ConnectionControls from './components/ConnectionControls';
-import DetectionInfo from './components/DetectionInfo';
 import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
+import MetadataWidget from './components/MetadataWidget';
 
 function App() {
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
 
   const [overlayFps, setOverlayFps] = useState<number>(0);
+  const [isMetadataWidgetOpen, setIsMetadataWidgetOpen] = useState(true);
 
   // WebRTC connection to webcam service (for raw video)
   const {
@@ -24,6 +26,7 @@ function App() {
     connectionState: videoState,
     latencyMs,
     isPaused,
+    stats,
     connect: connectVideo,
     disconnect: disconnectVideo,
     togglePlayPause,
@@ -31,6 +34,7 @@ function App() {
   } = useWebRTCPlayer({
     signalingEndpoint: 'http://localhost:8000', // Webcam service
     autoPlay: true,
+    containerRef: videoContainerRef,
   });
 
   // WebSocket connection to analyzer service (for metadata)
@@ -91,6 +95,7 @@ function App() {
       <VideoPlayer
         ref={videoPlayerRef}
         videoRef={videoRef}
+        containerRef={videoContainerRef}
         videoState={videoState}
         isPaused={isPaused}
         onTogglePlay={togglePlayPause}
@@ -98,9 +103,13 @@ function App() {
         onOverlayFpsUpdate={setOverlayFps}
       />
 
-      {latestMetadata && latestMetadata.detections.length > 0 && (
-        <DetectionInfo detections={latestMetadata.detections} />
-      )}
+      <MetadataWidget
+        streamMetadata={stats}
+        detectionMetadata={latestMetadata}
+        defaultGrouped={false}
+        isOpen={isMetadataWidgetOpen}
+        onToggle={() => setIsMetadataWidgetOpen(!isMetadataWidgetOpen)}
+      />
     </div>
   );
 }
