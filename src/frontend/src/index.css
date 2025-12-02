@@ -8,6 +8,12 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  background-color: #1a1a1a;
+  margin: 0;
+  padding: 0;
+}
+
 @layer components {
   /* Control button base styles */
   .control-btn {
