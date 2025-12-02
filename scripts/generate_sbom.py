@@ -121,7 +121,7 @@ def get_python_first_order_deps_from_pyproject(pyproject_path: Path) -> List[Dic
     """
     if not pyproject_path.exists():
         return []
-    
+
     deps = []
     
     with open(pyproject_path, "rb") as f:
@@ -153,7 +153,7 @@ def get_python_first_order_deps_from_pyproject(pyproject_path: Path) -> List[Dic
             else:
                 if not dep_string.startswith("#"):
                     print(f"Warning: Dependency without exact version pin: {dep_string}", file=sys.stderr)
-    
+
     return deps
 
 
