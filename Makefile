@@ -12,7 +12,8 @@
 	run-backend-local run-frontend-local \
 	docker-build docker-build-frontend docker-build-backend \
 	docker-build-analyzer docker-build-analyzer-cuda docker-build-analyzer-rocm \
-	docker-compose-up docker-compose-down
+	docker-compose-up docker-compose-down \
+	download-models
 
 help:
 	@echo "make"
@@ -76,6 +77,8 @@ help:
 	@echo "      stops all docker-compose services"
 	@echo "  export-onnx"
 	@echo "      exports YOLO to ONNX (default opset 18; honors MODEL_PATH/ONNX_MODEL_PATH)"
+	@echo "  download-models"
+	@echo "      downloads YOLO + MiDaS weights without starting the backend"
 
 dev: install
 
@@ -181,3 +184,7 @@ sbom-check:
 export-onnx:
 	@echo "Exporting YOLO model to ONNX (default opset 18)..."
 	cd src/backend && uv run python ../../scripts/export_onnx.py
+
+download-models:
+	@echo "Ensuring analyzer models are cached..."
+	cd src/backend && uv run python -m common.core.download_models_cli $(ARGS)

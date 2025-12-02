@@ -129,6 +129,29 @@ make run-frontend-local
 ```
 Open the shown URL in your console.
 
+## Download analyzer models without running services
+
+Need the pretrained weights but do not want to start the backend yet? Use the standalone downloader:
+
+```bash
+# Download YOLO + MiDaS weights into the repo
+make download-models
+
+# Export YOLO to ONNX for ONNX Runtime
+make export-onnx
+```
+
+- `YOLO_MODEL_PATH=/custom/path/yolov8n.pt make download-models` stores the YOLO checkpoint wherever you prefer (defaults to `src/backend/models/yolov8n.pt`).
+- `MIDAS_CACHE_PATH=/data/midas make download-models` overrides the MiDaS cache directory.
+- Append additional arguments via `make download-models ARGS=--skip-midas` if you want to skip MiDaS downloads.
+
+- **Other export formats (for external runtimes)**:
+
+  ```bash
+  cd src/backend
+  uv run yolo export model=models/yolov8n.pt format=torchscript   # TorchScript. Other format examples: engine, openvino, coreml
+  ```
+
 ## Notes
 - The webcam service mirrors and streams raw frames only; the analyzer handles YOLO inference and overlays.
 - Analyzer inference is throttled to ~10 Hz to keep latency low.
