@@ -11,7 +11,7 @@ import {
   RefObject,
   forwardRef,
   useImperativeHandle,
-  ReactNode
+  ReactNode,
 } from 'react';
 import VideoOverlay, { VideoOverlayHandle } from './video/VideoOverlay';
 import { PlayerControls } from './video/PlayerControls';
@@ -31,7 +31,7 @@ export interface VideoPlayerProps {
   onFullscreen: () => void;
   /** Callback for overlay FPS updates */
   onOverlayFpsUpdate: (fps: number) => void;
-    /** Optional metadata widget to display in fullscreen */
+  /** Optional metadata widget to display in fullscreen */
   metadataWidget?: ReactNode;
 }
 
@@ -83,13 +83,25 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       };
 
       document.addEventListener('fullscreenchange', handleFullscreenChange);
-      document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.addEventListener(
+        'webkitfullscreenchange',
+        handleFullscreenChange
+      );
       document.addEventListener('msfullscreenchange', handleFullscreenChange);
 
       return () => {
-        document.removeEventListener('fullscreenchange', handleFullscreenChange);
-        document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-        document.removeEventListener('msfullscreenchange', handleFullscreenChange);
+        document.removeEventListener(
+          'fullscreenchange',
+          handleFullscreenChange
+        );
+        document.removeEventListener(
+          'webkitfullscreenchange',
+          handleFullscreenChange
+        );
+        document.removeEventListener(
+          'msfullscreenchange',
+          handleFullscreenChange
+        );
       };
     }, []);
 
@@ -97,9 +109,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       <div
         ref={containerRef}
         className={`relative flex justify-center ${
-          isFullscreen
-            ? 'w-full h-full items-center bg-black mb-0'
-            : 'mb-8'
+          isFullscreen ? 'w-full h-full items-center bg-black mb-0' : 'mb-8'
         }`}
         onMouseEnter={() => setShowControls(true)}
         onMouseLeave={() => setShowControls(false)}
@@ -130,7 +140,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           onFullscreen={onFullscreen}
         />
 
-        
         {/* Render metadata widget inside container for fullscreen support */}
         {metadataWidget}
       </div>

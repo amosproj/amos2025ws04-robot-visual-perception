@@ -214,7 +214,9 @@ export function useWebRTCPlayer({
   }, [connectionState, isPaused, connect]);
 
   const enterFullscreen = useCallback(() => {
-    const el = (containerRef?.current ?? videoRef.current?.parentElement ?? videoRef.current) as any;
+    const el = (containerRef?.current ??
+      videoRef.current?.parentElement ??
+      videoRef.current) as any;
     if (!el) return;
     const doc: any = document as any;
     const isFull =
