@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 import types
+from typing import Optional
+from pathlib import Path
 import numpy as np
 import pytest
 from tests.test_utils import DummyBoxes, DummyResult
@@ -118,7 +120,10 @@ async def test_register_detector_backend():
     import common.core.detector as det
 
     class DummyBackend(det._DetectorEngine):
-        def predict(self, _frame):
+        def __init__(self, model_path: Optional[Path] = None) -> None:
+            pass
+
+        def predict(self, frame_rgb):
             return [(1, 2, 3, 4, 5, 0.8)]
 
     det.register_detector_backend("dummy", DummyBackend)

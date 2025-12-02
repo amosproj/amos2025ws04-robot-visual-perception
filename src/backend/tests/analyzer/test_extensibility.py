@@ -1,28 +1,31 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
+from pathlib import Path
+from typing import Optional
 import pytest
 from fastapi.testclient import TestClient
 
 from analyzer import main as analyzer_main
 from common.core import depth as depth_mod
 from common.core import detector as det
+from common.core.contracts import DepthEstimator
 
 
 class _DummyDetector(det._DetectorEngine):
-    def __init__(self) -> None:
+    def __init__(self, model_path: Optional[Path] = None) -> None:
         self.predict_calls = 0
 
-    def predict(self, _frame):
+    def predict(self, frame_rgb):
         self.predict_calls += 1
         return [(0, 0, 1, 1, 0, 0.5)]
 
 
-class _DummyDepth:
-    def __init__(self) -> None:
+class _DummyDepth(DepthEstimator):
+    def __init__(self, model_path: Optional[Path] = None) -> None:
         self.calls = 0
 
-    def estimate_distance_m(self, _frame, detections):
+    def estimate_distance_m(self, frame_rgb, detections):
         self.calls += 1
         return [1.0 for _ in detections]
 
