@@ -94,7 +94,9 @@ class DistanceEstimator:
 
         Returns list of distances in meters."""
         self.update_id += 1
-        if self.update_id % self.update_freq == 0 and len(self.last_depths) == len(dets):
+        if self.update_id % self.update_freq == 0 and len(self.last_depths) == len(
+            dets
+        ):
             return self.last_depths
         h, w, _ = frame_rgb.shape
 

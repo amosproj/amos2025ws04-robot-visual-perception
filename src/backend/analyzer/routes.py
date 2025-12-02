@@ -176,9 +176,13 @@ class AnalyzerWebSocketManager:
                         else:
                             target_scale += self.smooth_factor * 0.8
 
-                        target_scale = max(self.min_scale, min(self.max_scale, target_scale))
-                        print(f"[Adaptive Res] Scale={target_scale:.2f} | FPS={current_fps:.1f}")
-                    
+                        target_scale = max(
+                            self.min_scale, min(self.max_scale, target_scale)
+                        )
+                        print(
+                            f"[Adaptive Res] Scale={target_scale:.2f} | FPS={current_fps:.1f}"
+                        )
+
                     # Resize frame for processing
                     if target_scale < 0.98:
                         new_w = int(frame_array.shape[1] * target_scale)
@@ -189,7 +193,7 @@ class AnalyzerWebSocketManager:
 
                     # Run ML inference on frame and collect detections
                     detections_data = []
-                    run_detect = (frame_id % (2 if current_fps < 15 else 4) == 0)
+                    run_detect = frame_id % (2 if current_fps < 15 else 4) == 0
                     if run_detect:
                         # YOLO detection
                         detections = await detector.infer(frame_small)
