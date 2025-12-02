@@ -99,9 +99,7 @@ function App() {
       />
 
       {latestMetadata && latestMetadata.detections.length > 0 && (
-        <DetectionInfo
-          detections={latestMetadata.detections}
-        />
+        <DetectionInfo detections={latestMetadata.detections} />
       )}
     </div>
   );

@@ -6,10 +6,12 @@
 	dev install install-frontend install-backend \
 	lint lint-frontend lint-backend lint-licensing type-check-backend \
 	format format-frontend format-backend \
+	format-check format-check-frontend format-check-backend \
 	test test-frontend test-backend \
 	sbom sbom-check \
 	run-backend-local run-frontend-local \
 	docker-build docker-build-frontend docker-build-backend \
+	docker-build-analyzer docker-build-analyzer-cuda docker-build-analyzer-rocm \
 	docker-compose-up docker-compose-down
 
 help:
@@ -36,6 +38,12 @@ help:
 	@echo "      formats frontend code with prettier"
 	@echo "  format-backend"
 	@echo "      formats backend code with ruff"
+	@echo "  format-check"
+	@echo "      checks code formatting without modifying files (CI)"
+	@echo "  format-check-frontend"
+	@echo "      checks frontend formatting with prettier"
+	@echo "  format-check-backend"
+	@echo "      checks backend formatting with ruff"
 	@echo "  test"
 	@echo "      runs all tests (frontend and backend)"
 	@echo "  test-frontend"
@@ -55,7 +63,13 @@ help:
 	@echo "  docker-build-frontend"
 	@echo "      builds frontend Docker image"
 	@echo "  docker-build-backend"
-	@echo "      builds backend Docker image"
+	@echo "      builds backend Docker images (webcam + analyzer with CPU runtime)"
+	@echo "  docker-build-analyzer"
+	@echo "      builds analyzer image with ONNX CPU runtime (default)"
+	@echo "  docker-build-analyzer-cuda"
+	@echo "      builds analyzer image with ONNX CUDA runtime (nvidia GPU)"
+	@echo "  docker-build-analyzer-rocm"
+	@echo "      builds analyzer image with ONNX ROCm runtime (amd GPU)"
 	@echo "  docker-compose-up"
 	@echo "      starts all services with docker-compose (Linux only for camera access)"
 	@echo "  docker-compose-down"
@@ -72,12 +86,10 @@ install-frontend:
 	cd src/frontend && npm install
 
 install-backend:
-# Auto-uses .python-version (3.11)
-	cd src/backend && uv python install   
-# Auto-uses .python-version (3.11)
-	cd src/backend && uv venv            
-	cd src/backend && uv pip install -r requirements.txt
-	cd src/backend && uv pip install -r requirements-dev.txt
+	# Auto-uses .python-version (3.11)
+	cd src/backend && uv python install
+	# core + dev + inference + onnx-tools + onnx-cpu
+	cd src/backend && uv sync --extra dev --extra inference --extra onnx-tools --extra onnx-cpu
 
 lint: lint-frontend lint-backend lint-licensing
 
@@ -98,6 +110,14 @@ format-frontend:
 
 format-backend:
 	cd src/backend && uv run ruff format .
+
+format-check: format-check-frontend format-check-backend
+
+format-check-frontend:
+	cd src/frontend && npx prettier --check .
+
+format-check-backend:
+	cd src/backend && uv run ruff format --check .
 
 test: test-frontend test-backend
 
@@ -134,7 +154,13 @@ docker-build-webcam:
 	docker build -f src/backend/Dockerfile.webcam -t robot-webcam:latest src/backend
 
 docker-build-analyzer:
-	docker build -f src/backend/Dockerfile.analyzer -t robot-analyzer:latest src/backend
+	docker build -f src/backend/Dockerfile.analyzer --build-arg ONNX_RUNTIME=onnx-cpu -t robot-analyzer:latest src/backend
+
+docker-build-analyzer-cuda:
+	docker build -f src/backend/Dockerfile.analyzer --build-arg ONNX_RUNTIME=onnx-cuda -t robot-analyzer:cuda src/backend
+
+docker-build-analyzer-rocm:
+	docker build -f src/backend/Dockerfile.analyzer --build-arg ONNX_RUNTIME=onnx-rocm -t robot-analyzer:rocm src/backend
 
 docker-compose-up:
 	@echo "Note: Camera access requires Linux. On macOS/Windows, run things locally."

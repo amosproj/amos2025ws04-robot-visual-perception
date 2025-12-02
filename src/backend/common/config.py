@@ -34,15 +34,9 @@ class Config:
     ).resolve()
     DETECTOR_BACKEND: str = os.getenv("DETECTOR_BACKEND", "torch").lower()
     DETECTOR_IMAGE_SIZE: int = int(os.getenv("DETECTOR_IMAGE_SIZE", "640"))
-    DETECTOR_CONF_THRESHOLD: float = float(
-        os.getenv("DETECTOR_CONF_THRESHOLD", "0.25")
-    )
-    DETECTOR_IOU_THRESHOLD: float = float(
-        os.getenv("DETECTOR_IOU_THRESHOLD", "0.7")
-    )
-    DETECTOR_MAX_DETECTIONS: int = int(
-        os.getenv("DETECTOR_MAX_DETECTIONS", "100")
-    )
+    DETECTOR_CONF_THRESHOLD: float = float(os.getenv("DETECTOR_CONF_THRESHOLD", "0.25"))
+    DETECTOR_IOU_THRESHOLD: float = float(os.getenv("DETECTOR_IOU_THRESHOLD", "0.7"))
+    DETECTOR_MAX_DETECTIONS: int = int(os.getenv("DETECTOR_MAX_DETECTIONS", "100"))
     DETECTOR_NUM_CLASSES: int = int(os.getenv("DETECTOR_NUM_CLASSES", "80"))
     TORCH_DEVICE: Optional[str] = os.getenv("TORCH_DEVICE")
     TORCH_HALF_PRECISION: str = os.getenv("TORCH_HALF_PRECISION", "auto")

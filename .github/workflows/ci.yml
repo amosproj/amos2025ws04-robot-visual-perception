@@ -10,7 +10,7 @@ on:
     branches: [main] #  # PRs to main
 jobs:
 
-  # Lint stage
+  # Lint and format stage
 
   lint-licensing:
     name: Lint licensing (REUSE)
@@ -42,6 +42,9 @@ jobs:
       
       - name: Lint
         run: make lint-frontend
+      
+      - name: Check formatting
+        run: make format-check-frontend
 
   lint-backend:
     name: Lint backend
@@ -61,6 +64,9 @@ jobs:
 
       - name: Lint
         run: make lint-backend
+      
+      - name: Check formatting
+        run: make format-check-backend
 
   # Build stage
 
@@ -203,7 +209,7 @@ jobs:
         run: sed -i '/devices:/,+1d' docker-compose.yml
       
       - name: Start services
-        run: docker compose up -d && sleep 15
+        run: docker compose up -d && sleep 30
       
       - name: Test health endpoints
         run: |

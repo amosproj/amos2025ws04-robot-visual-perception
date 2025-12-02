@@ -4,7 +4,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { useRef, useState, RefObject, forwardRef, useImperativeHandle } from 'react';
+import {
+  useRef,
+  useState,
+  RefObject,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 import VideoOverlay, { VideoOverlayHandle } from './video/VideoOverlay';
 import { PlayerControls } from './video/PlayerControls';
 
@@ -33,53 +39,59 @@ export interface VideoPlayerHandle {
 /**
  * Video player component that combines video element, overlay, and player controls
  */
-const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({ 
-  videoRef, 
-  videoState, 
-  isPaused, 
-  onTogglePlay, 
-  onFullscreen, 
-  onOverlayFpsUpdate 
-}, ref) => {
-  const overlayRef = useRef<VideoOverlayHandle>(null);
-  const [showControls, setShowControls] = useState(false);
+const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
+  (
+    {
+      videoRef,
+      videoState,
+      isPaused,
+      onTogglePlay,
+      onFullscreen,
+      onOverlayFpsUpdate,
+    },
+    ref
+  ) => {
+    const overlayRef = useRef<VideoOverlayHandle>(null);
+    const [showControls, setShowControls] = useState(false);
 
-  // Expose methods via ref
-  useImperativeHandle(ref, () => ({
-    clearOverlay: () => overlayRef.current?.clear(),
-    updateOverlay: (metadata: any) => overlayRef.current?.updateMetadata(metadata),
-  }));
+    // Expose methods via ref
+    useImperativeHandle(ref, () => ({
+      clearOverlay: () => overlayRef.current?.clear(),
+      updateOverlay: (metadata: any) =>
+        overlayRef.current?.updateMetadata(metadata),
+    }));
 
-  return (
-    <div
-      className="relative flex justify-center mb-8"
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
-    >
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="block max-w-full w-[640px] h-auto rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] bg-black"
-      />
+    return (
+      <div
+        className="relative flex justify-center mb-8"
+        onMouseEnter={() => setShowControls(true)}
+        onMouseLeave={() => setShowControls(false)}
+      >
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="block max-w-full w-[640px] h-auto rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] bg-black"
+        />
 
-      <VideoOverlay
-        ref={overlayRef}
-        videoRef={videoRef}
-        isPaused={isPaused}
-        onFrameProcessed={onOverlayFpsUpdate}
-      />
+        <VideoOverlay
+          ref={overlayRef}
+          videoRef={videoRef}
+          isPaused={isPaused}
+          onFrameProcessed={onOverlayFpsUpdate}
+        />
 
-      <PlayerControls
-        isPlaying={videoState === 'connected' && !isPaused}
-        showControls={showControls}
-        onTogglePlay={onTogglePlay}
-        onFullscreen={onFullscreen}
-      />
-    </div>
-  );
-});
+        <PlayerControls
+          isPlaying={videoState === 'connected' && !isPaused}
+          showControls={showControls}
+          onTogglePlay={onTogglePlay}
+          onFullscreen={onFullscreen}
+        />
+      </div>
+    );
+  }
+);
 
 VideoPlayer.displayName = 'VideoPlayer';
 

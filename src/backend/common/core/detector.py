@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 import asyncio
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -23,22 +24,26 @@ Detection = tuple[int, int, int, int, int, float]
 
 
 class _Detector:
-    def __init__(self, backend: Optional[str] = None) -> None:
+    def __init__(
+        self, model_path: Optional[Path] = None, backend: Optional[str] = None
+    ) -> None:
         """Initialize the YOLO object detector.
 
-        Loads the YOLO model from the configured path and sets up internal
-        state for asynchronous inference, caching, and distance estimation.
+        Loads the YOLO model using the chosen backend and optional model path.
+        If model_path is None, the configured path from `config` is used.
 
-        Raises:
-            FileNotFoundError: If the YOLO model file does not exist at the
-            configured path.
+        Args:
+            model_path: Optional path to a model file to override config.
+            backend: Optional backend name ('torch' or 'onnx'). If None, uses config.DETECTOR_BACKEND.
         """
         backend_name = (backend or config.DETECTOR_BACKEND).lower()
-        self._engine: _DetectorEngine
+
+        # Create the appropriate engine, forwarding model_path override
+        self._engine: "_DetectorEngine"
         if backend_name == "onnx":
-            self._engine = _OnnxRuntimeDetector()
+            self._engine = _OnnxRuntimeDetector(model_path=model_path)
         elif backend_name == "torch":
-            self._engine = _TorchDetector()
+            self._engine = _TorchDetector(model_path=model_path)
         else:
             raise ValueError(
                 f"Unsupported DETECTOR_BACKEND '{backend_name}'. Use 'torch' or 'onnx'."
@@ -48,9 +53,7 @@ class _Detector:
         self._last_time: float = 0.0
         self._lock = asyncio.Lock()
 
-    async def infer(
-        self, frame_rgb: np.ndarray
-    ) -> list[Detection]:
+    async def infer(self, frame_rgb: np.ndarray) -> list[Detection]:
         """Run YOLO inference asynchronously on a single frame.
 
         Performs object detection on the given RGB image using the loaded YOLO model.
@@ -84,11 +87,19 @@ class _Detector:
 _detector_instance: Optional[_Detector] = None
 
 
-def _get_detector() -> _Detector:
-    """Get or create the singleton detector instance."""
+def _get_detector(model_path: Optional[Path] = None) -> _Detector:
+    """Get or create the singleton detector instance.
+
+    Args:
+        model_path: Path to the YOLO model file. Only used on first call.
+            Subsequent calls will return the existing instance.
+
+    Returns:
+        The singleton detector instance.
+    """
     global _detector_instance
     if _detector_instance is None:
-        _detector_instance = _Detector()
+        _detector_instance = _Detector(model_path=model_path)
     return _detector_instance
 
 
@@ -99,8 +110,13 @@ class _DetectorEngine:
 
 
 class _TorchDetector(_DetectorEngine):
-    def __init__(self) -> None:
-        model_path = config.MODEL_PATH
+    def __init__(self, model_path: Optional[Path] = None) -> None:
+        # Accept an override model_path, otherwise use configured path
+        if model_path is None:
+            model_path = config.MODEL_PATH
+        else:
+            model_path = Path(model_path).resolve()
+
         self._model = YOLO(str(model_path))
         self._device = self._resolve_device(config.TORCH_DEVICE)
         self._half = self._resolve_half_precision(config.TORCH_HALF_PRECISION)
@@ -142,7 +158,7 @@ class _TorchDetector(_DetectorEngine):
 
 
 class _OnnxRuntimeDetector(_DetectorEngine):
-    def __init__(self) -> None:
+    def __init__(self, model_path: Optional[Path] = None) -> None:
         if ort is None:
             raise RuntimeError(
                 "onnxruntime is required for DETECTOR_BACKEND='onnx'. Install "
@@ -150,7 +166,12 @@ class _OnnxRuntimeDetector(_DetectorEngine):
                 "`onnxruntime-gpu` or `onnxruntime-rocm`."
             )
 
-        model_path = config.ONNX_MODEL_PATH
+        # Accept an override model_path, otherwise use configured ONNX path
+        if model_path is None:
+            model_path = config.ONNX_MODEL_PATH
+        else:
+            model_path = Path(model_path).resolve()
+
         if not model_path.exists():
             raise FileNotFoundError(
                 f"ONNX model not found at '{model_path}'. Set ONNX_MODEL_PATH or export "
@@ -160,7 +181,9 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         providers = self._resolve_providers()
         sess_options = ort.SessionOptions()
         sess_options.enable_mem_pattern = False
-        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        sess_options.graph_optimization_level = (
+            ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        )
         self._session = ort.InferenceSession(
             str(model_path),
             providers=providers or None,
