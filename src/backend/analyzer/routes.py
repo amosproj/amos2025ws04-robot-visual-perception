@@ -4,6 +4,7 @@
 import asyncio
 import json
 from typing import Any
+import logging
 
 import numpy as np
 from aiortc import MediaStreamTrack
@@ -79,7 +80,7 @@ class AnalyzerWebSocketManager:
             )
 
         except Exception as e:
-            print(f"Error starting processing: {e}")
+            logging.error(f"Error starting processing: {e}")
             await self._stop_processing()
 
     async def _stop_processing(self) -> None:
@@ -116,14 +117,14 @@ class AnalyzerWebSocketManager:
                         frame = await asyncio.wait_for(source_track.recv(), timeout=5.0)
                         consecutive_errors = 0  # Reset error counter on success
                     except asyncio.TimeoutError:
-                        print("Frame receive timeout, skipping...")
+                        logging.warning("Frame receive timeout, skipping...")
                         consecutive_errors += 1
                         if consecutive_errors >= max_consecutive_errors:
-                            print("Too many consecutive timeouts, reconnecting...")
+                            logging.error("Too many consecutive timeouts, reconnecting...")
                             raise Exception("WebRTC connection appears unstable")
                         continue
                     except Exception:
-                        print("source_track broke / ended, attempting reconnect...")
+                        logging.warning("source_track broke / ended, attempting reconnect...")
                         consecutive_errors += 1
 
                         if consecutive_errors >= max_consecutive_errors:
@@ -132,14 +133,14 @@ class AnalyzerWebSocketManager:
                                 await self._webcam_session.close()
                             await asyncio.sleep(1.0)
                             try:
-                                print("Reconnecting webcam session...")
+                                logging.info("Reconnecting webcam session...")
                                 if self._webcam_session is not None:
                                     new_track = await self._webcam_session.connect()
                                     source_track = new_track
                                     consecutive_errors = 0
                                     continue
                             except Exception as conn_err:
-                                print("Reconnect failed:", conn_err)
+                                logging.error("Reconnect failed:", conn_err)
                                 raise  # let the outer loop terminate
                         await asyncio.sleep(0.1)
                         continue
@@ -148,7 +149,7 @@ class AnalyzerWebSocketManager:
                     try:
                         frame_array = frame.to_ndarray(format="bgr24")  # type: ignore[union-attr]
                     except AttributeError:
-                        print(
+                        logging.warning(
                             f"Received frame without to_ndarray method: {type(frame)}"
                         )
                         continue
@@ -194,13 +195,13 @@ class AnalyzerWebSocketManager:
                     await asyncio.sleep(0.033)  # ~30 FPS processing
 
                 except Exception as e:
-                    print(f"Frame processing error: {e}")
+                    logging.warning(f"Frame processing error: {e}")
                     await asyncio.sleep(0.1)
 
         except asyncio.CancelledError:
-            print("Frame processing cancelled")
+            logging.warning("Frame processing cancelled")
         except Exception as e:
-            print(f"Processing task error: {e}")
+            logging.warning(f"Processing task error: {e}")
 
     async def _send_metadata(
         self,
@@ -234,7 +235,7 @@ class AnalyzerWebSocketManager:
         fx, fy, cx, cy = compute_camera_intrinsics(w, h)
 
         if not self._intrinsics_logged and getattr(config, "LOG_INTRINSICS", False):
-            print(
+            logging.info(
                 f"intrinsics fx={fx:.2f} fy={fy:.2f} cx={cx:.2f} cy={cy:.2f} (frame {w}x{h})"
             )
             self._intrinsics_logged = True

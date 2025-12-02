@@ -47,18 +47,12 @@ def draw_detections(
     detections: list[tuple[int, int, int, int, int, float]],
     distances_m: list[float],
 ) -> np.ndarray:
-    """Draw bounding boxes and distance labels for detected objects on a frame.
-
-    For each detection, computes the estimated distance using the pinhole
-    camera model, then overlays a bounding box and text label with class ID,
-    confidence, and distance.
+    """Draw bounding boxes and annotate distance plus camera-space XYZ.
 
     Args:
         frame: Input frame as a NumPy array in RGB format.
         detections: List of detections as (x1, y1, x2, y2, class_id, confidence).
-        fov_deg: Horizontal field of view of the camera in degrees.
-        obj_width_m: Assumed real-world width of the detected object in meters.
-        scale: Additional scaling factor applied to the computed distance.
+        distances_m: Per-detection distance estimates (meters), aligned with detections.
 
     Returns:
         Frame with bounding boxes and annotated labels drawn on it.
