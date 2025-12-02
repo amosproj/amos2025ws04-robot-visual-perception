@@ -84,7 +84,9 @@ def draw_detections(
     return frame
 
 
-def compute_camera_intrinsics(width: int, height: int) -> tuple[float, float, float, float]:
+def compute_camera_intrinsics(
+    width: int, height: int
+) -> tuple[float, float, float, float]:
     """Return fx, fy, cx, cy using overrides or FOV-based defaults."""
     fx = getattr(config, "CAMERA_FX", 0.0)
     fy = getattr(config, "CAMERA_FY", 0.0)
@@ -115,7 +117,15 @@ def compute_camera_intrinsics(width: int, height: int) -> tuple[float, float, fl
 
 
 def unproject_bbox_center_to_camera(
-    x1: int, y1: int, x2: int, y2: int, depth_m: float, fx: float, fy: float, cx: float, cy: float
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+    depth_m: float,
+    fx: float,
+    fy: float,
+    cx: float,
+    cy: float,
 ) -> tuple[float, float, float]:
     """Map a bounding box center and depth to camera-space XYZ (meters)."""
     if depth_m <= 0 or fx <= 0 or fy <= 0:

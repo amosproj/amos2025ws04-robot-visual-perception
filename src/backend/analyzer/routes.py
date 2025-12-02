@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 import asyncio
 import json
-from typing import Any
 import logging
 
 import numpy as np
@@ -14,7 +13,10 @@ from common.core.session import WebcamSession
 from common.config import config
 from common.core.detector import get_detector
 from common.core.depth import get_depth_estimator
-from common.utils.geometry import compute_camera_intrinsics, unproject_bbox_center_to_camera
+from common.utils.geometry import (
+    compute_camera_intrinsics,
+    unproject_bbox_center_to_camera,
+)
 
 
 class MetadataMessage(BaseModel):
@@ -120,11 +122,15 @@ class AnalyzerWebSocketManager:
                         logging.warning("Frame receive timeout, skipping...")
                         consecutive_errors += 1
                         if consecutive_errors >= max_consecutive_errors:
-                            logging.error("Too many consecutive timeouts, reconnecting...")
+                            logging.error(
+                                "Too many consecutive timeouts, reconnecting..."
+                            )
                             raise Exception("WebRTC connection appears unstable")
                         continue
                     except Exception:
-                        logging.warning("source_track broke / ended, attempting reconnect...")
+                        logging.warning(
+                            "source_track broke / ended, attempting reconnect..."
+                        )
                         consecutive_errors += 1
 
                         if consecutive_errors >= max_consecutive_errors:
@@ -175,9 +181,7 @@ class AnalyzerWebSocketManager:
                         continue
 
                     # Distance estimation
-                    distances = estimator.estimate_distance_m(
-                        frame_array, detections
-                    )
+                    distances = estimator.estimate_distance_m(frame_array, detections)
 
                     metadata = self._build_metadata_message(
                         frame_rgb=frame_array,
@@ -203,10 +207,7 @@ class AnalyzerWebSocketManager:
         except Exception as e:
             logging.warning(f"Processing task error: {e}")
 
-    async def _send_metadata(
-        self,
-        metadata: MetadataMessage
-    ) -> None:
+    async def _send_metadata(self, metadata: MetadataMessage) -> None:
         """Send metadata to all active WebSocket clients."""
         message = json.dumps(metadata.model_dump())
         dead_connections = set()

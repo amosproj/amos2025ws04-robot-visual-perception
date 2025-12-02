@@ -50,7 +50,9 @@ export default function DetectionInfo({ detections }: DetectionInfoProps) {
               </span>
             )}
             <span className="bg-gradient-to-br from-orange-700 to-orange-800 text-white px-2 py-0.5 rounded text-xs font-semibold shadow-[0_2px_4px_rgba(116,185,255,0.3)]">
-              x={detection.position.x.toFixed(1)}m,y={detection.position.y.toFixed(1)}m,z={detection.position.z.toFixed(1)}m
+              x={detection.position.x.toFixed(1)}m,y=
+              {detection.position.y.toFixed(1)}m,z=
+              {detection.position.z.toFixed(1)}m
             </span>
           </div>
         ))}
