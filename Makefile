@@ -86,9 +86,9 @@ install-frontend:
 	cd src/frontend && npm install
 
 install-backend:
-	# Auto-uses .python-version (3.11)
+# Auto-uses .python-version (3.11)
 	cd src/backend && uv python install
-	# core + dev + inference + onnx-tools + onnx-cpu
+# core + dev + inference + onnx-tools + onnx-cpu
 	cd src/backend && uv sync --extra dev --extra inference --extra onnx-tools --extra onnx-cpu
 
 lint: lint-frontend lint-backend lint-licensing

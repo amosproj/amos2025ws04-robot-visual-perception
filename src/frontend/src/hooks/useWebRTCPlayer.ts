@@ -35,6 +35,17 @@ export function normalizeOfferUrl(raw?: string): string {
 export interface UseWebRTCPlayerOptions {
   signalingEndpoint?: string;
   autoPlay?: boolean;
+  containerRef?: React.RefObject<HTMLDivElement>;
+}
+
+// WebRTC Stats
+export interface WebRTCStats {
+  videoResolution?: { width: number; height: number };
+  packetLoss?: number;
+  jitter?: number;
+  bitrate?: number;
+  framesReceived?: number;
+  framesDecoded?: number;
 }
 
 // Hook result
@@ -44,6 +55,7 @@ export interface UseWebRTCPlayerResult {
   errorReason: string;
   isPaused: boolean;
   latencyMs?: number;
+  stats: WebRTCStats;
   connect: () => Promise<void>;
   disconnect: () => void;
   togglePlayPause: () => Promise<void>;
@@ -54,6 +66,7 @@ export interface UseWebRTCPlayerResult {
 export function useWebRTCPlayer({
   signalingEndpoint,
   autoPlay = false,
+  containerRef,
 }: UseWebRTCPlayerOptions): UseWebRTCPlayerResult {
   const offerUrl = useMemo(() => {
     const envUrl = (import.meta as any)?.env?.VITE_BACKEND_URL as
@@ -72,6 +85,7 @@ export function useWebRTCPlayer({
   const [errorReason, setErrorReason] = useState('');
   const [isPaused, setIsPaused] = useState(false);
   const [latencyMs, setLatencyMs] = useState<number | undefined>(undefined);
+  const [stats, setStats] = useState<WebRTCStats>({});
 
   const connect = useCallback(async () => {
     if (pcRef.current) return;
@@ -167,6 +181,7 @@ export function useWebRTCPlayer({
     setIsPaused(false);
     setConnectionState('idle');
     setLatencyMs(undefined);
+    setStats({});
     if (statsPollRef.current) {
       window.clearInterval(statsPollRef.current);
       statsPollRef.current = null;
@@ -199,7 +214,9 @@ export function useWebRTCPlayer({
   }, [connectionState, isPaused, connect]);
 
   const enterFullscreen = useCallback(() => {
-    const el = (videoRef.current?.parentElement ?? videoRef.current) as any;
+    const el = (containerRef?.current ??
+      videoRef.current?.parentElement ??
+      videoRef.current) as any;
     if (!el) return;
     const doc: any = document as any;
     const isFull =
@@ -217,7 +234,7 @@ export function useWebRTCPlayer({
       el.webkitRequestFullscreen ||
       el.msRequestFullscreen;
     if (req) req.call(el);
-  }, []);
+  }, [containerRef]);
 
   useEffect(() => {
     return () => disconnect();
@@ -237,9 +254,12 @@ export function useWebRTCPlayer({
       try {
         const pc = pcRef.current;
         if (!pc) return;
-        const stats = await pc.getStats();
+        const statsReports = await pc.getStats();
         let rttSeconds: number | undefined;
-        stats.forEach((report) => {
+        const newStats: WebRTCStats = {};
+
+        statsReports.forEach((report) => {
+          // Latency (RTT)
           if (
             report.type === 'candidate-pair' &&
             (report as any).nominated &&
@@ -259,10 +279,81 @@ export function useWebRTCPlayer({
               rttSeconds = v;
             }
           }
+
+          // Inbound RTP stats (video quality, packet loss, jitter, bitrate)
+          if (
+            report.type === 'inbound-rtp' &&
+            (report as any).kind === 'video'
+          ) {
+            const inboundReport = report as any;
+
+            // Video resolution
+            if (inboundReport.frameWidth && inboundReport.frameHeight) {
+              newStats.videoResolution = {
+                width: inboundReport.frameWidth,
+                height: inboundReport.frameHeight,
+              };
+            }
+
+            // Frames statistics
+            if (inboundReport.framesReceived !== undefined) {
+              newStats.framesReceived = inboundReport.framesReceived;
+            }
+            if (inboundReport.framesDecoded !== undefined) {
+              newStats.framesDecoded = inboundReport.framesDecoded;
+            }
+
+            // Packet loss (calculate from packets lost and received)
+            if (
+              inboundReport.packetsLost !== undefined &&
+              inboundReport.packetsReceived !== undefined
+            ) {
+              const totalPackets =
+                inboundReport.packetsReceived + inboundReport.packetsLost;
+              if (totalPackets > 0) {
+                newStats.packetLoss =
+                  (inboundReport.packetsLost / totalPackets) * 100;
+              }
+            }
+
+            // Jitter (in milliseconds)
+            if (inboundReport.jitter !== undefined) {
+              newStats.jitter = inboundReport.jitter * 1000; // Convert seconds to ms
+            }
+
+            // Bitrate (calculate from bytes received)
+            if (
+              inboundReport.bytesReceived !== undefined &&
+              inboundReport.timestamp !== undefined
+            ) {
+              // Store previous values for bitrate calculation
+              const prevBytes = (pcRef.current as any)._prevBytesReceived;
+              const prevTimestamp = (pcRef.current as any)._prevTimestamp;
+
+              if (prevBytes !== undefined && prevTimestamp !== undefined) {
+                const bytesDiff = inboundReport.bytesReceived - prevBytes;
+                const timeDiff =
+                  (inboundReport.timestamp - prevTimestamp) / 1000; // Convert to seconds
+
+                if (timeDiff > 0) {
+                  // Bitrate in Mbps
+                  newStats.bitrate = (bytesDiff * 8) / (timeDiff * 1000000);
+                }
+              }
+
+              // Store current values for next calculation
+              (pcRef.current as any)._prevBytesReceived =
+                inboundReport.bytesReceived;
+              (pcRef.current as any)._prevTimestamp = inboundReport.timestamp;
+            }
+          }
         });
+
         if (rttSeconds != null) {
           setLatencyMs(Math.max(0, Math.round(rttSeconds * 1000)));
         }
+
+        setStats(newStats);
       } catch {}
     };
 
@@ -283,6 +374,7 @@ export function useWebRTCPlayer({
     errorReason,
     isPaused,
     latencyMs,
+    stats,
     connect,
     disconnect,
     togglePlayPause,
