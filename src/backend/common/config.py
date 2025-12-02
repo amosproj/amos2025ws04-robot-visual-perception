@@ -13,20 +13,30 @@ class Config:
     CAMERA_INDEX: int = int(os.getenv("CAMERA_INDEX", "0"))
 
     # Depth estimation settings
-    REGION_SIZE = int(os.getenv("REGION_SIZE", "5")) # size of square region for depth median
-    SCALE_FACTOR = float(os.getenv("SCALE_FACTOR", "432.0")) # empirical calibration factor
-    UPDATE_FREQ = int(os.getenv("UPDATE_FREQ", "2")) # number of frames between depth updates
+    REGION_SIZE = int(
+        os.getenv("REGION_SIZE", "5")
+    )  # size of square region for depth median
+    SCALE_FACTOR = float(
+        os.getenv("SCALE_FACTOR", "432.0")
+    )  # empirical calibration factor
+    UPDATE_FREQ = int(
+        os.getenv("UPDATE_FREQ", "2")
+    )  # number of frames between depth updates
 
     # adaptive downsampling settings
-    TARGET_SCALE_INIT: float = float(os.getenv("TARGET_SCALE_INIT", "0.8")) # initial downscale factor for images
-    SMOOTH_FACTOR: float = float(os.getenv("SMOOTH_FACTOR", "0.15")) # smoothing factor for scale updates
-    MIN_SCALE: float = float(os.getenv("MIN_SCALE", "0.2")) # minimum allowed scale
-    MAX_SCALE: float = float(os.getenv("MAX_SCALE", "1.0")) # maximum allowed scale
+    TARGET_SCALE_INIT: float = float(
+        os.getenv("TARGET_SCALE_INIT", "0.8")
+    )  # initial downscale factor for images
+    SMOOTH_FACTOR: float = float(
+        os.getenv("SMOOTH_FACTOR", "0.15")
+    )  # smoothing factor for scale updates
+    MIN_SCALE: float = float(os.getenv("MIN_SCALE", "0.2"))  # minimum allowed scale
+    MAX_SCALE: float = float(os.getenv("MAX_SCALE", "1.0"))  # maximum allowed scale
 
     # adaptive frame dropping
-    FPS_THRESHOLD: float = float(os.getenv("FPS_THRESHOLD", "15.0")) # threshold FPS for skipping more frames
-
-
+    FPS_THRESHOLD: float = float(
+        os.getenv("FPS_THRESHOLD", "15.0")
+    )  # threshold FPS for skipping more frames
 
     # WebRTC settings
     STUN_SERVER: str = os.getenv("STUN_SERVER", "stun:stun.l.google.com:19302")

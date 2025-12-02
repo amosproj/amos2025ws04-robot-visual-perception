@@ -9,7 +9,7 @@ import torch
 from typing import Callable, Literal, Optional
 
 from common.config import config
-from common.core.contracts import DepthEstimator, Detection
+from common.core.contracts import DepthEstimator
 
 # Factories let us swap depth estimation backends without changing call sites.
 DepthEstimatorFactory = Callable[[Optional[Path]], DepthEstimator]
@@ -49,7 +49,9 @@ class MiDasDepthEstimator(DepthEstimator):
             midas_cache_directory: Custom directory for PyTorch Hub cache.
                 If None, uses PyTorch's default cache location.
         """
-        self.region_size = config.REGION_SIZE  # size of region around bbox center to sample depth
+        self.region_size = (
+            config.REGION_SIZE
+        )  # size of region around bbox center to sample depth
         self.scale_factor = config.SCALE_FACTOR  # empirical calibration factor
         self.update_freq = config.UPDATE_FREQ  # frames between depth updates
 
