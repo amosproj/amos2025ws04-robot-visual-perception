@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: MIT
 import asyncio
 import json
-from typing import Any
+import logging
 
+import numpy as np
 from aiortc import MediaStreamTrack
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
@@ -12,6 +13,10 @@ from common.core.session import WebcamSession
 from common.config import config
 from common.core.detector import get_detector
 from common.core.depth import get_depth_estimator
+from common.utils.geometry import (
+    compute_camera_intrinsics,
+    unproject_bbox_center_to_camera,
+)
 
 
 class MetadataMessage(BaseModel):
@@ -30,6 +35,7 @@ class AnalyzerWebSocketManager:
         self.active_connections: set[WebSocket] = set()
         self._webcam_session: WebcamSession | None = None
         self._processing_task: asyncio.Task[None] | None = None
+        self._intrinsics_logged: bool = False
 
     async def connect(self, websocket: WebSocket) -> None:
         """Accept a new WebSocket connection."""
@@ -76,7 +82,7 @@ class AnalyzerWebSocketManager:
             )
 
         except Exception as e:
-            print(f"Error starting processing: {e}")
+            logging.error(f"Error starting processing: {e}")
             await self._stop_processing()
 
     async def _stop_processing(self) -> None:
@@ -113,14 +119,18 @@ class AnalyzerWebSocketManager:
                         frame = await asyncio.wait_for(source_track.recv(), timeout=5.0)
                         consecutive_errors = 0  # Reset error counter on success
                     except asyncio.TimeoutError:
-                        print("Frame receive timeout, skipping...")
+                        logging.warning("Frame receive timeout, skipping...")
                         consecutive_errors += 1
                         if consecutive_errors >= max_consecutive_errors:
-                            print("Too many consecutive timeouts, reconnecting...")
+                            logging.error(
+                                "Too many consecutive timeouts, reconnecting..."
+                            )
                             raise Exception("WebRTC connection appears unstable")
                         continue
                     except Exception:
-                        print("source_track broke / ended, attempting reconnect...")
+                        logging.warning(
+                            "source_track broke / ended, attempting reconnect..."
+                        )
                         consecutive_errors += 1
 
                         if consecutive_errors >= max_consecutive_errors:
@@ -129,14 +139,14 @@ class AnalyzerWebSocketManager:
                                 await self._webcam_session.close()
                             await asyncio.sleep(1.0)
                             try:
-                                print("Reconnecting webcam session...")
+                                logging.info("Reconnecting webcam session...")
                                 if self._webcam_session is not None:
                                     new_track = await self._webcam_session.connect()
                                     source_track = new_track
                                     consecutive_errors = 0
                                     continue
                             except Exception as conn_err:
-                                print("Reconnect failed:", conn_err)
+                                logging.error("Reconnect failed:", conn_err)
                                 raise  # let the outer loop terminate
                         await asyncio.sleep(0.1)
                         continue
@@ -145,7 +155,7 @@ class AnalyzerWebSocketManager:
                     try:
                         frame_array = frame.to_ndarray(format="bgr24")  # type: ignore[union-attr]
                     except AttributeError:
-                        print(
+                        logging.warning(
                             f"Received frame without to_ndarray method: {type(frame)}"
                         )
                         continue
@@ -161,72 +171,44 @@ class AnalyzerWebSocketManager:
                         last_fps_time = current_time
 
                     # Run ML inference every 3rd frame and collect detections
-                    detections_data = []
-                    if frame_id % 3 == 0:
-                        # YOLO detection
-                        detections = await detector.infer(frame_array)
-
-                        if not detections:
-                            continue
-
-                        # Distance estimation
-                        distances = estimator.estimate_distance_m(
-                            frame_array, detections
-                        )
-
-                        # Format detection data
-                        for i, (x1, y1, x2, y2, cls_id, confidence) in enumerate(
-                            detections
-                        ):
-                            height, width = frame_array.shape[:2]
-                            detections_data.append(
-                                {
-                                    "box": {
-                                        "x": x1 / width,  # Normalized coordinates
-                                        "y": y1 / height,
-                                        "width": (x2 - x1) / width,
-                                        "height": (y2 - y1) / height,
-                                    },
-                                    "label": cls_id,
-                                    "confidence": float(confidence),
-                                    "distance": float(distances[i]),
-                                }
-                            )
-
-                    if not self.active_connections or not detections_data:
+                    if not self.active_connections or frame_id % 3 != 0:
                         continue
 
-                    # Create and send metadata message
-                    await self._send_metadata(
-                        current_time, frame_id, detections_data, current_fps
+                    # YOLO detection
+                    detections = await detector.infer(frame_array)
+
+                    if not detections:
+                        continue
+
+                    # Distance estimation
+                    distances = estimator.estimate_distance_m(frame_array, detections)
+
+                    metadata = self._build_metadata_message(
+                        frame_rgb=frame_array,
+                        detections=detections,
+                        distances=distances,
+                        timestamp=current_time,
+                        frame_id=frame_id,
+                        current_fps=current_fps,
                     )
+
+                    # Create and send metadata message
+                    await self._send_metadata(metadata)
 
                     # Small delay to prevent overwhelming
                     await asyncio.sleep(0.033)  # ~30 FPS processing
 
                 except Exception as e:
-                    print(f"Frame processing error: {e}")
+                    logging.warning(f"Frame processing error: {e}")
                     await asyncio.sleep(0.1)
 
         except asyncio.CancelledError:
-            print("Frame processing cancelled")
+            logging.warning("Frame processing cancelled")
         except Exception as e:
-            print(f"Processing task error: {e}")
+            logging.warning(f"Processing task error: {e}")
 
-    async def _send_metadata(
-        self,
-        timestamp: float,
-        frame_id: int,
-        detections_data: list[dict[str, Any]],
-        current_fps: float,
-    ) -> None:
+    async def _send_metadata(self, metadata: MetadataMessage) -> None:
         """Send metadata to all active WebSocket clients."""
-        metadata = MetadataMessage(
-            timestamp=timestamp * 1000,  # milliseconds
-            frame_id=frame_id,
-            detections=detections_data,
-            fps=current_fps if frame_id % 30 == 0 else None,  # Send FPS every 30 frames
-        )
         message = json.dumps(metadata.model_dump())
         dead_connections = set()
 
@@ -239,6 +221,65 @@ class AnalyzerWebSocketManager:
 
         # Remove dead connections
         self.active_connections -= dead_connections
+
+    def _build_metadata_message(
+        self,
+        frame_rgb: np.ndarray,
+        detections: list[tuple[int, int, int, int, int, float]],
+        distances: list[float],
+        timestamp: float,
+        frame_id: int,
+        current_fps: float,
+    ) -> MetadataMessage:
+        """Construct metadata message with normalized boxes and camera-space XYZ."""
+        h, w = frame_rgb.shape[:2]
+        fx, fy, cx, cy = compute_camera_intrinsics(w, h)
+
+        if not self._intrinsics_logged and getattr(config, "LOG_INTRINSICS", False):
+            logging.info(
+                f"intrinsics fx={fx:.2f} fy={fy:.2f} cx={cx:.2f} cy={cy:.2f} (frame {w}x{h})"
+            )
+            self._intrinsics_logged = True
+
+        det_payload = []
+        for idx, ((x1, y1, x2, y2, cls_id, conf), dist_m) in enumerate(
+            zip(detections, distances)
+        ):
+            box_w = max(0.0, float(x2 - x1))
+            box_h = max(0.0, float(y2 - y1))
+            if box_w <= 0 or box_h <= 0:
+                continue
+
+            norm_x = max(0.0, min(1.0, x1 / w))
+            norm_y = max(0.0, min(1.0, y1 / h))
+            norm_w = max(0.0, min(1.0, box_w / w))
+            norm_h = max(0.0, min(1.0, box_h / h))
+
+            pos_x, pos_y, pos_z = unproject_bbox_center_to_camera(
+                x1, y1, x2, y2, dist_m, fx, fy, cx, cy
+            )
+
+            det_payload.append(
+                {
+                    "box": {
+                        "x": norm_x,
+                        "y": norm_y,
+                        "width": norm_w,
+                        "height": norm_h,
+                    },
+                    "label": cls_id,
+                    "confidence": float(conf),
+                    "distance": float(dist_m),
+                    "position": {"x": pos_x, "y": pos_y, "z": pos_z},
+                }
+            )
+
+        return MetadataMessage(
+            timestamp=timestamp * 1000,  # milliseconds
+            frame_id=frame_id,
+            detections=det_payload,
+            fps=current_fps if frame_id % 30 == 0 else None,  # Send FPS every 30 frames
+        )
 
     async def shutdown(self) -> None:
         """Cleanup on service shutdown."""
