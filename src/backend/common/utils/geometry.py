@@ -6,8 +6,6 @@ import numpy as np
 
 from ultralytics.engine.results import Results  # type: ignore[import-untyped]
 
-from common.config import config
-
 
 def get_detections(
     inference_results: list[Results],

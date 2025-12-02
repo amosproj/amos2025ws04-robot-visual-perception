@@ -16,6 +16,7 @@ DepthEstimatorFactory = Callable[[Optional[Path]], DepthEstimator]
 
 _depth_estimator: Optional[DepthEstimator] = None
 
+
 def register_depth_estimator(factory: DepthEstimatorFactory) -> None:
     """Register a factory used to build the singleton depth estimator."""
     global _depth_estimator_factory, _depth_estimator
@@ -62,7 +63,9 @@ class MiDasDepthEstimator(DepthEstimator):
             torch.hub.set_dir(str(midas_cache_directory))
 
         self.depth_estimation_model = (
-            torch.hub.load(midas_model, model_type, trust_repo=True).to(self.device).eval()
+            torch.hub.load(midas_model, model_type, trust_repo=True)
+            .to(self.device)
+            .eval()
         )
         # MiDaS transforms
         midas_transforms = torch.hub.load(midas_model, "transforms", trust_repo=True)

@@ -39,7 +39,9 @@ def available_detector_backends() -> list[str]:
     return sorted(_backend_registry)
 
 
-def _build_engine(model_path: Optional[Path], backend: Optional[str]) -> ObjectDetectionBackend:
+def _build_engine(
+    model_path: Optional[Path], backend: Optional[str]
+) -> ObjectDetectionBackend:
     backend_name = (backend or config.DETECTOR_BACKEND).lower()
     try:
         factory = _backend_registry[backend_name]
@@ -70,10 +72,7 @@ class _Detector(ObjectDetector):
         self._last_time: float = 0.0
         self._lock = asyncio.Lock()
 
-
-    async def infer(
-        self, frame_rgb: np.ndarray
-    ) -> list[Detection]:
+    async def infer(self, frame_rgb: np.ndarray) -> list[Detection]:
         """Run detection asynchronously on a single frame.
 
         Performs object detection on the given RGB image using the loaded backend.
