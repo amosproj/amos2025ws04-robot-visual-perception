@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 import types
+from typing import Optional
+from pathlib import Path
 import numpy as np
 import pytest
 from tests.test_utils import DummyBoxes, DummyResult
@@ -111,3 +113,21 @@ async def test_infer_with_onnx_backend(monkeypatch, tmp_path):
     assert (x1, y1, x2, y2) == (1, 1, 3, 3)
     assert cls_id == 0
     assert pytest.approx(conf, rel=1e-3) == 0.95
+
+
+@pytest.mark.asyncio
+async def test_register_detector_backend():
+    import common.core.detector as det
+
+    class DummyBackend(det._DetectorEngine):
+        def __init__(self, model_path: Optional[Path] = None) -> None:
+            pass
+
+        def predict(self, frame_rgb):
+            return [(1, 2, 3, 4, 5, 0.8)]
+
+    det.register_detector_backend("dummy", DummyBackend)
+    detector = det._Detector(backend="dummy")
+
+    detections = await detector.infer(np.zeros((2, 2, 3), dtype=np.uint8))
+    assert detections == [(1, 2, 3, 4, 5, 0.8)]
