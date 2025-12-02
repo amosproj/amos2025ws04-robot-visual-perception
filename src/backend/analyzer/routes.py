@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 import asyncio
 import json
+import cv2
 import logging
 
 import numpy as np
@@ -36,6 +37,15 @@ class AnalyzerWebSocketManager:
         self._webcam_session: WebcamSession | None = None
         self._processing_task: asyncio.Task[None] | None = None
         self._intrinsics_logged: bool = False
+
+        self.max_consecutive_errors = 5
+        # adaptive downscaling parameters
+        self.target_scale_init = config.TARGET_SCALE_INIT
+        self.smooth_factor = config.SMOOTH_FACTOR
+        self.min_scale = config.MIN_SCALE
+        self.max_scale = config.MAX_SCALE
+        # adaptive frame dropping parameters
+        self.fps_threshold = config.FPS_THRESHOLD
 
     async def connect(self, websocket: WebSocket) -> None:
         """Accept a new WebSocket connection."""
@@ -107,9 +117,10 @@ class AnalyzerWebSocketManager:
         frame_id = 0
         last_fps_time = asyncio.get_event_loop().time()
         fps_counter = 0
-        current_fps = 0.0
+        current_fps = 30.0
         consecutive_errors = 0
-        max_consecutive_errors = 5
+
+        target_scale = self.target_scale_init
 
         try:
             while self.active_connections:
@@ -121,7 +132,8 @@ class AnalyzerWebSocketManager:
                     except asyncio.TimeoutError:
                         logging.warning("Frame receive timeout, skipping...")
                         consecutive_errors += 1
-                        if consecutive_errors >= max_consecutive_errors:
+
+                        if consecutive_errors >= self.max_consecutive_errors:
                             logging.error(
                                 "Too many consecutive timeouts, reconnecting..."
                             )
@@ -133,7 +145,7 @@ class AnalyzerWebSocketManager:
                         )
                         consecutive_errors += 1
 
-                        if consecutive_errors >= max_consecutive_errors:
+                        if consecutive_errors >= self.max_consecutive_errors:
                             # full reconnect
                             if self._webcam_session is not None:
                                 await self._webcam_session.close()
@@ -170,21 +182,45 @@ class AnalyzerWebSocketManager:
                         fps_counter = 0
                         last_fps_time = current_time
 
+                        if current_fps < 10:
+                            target_scale -= self.smooth_factor
+                        elif current_fps < 18:
+                            target_scale -= self.smooth_factor * 0.5
+                        else:
+                            target_scale += self.smooth_factor * 0.8
+
+                        target_scale = max(
+                            self.min_scale, min(self.max_scale, target_scale)
+                        )
+                        print(
+                            f"[Adaptive Res] Scale={target_scale:.2f} | FPS={current_fps:.1f}"
+                        )
+
+                    # Resize frame for processing
+                    if target_scale < 0.98:
+                        new_w = int(frame_array.shape[1] * target_scale)
+                        new_h = int(frame_array.shape[0] * target_scale)
+                        frame_small = cv2.resize(frame_array, (new_w, new_h))
+                    else:
+                        frame_small = frame_array
+
+                    sample_rate = 2 if current_fps < self.fps_threshold else 4
+
                     # Run ML inference every 3rd frame and collect detections
-                    if not self.active_connections or frame_id % 3 != 0:
+                    if not self.active_connections or frame_id % sample_rate != 0:
                         continue
 
                     # YOLO detection
-                    detections = await detector.infer(frame_array)
+                    detections = await detector.infer(frame_small)
 
                     if not detections:
                         continue
 
                     # Distance estimation
-                    distances = estimator.estimate_distance_m(frame_array, detections)
+                    distances = estimator.estimate_distance_m(frame_small, detections)
 
                     metadata = self._build_metadata_message(
-                        frame_rgb=frame_array,
+                        frame_rgb=frame_small,
                         detections=detections,
                         distances=distances,
                         timestamp=current_time,
@@ -196,7 +232,7 @@ class AnalyzerWebSocketManager:
                     await self._send_metadata(metadata)
 
                     # Small delay to prevent overwhelming
-                    await asyncio.sleep(0.033)  # ~30 FPS processing
+                    # await asyncio.sleep(0.033)  # ~30 FPS processing
 
                 except Exception as e:
                     logging.warning(f"Frame processing error: {e}")
