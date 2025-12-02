@@ -34,10 +34,12 @@ class AnalyzerWebSocketManager:
 
         self.max_consecutive_errors = 5
         # adaptive downscaling parameters
-        self.target_scale_init = 0.8
-        self.smooth_factor = 0.15
-        self.min_scale = 0.3
-        self.max_scale = 1.0
+        self.target_scale_init = config.TARGET_SCALE_INIT
+        self.smooth_factor = config.SMOOTH_FACTOR
+        self.min_scale = config.MIN_SCALE
+        self.max_scale = config.MAX_SCALE
+        # adaptive frame dropping parameters
+        self.fps_threshold = config.FPS_THRESHOLD
 
     async def connect(self, websocket: WebSocket) -> None:
         """Accept a new WebSocket connection."""
@@ -109,7 +111,7 @@ class AnalyzerWebSocketManager:
         frame_id = 0
         last_fps_time = asyncio.get_event_loop().time()
         fps_counter = 0
-        current_fps = 0.0
+        current_fps = 30.0
         consecutive_errors = 0
 
         target_scale = self.target_scale_init
@@ -193,7 +195,7 @@ class AnalyzerWebSocketManager:
 
                     # Run ML inference on frame and collect detections
                     detections_data = []
-                    run_detect = frame_id % (2 if current_fps < 15 else 4) == 0
+                    run_detect = frame_id % (2 if current_fps < self.fps_threshold else 4) == 0
                     if run_detect:
                         # YOLO detection
                         detections = await detector.infer(frame_small)
@@ -210,10 +212,11 @@ class AnalyzerWebSocketManager:
                         for i, (x1, y1, x2, y2, cls_id, confidence) in enumerate(
                             detections
                         ):
-                            x1 = int(x1 / target_scale)
-                            y1 = int(y1 / target_scale)
-                            x2 = int(x2 / target_scale)
-                            y2 = int(y2 / target_scale)
+                            if target_scale < 0.98:
+                                x1 = int(x1 / target_scale)
+                                y1 = int(y1 / target_scale)
+                                x2 = int(x2 / target_scale)
+                                y2 = int(y2 / target_scale)
                             detections_data.append(
                                 {
                                     "box": {

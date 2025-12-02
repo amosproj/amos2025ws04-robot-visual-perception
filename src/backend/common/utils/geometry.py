@@ -64,7 +64,7 @@ class DistanceEstimator:
         self.scale_factor = config.SCALE_FACTOR  # empirical calibration factor
         self.update_freq = config.UPDATE_FREQ  # frames between depth updates
 
-        self.update_id = 0
+        self.update_id = -1
         self.last_depths: list[float] = []
         self.model_type = model_type
         self.midas_model = midas_model
@@ -94,7 +94,7 @@ class DistanceEstimator:
 
         Returns list of distances in meters."""
         self.update_id += 1
-        if self.update_id % self.update_freq == 0 and len(self.last_depths) == len(
+        if self.update_id % self.update_freq != 0 and len(self.last_depths) == len(
             dets
         ):
             return self.last_depths
