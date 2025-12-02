@@ -17,6 +17,7 @@ import json
 import re
 import subprocess
 import sys
+import tomllib
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -109,34 +110,50 @@ def get_npm_first_order_deps(package_json_path: Path) -> List[Dict[str, Any]]:
     return deps
 
 
-def get_python_first_order_deps(requirements_path: Path) -> List[Dict[str, Any]]:
-    """Extract first-order Python dependencies from requirements.txt."""
-    if not requirements_path.exists():
+def get_python_first_order_deps_from_pyproject(pyproject_path: Path) -> List[Dict[str, Any]]:
+    """Extract first-order Python dependencies from pyproject.toml.
+    
+    Args:
+        pyproject_path: Path to pyproject.toml
+    
+    Returns:
+        List of dependency dicts with name, version, ecosystem, is_dev
+    """
+    if not pyproject_path.exists():
         return []
-
+    
     deps = []
-    with open(requirements_path, "r") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
+    
+    with open(pyproject_path, "rb") as f:
+        data = tomllib.load(f)
+    
+    dep_strings: Dict[str, List[str]] = {}
+    
+    # Core deps
+    dep_strings.setdefault("core", []).extend(
+        data.get("project", {}).get("dependencies", [])
+    )
 
-            # Parse package==version (only exact pins)
-            match = re.match(r"^([a-zA-Z0-9\-_.]+)\s*==\s*([0-9.]+)", line)
+    # Optional deps
+    optional_deps = data.get("project", {}).get("optional-dependencies", {})    
+    for extra_name, extra_deps in optional_deps.items():
+        dep_strings.setdefault(extra_name, []).extend(extra_deps)
+
+    for source_field, dep_list in dep_strings.items():
+        for dep_string in dep_list:
+            match = re.match(r"^([a-zA-Z0-9\-_.]+)\s*==\s*([0-9.]+)", dep_string)
             if match:
                 name, version = match.groups()
                 deps.append({
                     "name": name,
                     "version": version,
                     "ecosystem": "pypi",
-                    "is_dev": False
+                    "is_dev": source_field in ["dev", "onnx-tools"], # Mark dev
                 })
             else:
-                # Warn if a dependency uses version ranges instead of exact pins
-                if any(op in line for op in [">", "<", "~=", "!="]) and not line.startswith("-"):
-                    print(f"Warning: Dependency with version range found in {requirements_path}: {line}", file=sys.stderr)
-                    print(f"         SBOM should use exact versions. Consider using pip freeze or lock files.", file=sys.stderr)
-
+                if not dep_string.startswith("#"):
+                    print(f"Warning: Dependency without exact version pin: {dep_string}", file=sys.stderr)
+    
     return deps
 
 
@@ -466,8 +483,7 @@ def main():
 
         # Check if dependency files are newer than SBOM
         dependency_files = [
-            root / "src" / "backend" / "requirements.txt",
-            root / "src" / "backend" / "requirements-dev.txt",
+            root / "src" / "backend" / "pyproject.toml",
             root / "src" / "frontend" / "package.json",
         ]
 
@@ -498,17 +514,14 @@ def main():
     all_deps.extend(frontend_deps)
     print(f"Found {len(frontend_deps)} frontend dependencies")
 
-    # Backend production dependencies
-    backend_deps = get_python_first_order_deps(root / "src" / "backend" / "requirements.txt")
+    # Backend dependencies (core + all extras)
+    pyproject_path = root / "src" / "backend" / "pyproject.toml"    
+    backend_deps = get_python_first_order_deps_from_pyproject(pyproject_path)
     all_deps.extend(backend_deps)
-    print(f"Found {len(backend_deps)} backend production dependencies")
-
-    # Backend dev dependencies
-    backend_dev_deps = get_python_first_order_deps(root / "src" / "backend" / "requirements-dev.txt")
-    for dep in backend_dev_deps:
-        dep["is_dev"] = True
-    all_deps.extend(backend_dev_deps)
-    print(f"Found {len(backend_dev_deps)} backend dev dependencies")
+    prod_count = sum(1 for d in backend_deps if not d["is_dev"])
+    dev_count = sum(1 for d in backend_deps if d["is_dev"])
+    print(f"Found {prod_count} backend production dependencies")
+    print(f"Found {dev_count} backend dev dependencies")
 
     print(f"\nTotal first-order dependencies: {len(all_deps)}")
 

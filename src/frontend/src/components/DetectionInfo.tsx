@@ -31,7 +31,9 @@ export default function DetectionInfo({ detections }: DetectionInfoProps) {
             key={detection.id}
             className="flex items-center gap-2 px-3 py-2 bg-[#404040] rounded-md border-l-[3px] border-l-[#00d4ff] border border-[#555]"
           >
-            <span className="font-semibold text-[#e0e0e0]">{detection.label}</span>
+            <span className="font-semibold text-[#e0e0e0]">
+              {detection.label}
+            </span>
             <span className="bg-gradient-to-br from-[#74b9ff] to-[#0984e3] text-white px-2 py-0.5 rounded text-xs font-semibold shadow-[0_2px_4px_rgba(116,185,255,0.3)]">
               {(detection.confidence * 100).toFixed(1)}%
             </span>

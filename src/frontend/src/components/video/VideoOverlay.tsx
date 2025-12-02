@@ -172,7 +172,11 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         const metadata = metadataRef.current;
 
         // Don't render bounding boxes if video is paused or no metadata
-        if (!metadata || metadata.timestamp === lastRenderedTimestamp.current || isPaused) {
+        if (
+          !metadata ||
+          metadata.timestamp === lastRenderedTimestamp.current ||
+          isPaused
+        ) {
           // If paused, clear the canvas but keep the animation loop running for when it resumes
           if (isPaused) {
             ctx.clearRect(0, 0, canvasWidth, canvasHeight);

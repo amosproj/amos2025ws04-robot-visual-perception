@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-
-
 export interface HeaderProps {
   videoState: string;
   latencyMs?: number;
@@ -52,7 +50,9 @@ export default function Header({
       <div className="flex justify-center gap-8 flex-wrap bg-[#2a2a2a] border border-[#404040] p-4 rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
         <div className="flex items-center gap-2 text-sm">
           <span className="font-semibold text-[#b0b0b0]">Video:</span>
-          <span className={`font-medium px-3 py-1 rounded ${getVideoStateClass(videoState)}`}>
+          <span
+            className={`font-medium px-3 py-1 rounded ${getVideoStateClass(videoState)}`}
+          >
             {videoState}
           </span>
           {latencyMs && (
@@ -64,7 +64,9 @@ export default function Header({
 
         <div className="flex items-center gap-2 text-sm">
           <span className="font-semibold text-[#b0b0b0]">Analyzer:</span>
-          <span className={`font-medium px-3 py-1 rounded ${getStatusValueClass(analyzerConnected)}`}>
+          <span
+            className={`font-medium px-3 py-1 rounded ${getStatusValueClass(analyzerConnected)}`}
+          >
             {analyzerConnected ? 'Connected' : 'Disconnected'}
           </span>
           {analyzerFps && analyzerFps > 0 && (

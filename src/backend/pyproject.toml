@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2025 robot-visual-perception
+#
+# SPDX-License-Identifier: MIT
+
+[project]
+name = "OptiBot"
+version = "0.1.0"
+description = "OptiBot backend"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    # Web framework
+    "fastapi==0.115.10",
+    "websockets==15.0.1",
+    "uvicorn==0.38.0",
+    "pydantic==2.12.3",
+    
+    # WebRTC stuff
+    "aiortc==1.14.0",
+    "aioice==0.10.1",
+    "av==16.0.1",
+    
+    # CV & ML (shared by both webcam and analyzer)
+    "opencv-python==4.9.0.80",
+    "numpy==1.26.4",
+]
+
+[project.optional-dependencies]
+
+# ONLY for analyzer 
+inference = [
+    "httpx==0.27.2",
+    "ultralytics==8.3.58",
+    "timm==1.0.22",
+]
+
+onnx-tools = [
+    "onnx==1.19.1",
+    "onnxscript==0.5.6",
+    "onnxslim==0.1.75",
+]
+
+dev = [
+    "ruff==0.7.0",
+    "pytest==8.3.3",
+    "pytest-asyncio==1.2.0",
+    "mypy==1.13.0",
+    "reuse==4.0.3",
+]
+
+onnx-cpu = [
+    "onnxruntime==1.20.1",
+]
+
+onnx-cuda = [
+    "onnxruntime-gpu==1.23.2; sys_platform == 'linux'",
+]
+
+onnx-rocm = [
+    "onnxruntime==1.20.1; sys_platform == 'linux'",
+]

@@ -48,9 +48,7 @@ class _Detector:
         self._last_time: float = 0.0
         self._lock = asyncio.Lock()
 
-    async def infer(
-        self, frame_rgb: np.ndarray
-    ) -> list[Detection]:
+    async def infer(self, frame_rgb: np.ndarray) -> list[Detection]:
         """Run YOLO inference asynchronously on a single frame.
 
         Performs object detection on the given RGB image using the loaded YOLO model.
@@ -160,7 +158,9 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         providers = self._resolve_providers()
         sess_options = ort.SessionOptions()
         sess_options.enable_mem_pattern = False
-        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        sess_options.graph_optimization_level = (
+            ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        )
         self._session = ort.InferenceSession(
             str(model_path),
             providers=providers or None,
