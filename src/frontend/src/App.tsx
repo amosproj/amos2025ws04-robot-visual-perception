@@ -101,14 +101,15 @@ function App() {
         onTogglePlay={togglePlayPause}
         onFullscreen={enterFullscreen}
         onOverlayFpsUpdate={setOverlayFps}
-      />
-
-      <MetadataWidget
-        streamMetadata={stats}
-        detectionMetadata={latestMetadata}
-        defaultGrouped={false}
-        isOpen={isMetadataWidgetOpen}
-        onToggle={() => setIsMetadataWidgetOpen(!isMetadataWidgetOpen)}
+        metadataWidget={
+          <MetadataWidget
+            streamMetadata={stats}
+            detectionMetadata={latestMetadata}
+            defaultGrouped={false}
+            isOpen={isMetadataWidgetOpen}
+            onToggle={() => setIsMetadataWidgetOpen(!isMetadataWidgetOpen)}
+          />
+        }
       />
     </div>
   );

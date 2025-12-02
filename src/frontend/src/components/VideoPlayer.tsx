@@ -11,6 +11,7 @@ import {
   RefObject,
   forwardRef,
   useImperativeHandle,
+  ReactNode
 } from 'react';
 import VideoOverlay, { VideoOverlayHandle } from './video/VideoOverlay';
 import { PlayerControls } from './video/PlayerControls';
@@ -30,6 +31,8 @@ export interface VideoPlayerProps {
   onFullscreen: () => void;
   /** Callback for overlay FPS updates */
   onOverlayFpsUpdate: (fps: number) => void;
+    /** Optional metadata widget to display in fullscreen */
+  metadataWidget?: ReactNode;
 }
 
 export interface VideoPlayerHandle {
@@ -52,6 +55,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       onTogglePlay,
       onFullscreen,
       onOverlayFpsUpdate,
+      metadataWidget,
     },
     ref
   ) => {
@@ -125,6 +129,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           onTogglePlay={onTogglePlay}
           onFullscreen={onFullscreen}
         />
+
+        
+        {/* Render metadata widget inside container for fullscreen support */}
+        {metadataWidget}
       </div>
     );
   }
