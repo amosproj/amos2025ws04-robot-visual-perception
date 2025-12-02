@@ -106,7 +106,7 @@ class _Detector(ObjectDetector):
 _detector_instance: Optional[_Detector] = None
 
 
-def _get_detector(model_path: Optional[Path] = None) -> _Detector:
+def get_detector(model_path: Optional[Path] = None) -> _Detector:
     """Get or create the singleton detector instance.
 
     Args:
@@ -120,10 +120,6 @@ def _get_detector(model_path: Optional[Path] = None) -> _Detector:
     if _detector_instance is None:
         _detector_instance = _Detector(model_path=model_path)
     return _detector_instance
-
-
-# Public alias to encourage non-underscored access in new code
-get_detector = _get_detector
 
 
 class _DetectorEngine:

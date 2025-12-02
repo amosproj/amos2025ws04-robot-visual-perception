@@ -10,7 +10,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from common.core.session import WebcamSession
 from common.config import config
-from common.core.detector import _get_detector
+from common.core.detector import get_detector
 from common.core.depth import get_depth_estimator
 
 
@@ -95,7 +95,7 @@ class AnalyzerWebSocketManager:
 
     async def _process_frames(self, source_track: MediaStreamTrack) -> None:
         """Process frames from webcam and send metadata to all WebSocket clients."""
-        detector = _get_detector()
+        detector = get_detector()
         estimator = get_depth_estimator()
 
         frame_id = 0
