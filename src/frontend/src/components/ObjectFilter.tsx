@@ -105,11 +105,15 @@ function ObjectFilter({
       if (!isNaN(classId)) {
         classMap.set(classId, (classMap.get(classId) || 0) + 1);
 
-        // Track when this class was first seen
+        // Track when this class was first seen and auto-select it
         setSeenClasses((prev) => {
           if (!prev.has(classId)) {
             const updated = new Map(prev);
             updated.set(classId, Date.now());
+
+            // Auto-select newly detected classes (default: select all)
+            onSelectionChange(new Set([...selectedClasses, classId]));
+
             return updated;
           }
           return prev;
@@ -118,7 +122,7 @@ function ObjectFilter({
     });
 
     return classMap;
-  }, [detections]);
+  }, [detections, selectedClasses, onSelectionChange]);
 
   // Build stable list of detected classes (ordered by first-seen, newest at top)
   const detectedClasses = useMemo(() => {
