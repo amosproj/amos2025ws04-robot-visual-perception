@@ -122,14 +122,24 @@ def main() -> None:
             midas_cache_directory = get_midas_cache_directory()
         ensure_midas_model_available(cache_directory=midas_cache_directory)
 
-    app = create_app(yolo_model_path, midas_cache_directory)
+    if args.reload:
+        ''' When using reload, we need to pass the import string and set environment variables '''
 
-    uvicorn.run(
-        app,
-        host=args.host,
-        port=args.port,
-        reload=args.reload,
-    )
+        uvicorn.run(
+            "analyzer.main:app",
+            host=args.host,
+            port=args.port,
+            reload=True,
+        )
+    else:
+        ''' Without reload, we can pass the app instance directly '''
+        app = create_app(yolo_model_path, midas_cache_directory)
+
+        uvicorn.run(
+            app,
+            host=args.host,
+            port=args.port,
+        )
 
 
 if __name__ == "__main__":
