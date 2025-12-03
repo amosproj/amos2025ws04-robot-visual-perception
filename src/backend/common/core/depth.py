@@ -9,7 +9,7 @@ import torch
 from typing import Callable, Literal, Optional
 
 from common.config import config
-from common.core.contracts import DepthEstimator, Detection
+from common.core.contracts import DepthEstimator
 
 # Factories let us swap depth estimation backends without changing call sites.
 DepthEstimatorFactory = Callable[[Optional[Path]], DepthEstimator]
@@ -49,10 +49,14 @@ class MiDasDepthEstimator(DepthEstimator):
             midas_cache_directory: Custom directory for PyTorch Hub cache.
                 If None, uses PyTorch's default cache location.
         """
-
-        self.region_size = config.REGION_SIZE  # size of region around bbox center
+        self.region_size = (
+            config.REGION_SIZE
+        )  # size of region around bbox center to sample depth
         self.scale_factor = config.SCALE_FACTOR  # empirical calibration factor
+        self.update_freq = config.UPDATE_FREQ  # frames between depth updates
 
+        self.update_id = -1
+        self.last_depths: list[float] = []
         self.model_type = model_type
         self.midas_model = midas_model
         self.device = (
@@ -67,7 +71,7 @@ class MiDasDepthEstimator(DepthEstimator):
             .to(self.device)
             .eval()
         )
-        # MiDaS transforms
+        # get MiDaS transforms
         midas_transforms = torch.hub.load(midas_model, "transforms", trust_repo=True)
         if model_type in {"DPT_Large", "DPT_Hybrid"}:
             self.transform = midas_transforms.dpt_transform
@@ -75,11 +79,16 @@ class MiDasDepthEstimator(DepthEstimator):
             self.transform = midas_transforms.small_transform
 
     def estimate_distance_m(
-        self, frame_rgb: np.ndarray, detections: list[Detection]
+        self, frame_rgb: np.ndarray, dets: list[tuple[int, int, int, int, int, float]]
     ) -> list[float]:
         """Estimate distance in meters for each detection based on depth map.
 
         Returns list of distances in meters."""
+        self.update_id += 1
+        if self.update_id % self.update_freq != 0 and len(self.last_depths) == len(
+            dets
+        ):
+            return self.last_depths
         h, w, _ = frame_rgb.shape
 
         input_batch = self.transform(frame_rgb).to(self.device)
@@ -93,7 +102,7 @@ class MiDasDepthEstimator(DepthEstimator):
             ).squeeze()
         depth_map = prediction.cpu().numpy()
         distances = []
-        for x1, y1, x2, y2, _cls_id, _conf in detections:
+        for x1, y1, x2, y2, _cls_id, _conf in dets:
             # extract 5x5 central region of bbox and clip to image bounds
             cx = int((x1 + x2) / 2)
             cy = int((y1 + y2) / 2)
@@ -109,6 +118,7 @@ class MiDasDepthEstimator(DepthEstimator):
             depth_value = max(np.mean(region), 1e-6)  # avoid div by zero
 
             distances.append(float(self.scale_factor / depth_value))
+        self.last_depths = distances
         return distances
 
 

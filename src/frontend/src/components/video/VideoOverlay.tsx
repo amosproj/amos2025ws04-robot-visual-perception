@@ -26,7 +26,7 @@ export interface BoundingBox {
   /** Optional: Distance from camera in meters */
   distance?: number;
   /** Optional: 3D position (x, y, z) in meters */
-  position?: {
+  position: {
     x: number;
     y: number;
     z: number;
