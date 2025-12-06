@@ -13,7 +13,11 @@
 	docker-build docker-build-frontend docker-build-backend \
 	docker-build-analyzer docker-build-analyzer-cuda docker-build-analyzer-rocm \
 	docker-compose-up docker-compose-down \
+<<<<<<< Updated upstream
 	download-models
+=======
+	download-models export-onnx
+>>>>>>> Stashed changes
 
 help:
 	@echo "make"
@@ -78,7 +82,11 @@ help:
 	@echo "  export-onnx"
 	@echo "      exports YOLO to ONNX (default opset 18; honors MODEL_PATH/ONNX_MODEL_PATH)"
 	@echo "  download-models"
+<<<<<<< Updated upstream
 	@echo "      downloads YOLO + MiDaS weights without starting the backend"
+=======
+	@echo "      downloads YOLO and MiDaS models to src/backend/models/"
+>>>>>>> Stashed changes
 
 dev: install
 
@@ -186,5 +194,5 @@ export-onnx:
 	cd src/backend && uv run python ../../scripts/export_onnx.py
 
 download-models:
-	@echo "Ensuring analyzer models are cached..."
-	cd src/backend && uv run python -m common.core.download_models_cli $(ARGS)
+	@echo "Downloading YOLO and MiDaS models..."
+	cd src/backend && uv run python ../../scripts/download_models.py
