@@ -27,12 +27,18 @@ def test_depth_backend_selection(monkeypatch: pytest.MonkeyPatch) -> None:
     depth.register_depth_backend("dummy", _DummyDepthEstimator)
     monkeypatch.setattr(depth.config, "DEPTH_BACKEND", "dummy")
     monkeypatch.setattr(depth, "_depth_estimator", None)
-    monkeypatch.setattr(depth, "_depth_estimator_factory", depth._default_depth_estimator_factory)  # type: ignore[attr-defined]
+    monkeypatch.setattr(
+        depth,
+        "_depth_estimator_factory",
+        depth._default_depth_estimator_factory,  # type: ignore[attr-defined]
+    )
 
     estimator = depth.get_depth_estimator(Path("/tmp/cache"))
     assert isinstance(estimator, _DummyDepthEstimator)
     assert estimator.cache_dir == Path("/tmp/cache")
-    assert estimator.estimate_distance_m(np.zeros((1, 1, 3)), [(0, 0, 0, 0, 0, 0.0)]) == [42.0]
+    assert estimator.estimate_distance_m(
+        np.zeros((1, 1, 3)), [(0, 0, 0, 0, 0, 0.0)]
+    ) == [42.0]
 
 
 def test_unknown_depth_backend_raises(monkeypatch: pytest.MonkeyPatch) -> None:

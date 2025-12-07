@@ -46,7 +46,8 @@ def _default_depth_estimator_factory(
     except KeyError:
         known = ", ".join(available_depth_backends())
         raise ValueError(
-            f"Unsupported DEPTH_BACKEND '{backend_name}'. Known backends: {known or 'none'}."
+            f"Unsupported DEPTH_BACKEND '{backend_name}'. "
+            f"Known backends: {known or 'none'}."
         ) from None
     return factory(midas_cache_directory)
 
@@ -75,7 +76,8 @@ class _BaseMiDasDepthEstimator(DepthEstimator):
     def __init__(
         self,
         midas_cache_directory: Optional[Path] = None,
-        model_type: Literal["MiDaS_small", "DPT_Hybrid", "DPT_Large"] | str = config.MIDAS_MODEL_TYPE,
+        model_type: Literal["MiDaS_small", "DPT_Hybrid", "DPT_Large"]
+        | str = config.MIDAS_MODEL_TYPE,
         midas_model: str = config.MIDAS_MODEL_REPO,
     ) -> None:
         self.region_size = config.REGION_SIZE
@@ -168,7 +170,8 @@ class MiDasDepthEstimator(_BaseMiDasDepthEstimator):
     def __init__(
         self,
         midas_cache_directory: Optional[Path] = None,
-        model_type: Literal["MiDaS_small", "DPT_Hybrid", "DPT_Large"] | str = config.MIDAS_MODEL_TYPE,
+        model_type: Literal["MiDaS_small", "DPT_Hybrid", "DPT_Large"]
+        | str = config.MIDAS_MODEL_TYPE,
         midas_model: str = config.MIDAS_MODEL_REPO,
     ) -> None:
         super().__init__(
@@ -201,7 +204,8 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
     def __init__(
         self,
         midas_cache_directory: Optional[Path] = None,
-        model_type: Literal["MiDaS_small", "DPT_Hybrid", "DPT_Large"] | str = config.MIDAS_MODEL_TYPE,
+        model_type: Literal["MiDaS_small", "DPT_Hybrid", "DPT_Large"]
+        | str = config.MIDAS_MODEL_TYPE,
         midas_model: str = config.MIDAS_MODEL_REPO,
         onnx_model_path: Optional[Path] = None,
     ) -> None:
@@ -224,7 +228,9 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
         self.providers = self._resolve_providers()
         sess_options = ort.SessionOptions()
         sess_options.enable_mem_pattern = False
-        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        sess_options.graph_optimization_level = (
+            ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        )
         self._session = ort.InferenceSession(
             str(self.onnx_model_path),
             providers=self.providers or None,
