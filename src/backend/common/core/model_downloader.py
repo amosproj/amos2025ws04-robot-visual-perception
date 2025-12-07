@@ -106,7 +106,7 @@ def ensure_midas_model_available(
     model_type: str = "MiDaS_small",
     midas_repo: str = "intel-isl/MiDaS",
     cache_directory: Optional[Path] = None,
-) -> None:
+) -> bool:
     """Ensure MiDaS model is downloaded and cached.
 
     PyTorch Hub automatically caches models, but this function explicitly
@@ -118,6 +118,9 @@ def ensure_midas_model_available(
         midas_repo: Repository identifier for the MiDaS model.
         cache_directory: Custom cache directory. If None, uses PyTorch Hub's
             default cache location.
+
+    Returns:
+        True if model was successfully downloaded/cached, False otherwise.
 
     Note:
         This function loads the model to trigger download, but doesn't return it.
@@ -133,6 +136,8 @@ def ensure_midas_model_available(
     try:
         torch.hub.load(midas_repo, model_type, trust_repo=True)
         print(f"MiDaS model {model_type} is cached and ready")
+        return True
     except Exception as e:
         print(f"Warning: Could not pre-load MiDaS model: {e}")
         print("Model will be downloaded on first use")
+        return False

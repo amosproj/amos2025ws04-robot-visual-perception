@@ -59,11 +59,17 @@ make run-analyzer-local
 ```
 The first analyzer start will download `yolov8n.pt` automatically (this will take some time)
 
-**Alternatively, download models explicitly without:**
+**Alternatively, download models explicitly:**
 ```
 make download-models
 ```
 This downloads both YOLO (`yolov8n.pt`) and MiDaS models to `src/backend/models/` without starting the server.
+
+To download models in ONNX format:
+```
+make download-models-onnx
+```
+This downloads both YOLO and MiDaS models, then exports them to ONNX format (`yolov8n.onnx` and `midas_small.onnx`).
 
 ### Analyzer Service Options
 
