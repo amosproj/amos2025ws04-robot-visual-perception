@@ -2,13 +2,23 @@
 #
 # SPDX-License-Identifier: MIT
 import argparse
+import logging
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import uvicorn
+from common.core.model_downloader import (
+    ensure_midas_model_available,
+    ensure_yolo_model_downloaded,
+    get_midas_cache_directory,
+)
 
 from analyzer.main import create_app
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 def parse_analyzer_arguments() -> argparse.Namespace:
@@ -62,54 +72,49 @@ def main() -> None:
     """Main entry point for the analyzer service CLI."""
     args = parse_analyzer_arguments()
 
-    yolo_model_path: Optional[Path] = None
-    if args.yolo_model_path:
-        yolo_model_path = Path(args.yolo_model_path).resolve()
+    def validate_path(path_str: str, is_dir: bool = False) -> Tuple[Optional[Path], bool]:
+        """Validate a path and return the resolved Path object and validation status."""
+        if not path_str:
+            return None, True
+            
+        path = Path(path_str).resolve()
         if not args.dev:
-            if not yolo_model_path.exists():
-                print(f"Error: YOLO model path does not exist: {yolo_model_path}")
-                print(
-                    "Hint: Use --dev flag to automatically download models, or provide a valid path to an existing model file."
+            if not path.exists():
+                logger.error(
+                    f"{'Directory' if is_dir else 'File'} does not exist: {path}"
                 )
-                sys.exit(1)
-            if yolo_model_path.is_dir():
-                print(
-                    f"Error: YOLO model path must be a file, not a directory: {yolo_model_path}"
+                logger.info(
+                    "Hint: Use --dev flag to automatically download models, or provide a valid path."
                 )
-                sys.exit(1)
+                return None, False
+            if is_dir and not path.is_dir():
+                logger.error(f"Expected a directory, but got a file: {path}")
+                return None, False
+            if not is_dir and path.is_dir():
+                logger.error(f"Expected a file, but got a directory: {path}")
+                return None, False
+        elif is_dir:
+            path.mkdir(parents=True, exist_ok=True)
+            
+        return path, True
 
-    midas_cache_directory: Optional[Path] = None
-    if args.midas_model_path:
-        midas_cache_directory = Path(args.midas_model_path).resolve()
-        if not args.dev:
-            if not midas_cache_directory.exists():
-                print(
-                    f"Error: MiDaS cache directory does not exist: {midas_cache_directory}"
-                )
-                print(
-                    "Hint: Use --dev flag to automatically download models, or provide a valid path to an existing cache directory."
-                )
-                sys.exit(1)
-            if midas_cache_directory.is_file():
-                print(
-                    f"Error: MiDaS model path must be a directory, not a file: {midas_cache_directory}"
-                )
-                sys.exit(1)
-        else:
-            midas_cache_directory.mkdir(parents=True, exist_ok=True)
+    # Validate YOLO model path
+    yolo_model_path, is_valid = validate_path(args.yolo_model_path, is_dir=False)
+    if not is_valid:
+        sys.exit(1)
+
+    # Validate MiDaS model path
+    midas_cache_directory, is_valid = validate_path(args.midas_model_path, is_dir=True)
+    if not is_valid:
+        sys.exit(1)
 
     if args.dev:
-        from common.core.model_downloader import (
-            ensure_midas_model_available,
-            ensure_yolo_model_downloaded,
-        )
-
-        print("Development mode: Ensuring models are downloaded and cached...")
+        logger.info("Development mode: Ensuring models are downloaded and cached...")
         if yolo_model_path is None:
             yolo_model_path = ensure_yolo_model_downloaded()
         else:
             if not yolo_model_path.exists():
-                print(f"YOLO model not found at {yolo_model_path}, downloading...")
+                logger.info(f"YOLO model not found at {yolo_model_path}, downloading...")
                 yolo_model_path.parent.mkdir(parents=True, exist_ok=True)
                 yolo_model_path = ensure_yolo_model_downloaded(
                     model_name=yolo_model_path.name,
@@ -117,10 +122,12 @@ def main() -> None:
                 )
 
         if midas_cache_directory is None:
-            from common.core.model_downloader import get_midas_cache_directory
-
             midas_cache_directory = get_midas_cache_directory()
-        ensure_midas_model_available(cache_directory=midas_cache_directory)
+
+        if not ensure_midas_model_available(cache_directory=midas_cache_directory):
+            logger.error("Failed to download or load the MiDaS model.")
+            logger.error("Please check your internet connection and try again.")
+            sys.exit(1)
 
     app = create_app(yolo_model_path, midas_cache_directory)
 
