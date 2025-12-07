@@ -17,7 +17,9 @@ from common.core.model_downloader import (
 from analyzer.main import create_app
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -72,11 +74,13 @@ def main() -> None:
     """Main entry point for the analyzer service CLI."""
     args = parse_analyzer_arguments()
 
-    def validate_path(path_str: str, is_dir: bool = False) -> Tuple[Optional[Path], bool]:
+    def validate_path(
+        path_str: str, is_dir: bool = False
+    ) -> Tuple[Optional[Path], bool]:
         """Validate a path and return the resolved Path object and validation status."""
         if not path_str:
             return None, True
-            
+
         path = Path(path_str).resolve()
         if not args.dev:
             if not path.exists():
@@ -95,7 +99,7 @@ def main() -> None:
                 return None, False
         elif is_dir:
             path.mkdir(parents=True, exist_ok=True)
-            
+
         return path, True
 
     # Validate YOLO model path
@@ -114,7 +118,9 @@ def main() -> None:
             yolo_model_path = ensure_yolo_model_downloaded()
         else:
             if not yolo_model_path.exists():
-                logger.info(f"YOLO model not found at {yolo_model_path}, downloading...")
+                logger.info(
+                    f"YOLO model not found at {yolo_model_path}, downloading..."
+                )
                 yolo_model_path.parent.mkdir(parents=True, exist_ok=True)
                 yolo_model_path = ensure_yolo_model_downloaded(
                     model_name=yolo_model_path.name,

@@ -19,6 +19,7 @@ DEFAULT_MIDAS_REPO = "intel-isl/MiDaS"
 PYTORCH_HUB_CACHE = Path.home() / ".cache" / "torch" / "hub"
 ULTRALYTICS_CACHE = Path.home() / ".ultralytics" / "weights"
 
+
 def _copy_model_file(source: Path, destination: Path) -> None:
     """Copy a model file from source to destination with error handling."""
     try:
@@ -27,6 +28,7 @@ def _copy_model_file(source: Path, destination: Path) -> None:
     except (IOError, OSError) as e:
         logger.error(f"Failed to copy model from {source} to {destination}: {e}")
         raise
+
 
 def ensure_yolo_model_downloaded(
     model_name: str = "yolov8n.pt",
@@ -53,9 +55,15 @@ def ensure_yolo_model_downloaded(
     logger.info(f"Downloading YOLO model {model_name} to {model_path}...")
     try:
         yolo_instance = YOLO(model_name)
-        downloaded_path = getattr(yolo_instance, "ckpt_path", None) or getattr(yolo_instance, "weights", None)
-        
-        if downloaded_path and (downloaded_path := Path(downloaded_path)).exists() and downloaded_path != model_path:
+        downloaded_path = getattr(yolo_instance, "ckpt_path", None) or getattr(
+            yolo_instance, "weights", None
+        )
+
+        if (
+            downloaded_path
+            and (downloaded_path := Path(downloaded_path)).exists()
+            and downloaded_path != model_path
+        ):
             _copy_model_file(downloaded_path, model_path)
             return model_path
 
@@ -74,6 +82,7 @@ def ensure_yolo_model_downloaded(
         logger.error(f"Failed to download YOLO model: {e}")
         raise RuntimeError(f"Failed to download YOLO model: {e}") from e
 
+
 def get_midas_cache_directory(custom_cache_path: Optional[Path] = None) -> Path:
     """Get the directory where MiDaS models are cached.
 
@@ -89,6 +98,7 @@ def get_midas_cache_directory(custom_cache_path: Optional[Path] = None) -> Path:
         cache_path.mkdir(parents=True, exist_ok=True)
         return cache_path
     return PYTORCH_HUB_CACHE
+
 
 def ensure_midas_model_available(
     model_type: str = DEFAULT_MIDAS_MODEL,
@@ -113,7 +123,7 @@ def ensure_midas_model_available(
     """
     cache_dir = cache_directory or get_midas_cache_directory()
     logger.info(f"Ensuring MiDaS model {model_type} is available in {cache_dir}...")
-    
+
     try:
         torch.hub.set_dir(str(cache_dir))
         torch.hub.load(midas_repo, model_type, trust_repo=True)

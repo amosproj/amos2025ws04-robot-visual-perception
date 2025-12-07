@@ -24,7 +24,7 @@ def tmp_models_dir(tmp_path):
 @pytest.fixture
 def mock_yolo():
     """Mock YOLO model."""
-    with patch('common.core.model_downloader.YOLO') as mock_yolo_cls:
+    with patch("common.core.model_downloader.YOLO") as mock_yolo_cls:
         mock_model = MagicMock()
         mock_yolo_cls.return_value = mock_model
         mock_model.ckpt_path = "/tmp/yolov8n.pt"
@@ -35,7 +35,7 @@ def mock_yolo():
 @pytest.fixture
 def mock_torch():
     """Mock torch for MiDaS model loading."""
-    with patch('common.core.model_downloader.torch') as mock_torch:
+    with patch("common.core.model_downloader.torch") as mock_torch:
         mock_torch.hub.load.return_value = MagicMock()
         yield mock_torch
 
@@ -93,10 +93,10 @@ def test_ensure_yolo_model_downloaded_downloads_if_not_cached(
 def test_ensure_midas_model_available_sets_cache_directory(tmp_path, mock_torch):
     """Test that ensure_midas_model_available sets PyTorch Hub cache directory."""
     cache_dir = tmp_path / "midas_cache"
-    
+
     # Call the function
     ensure_midas_model_available(cache_directory=cache_dir)
-    
+
     # Verify the results
     mock_torch.hub.set_dir.assert_called_once_with(str(cache_dir))
     mock_torch.hub.load.assert_called_once_with(
@@ -107,13 +107,13 @@ def test_ensure_midas_model_available_sets_cache_directory(tmp_path, mock_torch)
 def test_ensure_midas_model_available_handles_errors_gracefully(tmp_path, mock_torch):
     """Test that ensure_midas_model_available handles download errors gracefully."""
     cache_dir = tmp_path / "midas_cache"
-    
+
     # Make the hub.load raise an exception
     mock_torch.hub.load.side_effect = Exception("Network error")
-    
+
     # Call the function and check it handles the error
     result = ensure_midas_model_available(cache_directory=cache_dir)
-    
+
     # Verify the results
     assert result is False
     mock_torch.hub.set_dir.assert_called_once_with(str(cache_dir))
@@ -126,19 +126,19 @@ def test_ensure_yolo_model_downloaded_creates_cache_directory(tmp_path, mock_yol
     cache_dir = tmp_path / "new_models_dir"
     model_path = cache_dir / model_name
 
-    with patch('shutil.copy2') as mock_copy:
+    with patch("shutil.copy2") as mock_copy:
         # Mock the downloaded file
         downloaded_path = Path("/tmp/yolov8n.pt")
         mock_yolo.return_value.ckpt_path = str(downloaded_path)
         mock_yolo.return_value.weights = str(downloaded_path)
-        
+
         # Create the downloaded file
         downloaded_path.parent.mkdir(parents=True, exist_ok=True)
         downloaded_path.touch()
-        
+
         # Call the function
         result = ensure_yolo_model_downloaded(model_name, cache_dir)
-        
+
         # Verify the results
         assert cache_dir.exists()
         assert result == model_path
