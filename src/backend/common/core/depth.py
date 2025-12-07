@@ -109,7 +109,7 @@ class _BaseMiDasDepthEstimator(DepthEstimator):
         self.last_depths = distances
         return distances
 
-    def _load_transform(self):
+    def _load_transform(self) -> Callable[[np.ndarray], torch.Tensor]:
         midas_transforms = torch.hub.load(
             self.midas_model, "transforms", trust_repo=True
         )
