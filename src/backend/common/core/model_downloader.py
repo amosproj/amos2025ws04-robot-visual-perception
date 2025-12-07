@@ -4,7 +4,7 @@
 import logging
 import shutil
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 from ultralytics import YOLO  # type: ignore[import-untyped]
 import torch
