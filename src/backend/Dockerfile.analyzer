@@ -25,5 +25,4 @@ COPY models/ ./models/
 
 EXPOSE 8001
 
-CMD ["uv", "run", "python", "-m", "analyzer.cli", "--host", "0.0.0.0", "--port", "8001", "--yolo-model-path", "models/yolov8n.pt", "--midas-model-path", "models/midas", "--dev"]
-
+CMD ["uv", "run", "python", "-m", "analyzer.cli", "--host", "0.0.0.0", "--port", "8001", "--yolo-model-path", "models/yolo11n.pt", "--midas-model-path", "models/midas", "--dev"]

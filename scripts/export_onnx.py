@@ -4,7 +4,7 @@
 """Export a YOLO model to ONNX with a safer default opset (18).
 
 Environment variables:
-    MODEL_PATH: path to the source .pt model (default: models/yolov8n.pt)
+    MODEL_PATH: path to the source .pt model (default: models/yolo11n.pt)
     ONNX_MODEL_PATH: output path (default: MODEL_PATH with .onnx suffix)
     DETECTOR_IMAGE_SIZE: image size used for export (default: 640)
     ONNX_OPSET: ONNX opset version (default: 18)
@@ -24,7 +24,7 @@ def _str_to_bool(value: str) -> bool:
 
 
 def main() -> None:
-    model_path = Path(os.getenv("MODEL_PATH", "models/yolov8n.pt")).resolve()
+    model_path = Path(os.getenv("MODEL_PATH", "models/yolo11n.pt")).resolve()
     onnx_path = Path(
         os.getenv("ONNX_MODEL_PATH", str(model_path.with_suffix(".onnx")))
     ).resolve()
