@@ -85,12 +85,15 @@ def test_onnx_depth_estimator_runs_with_mock_session(
 
     def mock_hub_load(repo, what, trust_repo=True):
         if what == "transforms":
+
             class DummyTransforms:
                 def __init__(self) -> None:
-                    self.small_transform = lambda _image: torch.ones(
-                        (1, 3, 2, 2), dtype=torch.float32
-                    )
+                    self.small_transform = self._small_transform
                     self.dpt_transform = self.small_transform
+
+                @staticmethod
+                def _small_transform(_image):
+                    return torch.ones((1, 3, 2, 2), dtype=torch.float32)
 
             return DummyTransforms()
         raise AssertionError(f"Unexpected torch.hub.load call: {what}")
