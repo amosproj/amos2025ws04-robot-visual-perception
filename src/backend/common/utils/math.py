@@ -52,3 +52,51 @@ def _intersection_over_union(box: np.ndarray, boxes: np.ndarray) -> np.ndarray:
     )
     union = box_area + boxes_area - inter_area + 1e-6
     return inter_area / union
+
+
+def lerp(val1: float, val2: float, t: float) -> float:
+    """Linear interpolation between two values.
+
+    Args:
+        value1: Start value
+        value2: End value
+        t: Interpolation factor (0.0 = value1, 1.0 = value2)
+
+    Returns:
+        Interpolated value
+    """
+    return val1 + (val2 - val1) * t
+
+
+def lerp_int(value1: int, value2: int, t: float) -> int:
+    """Linear interpolation between two integer values, rounded to int.
+
+    Args:
+        value1: Start value (int)
+        value2: End value (int)
+        t: Interpolation factor (0.0 = value1, 1.0 = value2)
+
+    Returns:
+        Interpolated value rounded to int
+    """
+    return int(round(lerp(value1, value2, t)))
+
+
+def calculate_interpolation_factor(
+    frame1: int, frame2: int, target_frame: int, clamp_max: float = 1.5
+) -> float:
+    """Calculate interpolation factor t between two frames.
+
+    Args:
+        frame1: Start frame ID
+        frame2: End frame ID
+        target_frame: Target frame ID to interpolate for
+        clamp_max: Maximum value for t (default 1.5 for extrapolation)
+
+    Returns:
+        Interpolation factor t (0.0 = frame1, 1.0 = frame2, >1.0 = extrapolation)
+    """
+    if frame1 == frame2:
+        return 0.0
+    t = (target_frame - frame1) / (frame2 - frame1)
+    return max(0.0, min(clamp_max, t))

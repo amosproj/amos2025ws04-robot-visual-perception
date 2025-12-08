@@ -47,11 +47,11 @@ async def test_infer_returns_detections(torch_detector):
     detections = await torch_detector.infer(frame)
     assert isinstance(detections, list)
     assert len(detections) == 1
-    x1, y1, x2, y2, cls_id, conf = detections[0]
+    det = detections[0]
 
-    assert (x1, y1, x2, y2) == (10, 20, 50, 60)
-    assert cls_id == 1
-    assert pytest.approx(conf, rel=1e-3) == 0.9
+    assert (det.x1, det.y1, det.x2, det.y2) == (10, 20, 50, 60)
+    assert det.cls_id == 1
+    assert pytest.approx(det.confidence, rel=1e-3) == 0.9
 
     # cache hit path should not run extra inference
     detections_cached = await torch_detector.infer(frame)
@@ -109,10 +109,10 @@ async def test_infer_with_onnx_backend(monkeypatch, tmp_path):
     detections = await detector.infer(frame)
 
     assert len(detections) == 1
-    x1, y1, x2, y2, cls_id, conf = detections[0]
-    assert (x1, y1, x2, y2) == (1, 1, 3, 3)
-    assert cls_id == 0
-    assert pytest.approx(conf, rel=1e-3) == 0.95
+    det = detections[0]
+    assert (det.x1, det.y1, det.x2, det.y2) == (1, 1, 3, 3)
+    assert det.cls_id == 0
+    assert pytest.approx(det.confidence, rel=1e-3) == 0.95
 
 
 @pytest.mark.asyncio
