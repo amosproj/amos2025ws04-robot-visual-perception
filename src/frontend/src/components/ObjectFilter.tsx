@@ -215,14 +215,14 @@ function ObjectFilter({
                   disabled={allSelected}
                   className="flex-1 text-xs px-2 py-1.5 bg-[#404040] hover:bg-[#505050] disabled:bg-[#333] disabled:text-[#666] text-[#00d4ff] rounded border border-[#555] transition-colors"
                 >
-                  Select All
+                  Select / Show All Boxes
                 </button>
                 <button
                   onClick={handleClearAll}
                   disabled={noneSelected}
                   className="flex-1 text-xs px-2 py-1.5 bg-[#404040] hover:bg-[#505050] disabled:bg-[#333] disabled:text-[#666] text-[#00d4ff] rounded border border-[#555] transition-colors"
                 >
-                  Clear All
+                  Clear / Hide All Boxes
                 </button>
               </div>
             )}
