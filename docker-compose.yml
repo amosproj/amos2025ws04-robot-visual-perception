@@ -34,7 +34,7 @@ services:
       - "8001:8001"
     environment:
       - WEBCAM_OFFER_URL=http://webcam:8000/offer
-      - MODEL_PATH=models/yolov8n.pt
+      - MODEL_PATH=models/yolo11n.pt
       - STUN_SERVER=stun:stun.l.google.com:19302
       - CORS_ORIGINS=*
     volumes:
