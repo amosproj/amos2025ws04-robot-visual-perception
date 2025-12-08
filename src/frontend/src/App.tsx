@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 
@@ -12,6 +12,7 @@ import Header from './components/Header';
 import ConnectionControls from './components/ConnectionControls';
 import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
 import MetadataWidget from './components/MetadataWidget';
+import ObjectFilter from './components/ObjectFilter';
 
 function App() {
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
@@ -19,6 +20,10 @@ function App() {
 
   const [overlayFps, setOverlayFps] = useState<number>(0);
   const [isMetadataWidgetOpen, setIsMetadataWidgetOpen] = useState(true);
+  const [isObjectFilterOpen, setIsObjectFilterOpen] = useState(true);
+  const [selectedClasses, setSelectedClasses] = useState<Set<number>>(
+    new Set()
+  );
 
   // WebRTC connection to webcam service (for raw video)
   const {
@@ -49,12 +54,37 @@ function App() {
     autoConnect: false, // Manual control for proper disconnect
   });
 
+  // Filter metadata based on selected classes
+  const filteredMetadata = useMemo(() => {
+    if (!latestMetadata) return null;
+
+    // If no classes are selected, show nothing
+    if (selectedClasses.size === 0) {
+      return {
+        ...latestMetadata,
+        detections: [],
+      };
+    }
+
+    // Otherwise, filter detections to only show selected classes
+    return {
+      ...latestMetadata,
+      detections: latestMetadata.detections.filter((detection) => {
+        const classId =
+          typeof detection.label === 'string'
+            ? parseInt(detection.label, 10)
+            : detection.label;
+        return !isNaN(classId) && selectedClasses.has(classId);
+      }),
+    };
+  }, [latestMetadata, selectedClasses]);
+
   // Update overlay when new metadata arrives (but not when video is paused)
   useEffect(() => {
-    if (latestMetadata && videoPlayerRef.current && !isPaused) {
-      videoPlayerRef.current.updateOverlay(latestMetadata);
+    if (filteredMetadata && videoPlayerRef.current && !isPaused) {
+      videoPlayerRef.current.updateOverlay(filteredMetadata);
     }
-  }, [latestMetadata, isPaused]);
+  }, [filteredMetadata, isPaused]);
 
   // Clear overlay when video is paused
   useEffect(() => {
@@ -91,6 +121,13 @@ function App() {
         onConnectAnalyzer={connectAnalyzer}
         onDisconnectAnalyzer={disconnectAnalyzer}
         onClearOverlay={handleClearOverlay}
+      />
+      <ObjectFilter
+        detections={latestMetadata?.detections || []}
+        selectedClasses={selectedClasses}
+        onSelectionChange={setSelectedClasses}
+        isOpen={isObjectFilterOpen}
+        onToggle={() => setIsObjectFilterOpen(!isObjectFilterOpen)}
       />
       <VideoPlayer
         ref={videoPlayerRef}
