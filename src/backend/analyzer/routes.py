@@ -5,10 +5,12 @@ import asyncio
 import json
 import cv2
 import logging
+from pathlib import Path
 
 import numpy as np
 from aiortc import MediaStreamTrack
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from common.core.session import WebcamSession
 from common.config import config
@@ -368,3 +370,10 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 async def on_shutdown() -> None:
     """Cleanup on service shutdown."""
     await websocket_manager.shutdown()
+
+
+@router.get("/asyncapi.yaml", include_in_schema=False)
+async def get_asyncapi_spec() -> FileResponse:
+    """Return AsyncAPI specification for WebSocket endpoint."""
+    spec_path = Path(__file__).parent / "asyncapi.yaml"
+    return FileResponse(spec_path, media_type="text/yaml")
