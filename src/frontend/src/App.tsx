@@ -86,13 +86,6 @@ function App() {
     }
   }, [filteredMetadata, isPaused]);
 
-  // Clear overlay when video is paused
-  useEffect(() => {
-    if (isPaused && videoPlayerRef.current) {
-      videoPlayerRef.current.clearOverlay();
-    }
-  }, [isPaused]);
-
   // Auto-connect to services when component mounts
   useEffect(() => {
     connectVideo();
@@ -100,7 +93,7 @@ function App() {
   }, [connectVideo, connectAnalyzer]);
 
   const handleClearOverlay = () => {
-    videoPlayerRef.current?.clearOverlay();
+    setSelectedClasses(new Set());
   };
 
   return (
