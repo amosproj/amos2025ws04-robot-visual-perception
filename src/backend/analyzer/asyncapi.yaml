@@ -1,0 +1,125 @@
+# SPDX-FileCopyrightText: 2025 robot-visual-perception
+#
+# SPDX-License-Identifier: MIT
+asyncapi: 3.0.0
+info:
+  title: Analyzer WebSocket API
+  version: 1.0.0
+
+servers:
+  analyzer:
+    host: localhost:8001
+    protocol: ws
+
+channels:
+  metadata:
+    address: /ws
+    messages:
+      metadata:
+        $ref: '#/components/messages/MetadataMessage'
+      ping:
+        $ref: '#/components/messages/PingMessage'
+      pong:
+        $ref: '#/components/messages/PongMessage'
+
+components:
+  messages:
+    MetadataMessage:
+      name: MetadataMessage
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/MetadataMessage'
+    PingMessage:
+      name: PingMessage
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/PingMessage'
+    PongMessage:
+      name: PongMessage
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/PongMessage'
+
+  schemas:
+    MetadataMessage:
+      type: object
+      required:
+        - timestamp
+        - frame_id
+        - detections
+      properties:
+        timestamp:
+          type: number
+        frame_id:
+          type: integer
+        detections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Detection'
+        fps:
+          type: number
+
+    Detection:
+      type: object
+      required:
+        - box
+        - label
+        - confidence
+        - distance
+        - position
+      properties:
+        box:
+          type: object
+          required:
+            - x
+            - y
+            - width
+            - height
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+            width:
+              type: number
+            height:
+              type: number
+        label:
+          type: integer
+        confidence:
+          type: number
+        distance:
+          type: number
+        position:
+          type: object
+          required:
+            - x
+            - y
+            - z
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+            z:
+              type: number
+
+    PingMessage:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - ping
+
+    PongMessage:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - pong
