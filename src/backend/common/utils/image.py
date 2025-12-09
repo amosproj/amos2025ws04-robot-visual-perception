@@ -46,3 +46,20 @@ def scale_boxes(
     boxes[:, [0, 2]] = np.clip(boxes[:, [0, 2]], 0, max(w - 1, 0))
     boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]], 0, max(h - 1, 0))
     return boxes
+
+
+def resize_frame(frame: np.ndarray, scale: float) -> np.ndarray:
+    """Resize frame by a scale factor.
+
+    Args:
+        frame: Input frame as numpy array
+        scale: Scale factor (0.0-1.0). If >= 0.98, returns original frame.
+
+    Returns:
+        Resized frame or original if scale >= 0.98
+    """
+    if scale < 0.98:
+        new_w = int(frame.shape[1] * scale)
+        new_h = int(frame.shape[0] * scale)
+        return cv2.resize(frame, (new_w, new_h))
+    return frame

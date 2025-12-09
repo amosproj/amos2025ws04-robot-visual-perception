@@ -81,10 +81,23 @@ class Config:
         if provider.strip()
     ]
 
-    @classmethod
-    def get(cls, key: str, default: Optional[str] = None) -> Optional[str]:
-        """Get a configuration value."""
-        return os.getenv(key, default)
+    # Tracking/interpolation settings
+    # Minimum IoU to match detection to track
+    TRACKING_IOU_THRESHOLD: float = float(os.getenv("TRACKING_IOU_THRESHOLD", "0.3"))
+    # Frames before removing stale tracks
+    TRACKING_MAX_FRAMES_WITHOUT_DETECTION: int = int(
+        os.getenv("TRACKING_MAX_FRAMES_WITHOUT_DETECTION", "10")
+    )
+    # Early termination threshold for matching
+    TRACKING_EARLY_TERMINATION_IOU: float = float(
+        os.getenv("TRACKING_EARLY_TERMINATION_IOU", "0.9")
+    )
+    # Confidence decay per unit interpolation factor
+    TRACKING_CONFIDENCE_DECAY: float = float(
+        os.getenv("TRACKING_CONFIDENCE_DECAY", "0.1")
+    )
+    # Size for history of each tracked object
+    TRACKING_MAX_HISTORY_SIZE: int = int(os.getenv("TRACKING_MAX_HISTORY_SIZE", "5"))
 
 
 config = Config()

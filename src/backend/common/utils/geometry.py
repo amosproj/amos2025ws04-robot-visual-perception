@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 
 from common.config import config
+from common.core.contracts import Detection
 import math
 
 from ultralytics.engine.results import Results  # type: ignore[import-untyped]
@@ -12,14 +13,14 @@ from ultralytics.engine.results import Results  # type: ignore[import-untyped]
 
 def get_detections(
     inference_results: list[Results],
-) -> list[tuple[int, int, int, int, int, float]]:
+) -> list[Detection]:
     """Convert YOLO inference output into structured detection tuples.
 
     Args:
         inference_results (list[Results]): The list of YOLO results returned by model.predict().
 
     Returns:
-        list[tuple[int, int, int, int, int, float]]: Each tuple is (x1, y1, x2, y2, class_id, confidence).
+        list[Detection]: Each detection is (x1, y1, x2, y2, class_id, confidence).
     """
     if not inference_results:
         return []
@@ -33,7 +34,14 @@ def get_detections(
     confidences = result.boxes.conf.cpu().numpy()
 
     detections = [
-        (int(x1), int(y1), int(x2), int(y2), int(class_id), float(confidence))
+        Detection(
+            x1=int(x1),
+            y1=int(y1),
+            x2=int(x2),
+            y2=int(y2),
+            cls_id=int(class_id),
+            confidence=float(confidence),
+        )
         for (x1, y1, x2, y2), class_id, confidence in zip(
             bbox_coords, class_ids, confidences
         )
@@ -44,14 +52,14 @@ def get_detections(
 
 def draw_detections(
     frame: np.ndarray,
-    detections: list[tuple[int, int, int, int, int, float]],
+    detections: list[Detection],
     distances_m: list[float],
 ) -> np.ndarray:
     """Draw bounding boxes and annotate distance plus camera-space XYZ.
 
     Args:
         frame: Input frame as a NumPy array in RGB format.
-        detections: List of detections as (x1, y1, x2, y2, class_id, confidence).
+        detections: List of detections.
         distances_m: Per-detection distance estimates (meters), aligned with detections.
 
     Returns:
@@ -61,19 +69,19 @@ def draw_detections(
     fx, fy, cx, cy = compute_camera_intrinsics(w, h)
 
     # Draw bounding boxes and labels for each detection
-    for (x1, y1, x2, y2, cls_id, conf), dist_m in zip(detections, distances_m):
+    for det, dist_m in zip(detections, distances_m):
         px, py, pz = unproject_bbox_center_to_camera(
-            x1, y1, x2, y2, dist_m, fx, fy, cx, cy
+            det.x1, det.y1, det.x2, det.y2, dist_m, fx, fy, cx, cy
         )
-        label = f"{cls_id}:{conf:.2f} {dist_m:.1f}m X:{px:.2f} Y:{py:.2f} Z:{pz:.2f}"
+        label = f"{det.cls_id}:{det.confidence:.2f} {dist_m:.1f}m X:{px:.2f} Y:{py:.2f} Z:{pz:.2f}"
         # Draw bounding box
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.rectangle(frame, (det.x1, det.y1), (det.x2, det.y2), (0, 255, 0), 2)
 
         # Draw label text
         cv2.putText(
             frame,
             label,
-            (x1, max(0, y1 - 10)),
+            (det.x1, max(0, det.y1 - 10)),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.2,
             (0, 255, 0),
@@ -137,3 +145,39 @@ def unproject_bbox_center_to_camera(
     x = (u - cx) * depth_m / fx
     y = (v - cy) * depth_m / fy
     return float(x), float(y), float(depth_m)
+
+
+def calculate_iou(
+    box1: tuple[float, float, float, float], box2: tuple[float, float, float, float]
+) -> float:
+    """Calculate Intersection over Union (IoU) between two bounding boxes.
+
+    Args:
+        box1: (x1, y1, x2, y2) coordinates
+        box2: (x1, y1, x2, y2) coordinates
+
+    Returns:
+        IoU value between 0.0 and 1.0
+    """
+    x1_1, y1_1, x2_1, y2_1 = box1
+    x1_2, y1_2, x2_2, y2_2 = box2
+
+    # Calculate intersection
+    inter_x1 = max(x1_1, x1_2)
+    inter_y1 = max(y1_1, y1_2)
+    inter_x2 = min(x2_1, x2_2)
+    inter_y2 = min(y2_1, y2_2)
+
+    inter_w = max(0.0, inter_x2 - inter_x1)
+    inter_h = max(0.0, inter_y2 - inter_y1)
+    inter_area = inter_w * inter_h
+
+    # Calculate union
+    box1_area = (x2_1 - x1_1) * (y2_1 - y1_1)
+    box2_area = (x2_2 - x1_2) * (y2_2 - y1_2)
+    union_area = box1_area + box2_area - inter_area
+
+    if union_area == 0:
+        return 0.0
+
+    return inter_area / union_area

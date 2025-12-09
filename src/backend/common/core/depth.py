@@ -9,7 +9,7 @@ import torch
 from typing import Callable, Literal, Optional
 
 from common.config import config
-from common.core.contracts import DepthEstimator
+from common.core.contracts import DepthEstimator, Detection
 
 # Factories let us swap depth estimation backends without changing call sites.
 DepthEstimatorFactory = Callable[[Optional[Path]], DepthEstimator]
@@ -79,7 +79,7 @@ class MiDasDepthEstimator(DepthEstimator):
             self.transform = midas_transforms.small_transform
 
     def estimate_distance_m(
-        self, frame_rgb: np.ndarray, dets: list[tuple[int, int, int, int, int, float]]
+        self, frame_rgb: np.ndarray, dets: list[Detection]
     ) -> list[float]:
         """Estimate distance in meters for each detection based on depth map.
 
@@ -102,10 +102,11 @@ class MiDasDepthEstimator(DepthEstimator):
             ).squeeze()
         depth_map = prediction.cpu().numpy()
         distances = []
-        for x1, y1, x2, y2, _cls_id, _conf in dets:
+
+        for det in dets:
             # extract 5x5 central region of bbox and clip to image bounds
-            cx = int((x1 + x2) / 2)
-            cy = int((y1 + y2) / 2)
+            cx = int((det.x1 + det.x2) / 2)
+            cy = int((det.y1 + det.y2) / 2)
             # Define region size (odd for symmetry)
             half_size = self.region_size // 2
             x_start = max(cx - half_size, 0)

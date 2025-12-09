@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from common.utils.geometry import get_detections, draw_detections
+from common.core.contracts import Detection
 from tests.test_utils import DummyResult, DummyBoxes
 
 
@@ -24,16 +25,16 @@ def test_get_detections_returns_empty(input_triggering_empty_list) -> None:
             [[10, 20, 50, 60]],
             [1],
             [0.9],
-            [(10, 20, 50, 60, 1, 0.9)],
+            [Detection(x1=10, y1=20, x2=50, y2=60, cls_id=1, confidence=0.9)],
         ),
         (
             [[0, 0, 10, 10], [5, 6, 15, 20], [100, 120, 140, 180]],
             [2, 3, 7],
             [0.5, 0.99, 0.42],
             [
-                (0, 0, 10, 10, 2, 0.5),
-                (5, 6, 15, 20, 3, 0.99),
-                (100, 120, 140, 180, 7, 0.42),
+                Detection(x1=0, y1=0, x2=10, y2=10, cls_id=2, confidence=0.5),
+                Detection(x1=5, y1=6, x2=15, y2=20, cls_id=3, confidence=0.99),
+                Detection(x1=100, y1=120, x2=140, y2=180, cls_id=7, confidence=0.42),
             ],
         ),
         (
@@ -58,7 +59,7 @@ def test_get_detections(xyxy, cls_ids, confs, expected) -> None:
 )
 def test_draw_detections_runs_and_returns_same_shape(frame_input) -> None:
     frame = np.zeros(frame_input, dtype=np.uint8)
-    detections = [(10, 20, 50, 60, 1, 0.9)]
+    detections = [Detection(x1=10, y1=20, x2=50, y2=60, cls_id=1, confidence=0.9)]
     distances_m = [1]
 
     result = draw_detections(
