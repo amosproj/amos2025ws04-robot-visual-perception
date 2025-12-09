@@ -128,6 +128,7 @@ class AnalyzerWebSocketManager:
                     # Get frame from webcam
                     try:
                         frame = await asyncio.wait_for(source_track.recv(), timeout=5.0)
+                        frame_id += 1
                         consecutive_errors = 0  # Reset error counter on success
                     except asyncio.TimeoutError:
                         logging.warning("Frame receive timeout, skipping...")
@@ -172,7 +173,6 @@ class AnalyzerWebSocketManager:
                         )
                         continue
 
-                    frame_id += 1
                     fps_counter += 1
 
                     # Calculate FPS every second
@@ -224,7 +224,7 @@ class AnalyzerWebSocketManager:
                         detections=detections,
                         distances=distances,
                         timestamp=current_time,
-                        frame_id=frame_id,
+                        frame_id=frame_id + 1,  # type: ignore[union-attr]
                         current_fps=current_fps,
                     )
 
