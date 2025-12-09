@@ -40,7 +40,7 @@ def available_depth_backends() -> list[str]:
 def _default_depth_estimator_factory(
     midas_cache_directory: Optional[Path] = None,
 ) -> DepthEstimator:
-    backend_name = config.DEPTH_BACKEND.lower()
+    backend_name = config.DEPTH_BACKEND
     try:
         factory = _backend_registry[backend_name]
     except KeyError:
@@ -68,6 +68,24 @@ def get_depth_estimator(midas_cache_directory: Optional[Path] = None) -> DepthEs
     if _depth_estimator is None:
         _depth_estimator = _depth_estimator_factory(midas_cache_directory)
     return _depth_estimator
+
+
+def resize_to_frame(
+    prediction: torch.Tensor | np.ndarray, output_shape: tuple[int, int]
+) -> np.ndarray:
+    """Resize a depth map tensor/array to the target frame size."""
+    tensor = (
+        prediction if isinstance(prediction, torch.Tensor) else torch.as_tensor(prediction)
+    )
+    if tensor.dim() == 3:
+        tensor = tensor.unsqueeze(1)
+    resized = torch.nn.functional.interpolate(
+        tensor,
+        size=output_shape,
+        mode="bicubic",
+        align_corners=False,
+    ).squeeze()
+    return resized.cpu().numpy()
 
 
 class _BaseMiDasDepthEstimator(DepthEstimator):
@@ -124,24 +142,6 @@ class _BaseMiDasDepthEstimator(DepthEstimator):
     ) -> np.ndarray:
         raise NotImplementedError
 
-    def _resize_to_frame(
-        self, prediction: torch.Tensor | np.ndarray, output_shape: tuple[int, int]
-    ) -> np.ndarray:
-        tensor = (
-            prediction
-            if isinstance(prediction, torch.Tensor)
-            else torch.as_tensor(prediction)
-        )
-        if tensor.dim() == 3:
-            tensor = tensor.unsqueeze(1)
-        resized = torch.nn.functional.interpolate(
-            tensor,
-            size=output_shape,
-            mode="bicubic",
-            align_corners=False,
-        ).squeeze()
-        return resized.cpu().numpy()
-
     def _distances_from_depth_map(
         self,
         depth_map: np.ndarray,
@@ -195,7 +195,7 @@ class MiDasDepthEstimator(_BaseMiDasDepthEstimator):
         input_batch = self.transform(frame_rgb).to(self.device)
         with torch.no_grad():
             prediction = self.depth_estimation_model(input_batch)
-        return self._resize_to_frame(prediction, output_shape)
+        return resize_to_frame(prediction, output_shape)
 
 
 class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
@@ -272,7 +272,7 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
         prediction = np.asarray(output)
         if prediction.ndim == 3:  # (1,H,W) -> (1,1,H,W)
             prediction = np.expand_dims(prediction, axis=1)
-        return self._resize_to_frame(prediction, output_shape)
+        return resize_to_frame(prediction, output_shape)
 
 
 # Register built-in backends

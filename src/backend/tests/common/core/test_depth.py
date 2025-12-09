@@ -9,6 +9,7 @@ import pytest
 import torch
 
 import common.core.depth as depth
+from .conftest import DummySession, DummySessionOptions
 
 
 class _DummyDepthEstimator:
@@ -53,29 +54,12 @@ def test_onnx_depth_estimator_runs_with_mock_session(
 ) -> None:
     dummy_output = np.ones((1, 1, 2, 2), dtype=np.float32)
 
-    class DummySessionOptions:
-        def __init__(self) -> None:
-            self.enable_mem_pattern = False
-            self.graph_optimization_level = None
-
-    class DummySession:
-        def __init__(self, *_args, **_kwargs) -> None:
-            self._inputs = [types.SimpleNamespace(name="input")]
-            self._outputs = [types.SimpleNamespace(name="output")]
-
-        def get_inputs(self):
-            return self._inputs
-
-        def get_outputs(self):
-            return self._outputs
-
-        def run(self, _output_names, _inputs):
-            return [dummy_output]
-
     dummy_ort = types.SimpleNamespace(
         SessionOptions=DummySessionOptions,
         GraphOptimizationLevel=types.SimpleNamespace(ORT_ENABLE_ALL="all"),
-        InferenceSession=DummySession,
+        InferenceSession=lambda *_args, **_kwargs: DummySession(
+            dummy_output, input_name="input", output_name="output"
+        ),
         get_available_providers=lambda: ["CPUExecutionProvider"],
     )
 
