@@ -36,6 +36,7 @@ export function useAnalyzerWebSocket({
     null
   );
   const reconnectAttempts = useRef(0);
+  const manualDisconnectRef = useRef(false);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -49,6 +50,7 @@ export function useAnalyzerWebSocket({
         console.log('✅ Analyzer WebSocket connected');
         setIsConnected(true);
         reconnectAttempts.current = 0;
+        manualDisconnectRef.current = false; // Reset flag on successful connection
 
         // Send ping every 30 seconds to keep connection alive
         const pingInterval = setInterval(() => {
@@ -61,6 +63,11 @@ export function useAnalyzerWebSocket({
       };
 
       ws.onmessage = (event) => {
+        // Ignore messages if manually disconnected (race condition protection)
+        if (manualDisconnectRef.current) {
+          return;
+        }
+
         try {
           const data = JSON.parse(event.data);
 
@@ -97,8 +104,8 @@ export function useAnalyzerWebSocket({
         setLatestMetadata(null);
         wsRef.current = null;
 
-        // Auto-reconnect with exponential backoff
-        if (autoConnect && reconnectAttempts.current < 10) {
+        // Auto-reconnect with exponential backoff (but not after manual disconnect)
+        if (autoConnect && !manualDisconnectRef.current && reconnectAttempts.current < 10) {
           const delay = Math.min(
             1000 * Math.pow(2, reconnectAttempts.current),
             30000
@@ -121,6 +128,10 @@ export function useAnalyzerWebSocket({
   }, [endpoint, autoConnect]);
 
   const disconnect = useCallback(() => {
+    // Mark as manual disconnect to prevent auto-reconnect
+    manualDisconnectRef.current = true;
+    reconnectAttempts.current = 0;
+
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
     }

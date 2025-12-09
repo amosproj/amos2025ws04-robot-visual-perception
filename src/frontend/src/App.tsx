@@ -24,6 +24,7 @@ function App() {
   const [selectedClasses, setSelectedClasses] = useState<Set<number>>(
     new Set()
   );
+  const prevAnalyzerConnectedRef = useRef(false);
 
   // WebRTC connection to webcam service (for raw video)
   const {
@@ -93,6 +94,49 @@ function App() {
     }
   }, [isPaused]);
 
+  // Clear overlay and manage selections when analyzer connection changes
+  useEffect(() => {
+    if (!analyzerConnected) {
+      // On disconnect: clear overlay and selections
+      if (videoPlayerRef.current) {
+        videoPlayerRef.current.clearOverlay();
+      }
+      setSelectedClasses(new Set());
+    } else if (
+      analyzerConnected &&
+      !prevAnalyzerConnectedRef.current &&
+      videoState === 'connected'
+    ) {
+      // On connect: auto-select all currently detected classes (only if video is connected)
+      if (latestMetadata?.detections) {
+        const allClasses = new Set(
+          latestMetadata.detections
+            .map((d) => {
+              const classId =
+                typeof d.label === 'string'
+                  ? parseInt(d.label, 10)
+                  : d.label;
+              return classId;
+            })
+            .filter((id) => !isNaN(id))
+        );
+        setSelectedClasses(allClasses);
+      }
+    }
+    prevAnalyzerConnectedRef.current = analyzerConnected;
+  }, [analyzerConnected, latestMetadata, videoState]);
+
+  // Clear overlay and force "clear all" when video disconnects
+  useEffect(() => {
+    if (videoState !== 'connected') {
+      if (videoPlayerRef.current) {
+        videoPlayerRef.current.clearOverlay();
+      }
+      // Force clear all selections when video is disconnected
+      setSelectedClasses(new Set());
+    }
+  }, [videoState]);
+
   // Auto-connect to services when component mounts
   useEffect(() => {
     connectVideo();
@@ -128,6 +172,8 @@ function App() {
         onSelectionChange={setSelectedClasses}
         isOpen={isObjectFilterOpen}
         onToggle={() => setIsObjectFilterOpen(!isObjectFilterOpen)}
+        isAnalyzerConnected={analyzerConnected}
+        isVideoConnected={videoState === 'connected'}
       />
       <VideoPlayer
         ref={videoPlayerRef}
