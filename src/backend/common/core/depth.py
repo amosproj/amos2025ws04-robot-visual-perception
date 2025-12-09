@@ -75,7 +75,9 @@ def resize_to_frame(
 ) -> np.ndarray:
     """Resize a depth map tensor/array to the target frame size."""
     tensor = (
-        prediction if isinstance(prediction, torch.Tensor) else torch.as_tensor(prediction)
+        prediction
+        if isinstance(prediction, torch.Tensor)
+        else torch.as_tensor(prediction)
     )
     if tensor.dim() == 3:
         tensor = tensor.unsqueeze(1)
