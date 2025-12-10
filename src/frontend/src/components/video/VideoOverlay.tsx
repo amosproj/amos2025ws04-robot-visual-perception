@@ -78,6 +78,13 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
     const animationFrameRef = useRef<number>();
     const fpsCounterRef = useRef({ lastTime: 0, frames: 0, fps: 0 });
     const lastRenderedTimestamp = useRef<number>(0);
+    const lastCanvasStateRef = useRef({
+      width: 0,
+      height: 0,
+      offsetX: 0,
+      offsetY: 0,
+      dpr: 1,
+    });
 
     // Expose methods to parent component
     useImperativeHandle(ref, () => ({
@@ -114,26 +121,51 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
 
         const videoRect = video.getBoundingClientRect();
         const containerRect = video.parentElement?.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
 
-        // Canvas = exact video element size
-        canvas.width = videoRect.width;
-        canvas.height = videoRect.height;
-        canvas.style.width = `${videoRect.width}px`;
-        canvas.style.height = `${videoRect.height}px`;
+        // Stabilize against subpixel jitter (round to avoid constant resizes)
+        const displayWidth = Math.round(videoRect.width);
+        const displayHeight = Math.round(videoRect.height);
+        const offsetX = containerRect
+          ? Math.round(videoRect.left - containerRect.left)
+          : 0;
+        const offsetY = containerRect
+          ? Math.round(videoRect.top - containerRect.top)
+          : 0;
 
-        // Position canvas exactly where the video is within its container
-        canvas.style.position = 'absolute';
-        if (containerRect) {
-          // Calculate video position relative to container
-          const offsetX = videoRect.left - containerRect.left;
-          const offsetY = videoRect.top - containerRect.top;
-          canvas.style.top = `${offsetY}px`;
-          canvas.style.left = `${offsetX}px`;
-        } else {
-          canvas.style.top = '0';
-          canvas.style.left = '0';
+        const scaledWidth = Math.max(1, Math.round(displayWidth * dpr));
+        const scaledHeight = Math.max(1, Math.round(displayHeight * dpr));
+
+        const last = lastCanvasStateRef.current;
+        if (
+          last.width === scaledWidth &&
+          last.height === scaledHeight &&
+          last.offsetX === offsetX &&
+          last.offsetY === offsetY &&
+          last.dpr === dpr
+        ) {
+          return;
         }
+        lastCanvasStateRef.current = {
+          width: scaledWidth,
+          height: scaledHeight,
+          offsetX,
+          offsetY,
+          dpr,
+        };
+
+        canvas.width = scaledWidth;
+        canvas.height = scaledHeight;
+        canvas.style.width = `${displayWidth}px`;
+        canvas.style.height = `${displayHeight}px`;
+
+        canvas.style.position = 'absolute';
+        canvas.style.top = `${offsetY}px`;
+        canvas.style.left = `${offsetX}px`;
         canvas.style.zIndex = '10';
+
+        // Map drawing coordinates to CSS pixels for crisp lines on HiDPI
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       };
 
       // Update canvas on video load or resize
@@ -153,21 +185,11 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
 
       const render = (currentTime: number) => {
         // Update canvas position regularly to handle dynamic layout changes
-        const videoRect = video.getBoundingClientRect();
-        const containerRect = video.parentElement?.getBoundingClientRect();
+        updateCanvasSize();
 
-        if (
-          containerRect &&
-          (canvas.style.width !== `${videoRect.width}px` ||
-            canvas.style.height !== `${videoRect.height}px`)
-        ) {
-          // Size or position changed, update immediately
-          updateCanvasSize();
-        }
-
-        // Canvas is same size as video element
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
+        const dpr = lastCanvasStateRef.current.dpr || 1;
+        const canvasWidth = canvas.width / dpr;
+        const canvasHeight = canvas.height / dpr;
 
         const metadata = metadataRef.current;
 

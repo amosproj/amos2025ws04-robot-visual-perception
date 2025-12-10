@@ -25,6 +25,7 @@ function App() {
     new Set()
   );
   const prevAnalyzerConnectedRef = useRef(false);
+  const hasAutoSelectedRef = useRef(false);
 
   // WebRTC connection to webcam service (for raw video)
   const {
@@ -98,7 +99,7 @@ function App() {
     }
   }, [isPaused]);
 
-  // Clear overlay and manage selections when analyzer connection changes
+  // Clear overlay and selections when analyzer disconnects
   useEffect(() => {
     if (!analyzerConnected) {
       // On disconnect: clear overlay and selections
@@ -106,26 +107,34 @@ function App() {
         videoPlayerRef.current.clearOverlay();
       }
       setSelectedClasses(new Set());
-    } else if (
-      analyzerConnected &&
-      !prevAnalyzerConnectedRef.current &&
-      videoState === 'connected'
-    ) {
-      // On connect: auto-select all currently detected classes (only if video is connected)
-      if (latestMetadata?.detections) {
-        const allClasses = new Set(
-          latestMetadata.detections
-            .map((d) => {
-              const classId =
-                typeof d.label === 'string' ? parseInt(d.label, 10) : d.label;
-              return classId;
-            })
-            .filter((id) => !isNaN(id))
-        );
-        setSelectedClasses(allClasses);
-      }
+      hasAutoSelectedRef.current = false; // Reset for next connection
     }
     prevAnalyzerConnectedRef.current = analyzerConnected;
+  }, [analyzerConnected]);
+
+  // Auto-select all detected classes when first metadata arrives after analyzer connects
+  useEffect(() => {
+    if (
+      analyzerConnected &&
+      latestMetadata?.detections &&
+      videoState === 'connected' &&
+      !hasAutoSelectedRef.current
+    ) {
+      // Auto-select all classes from the first frame (only once per connection)
+      const allClasses = new Set(
+        latestMetadata.detections
+          .map((d) => {
+            const classId =
+              typeof d.label === 'string' ? parseInt(d.label, 10) : d.label;
+            return classId;
+          })
+          .filter((id) => !isNaN(id))
+      );
+      if (allClasses.size > 0) {
+        setSelectedClasses(allClasses);
+        hasAutoSelectedRef.current = true; // Mark as completed
+      }
+    }
   }, [analyzerConnected, latestMetadata, videoState]);
 
   // Clear overlay and force "clear all" when video disconnects
