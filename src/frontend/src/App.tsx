@@ -95,7 +95,7 @@ function App() {
   // Clear overlay when video is paused
   useEffect(() => {
     if (isPaused && videoPlayerRef.current) {
-      videoPlayerRef.current.clearOverlay();
+      setSelectedClasses(new Set());
     }
   }, [isPaused]);
 
@@ -104,7 +104,7 @@ function App() {
     if (!analyzerConnected) {
       // On disconnect: clear overlay and selections
       if (videoPlayerRef.current) {
-        videoPlayerRef.current.clearOverlay();
+        setSelectedClasses(new Set());
       }
       setSelectedClasses(new Set());
       hasAutoSelectedRef.current = false; // Reset for next connection
@@ -141,7 +141,7 @@ function App() {
   useEffect(() => {
     if (videoState !== 'connected') {
       if (videoPlayerRef.current) {
-        videoPlayerRef.current.clearOverlay();
+        setSelectedClasses(new Set());
       }
       // Force clear all selections when video is disconnected
       setSelectedClasses(new Set());
