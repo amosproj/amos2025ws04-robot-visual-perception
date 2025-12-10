@@ -27,8 +27,8 @@ def mock_yolo():
     with patch("common.core.model_downloader.YOLO") as mock_yolo_cls:
         mock_model = MagicMock()
         mock_yolo_cls.return_value = mock_model
-        mock_model.ckpt_path = "/tmp/yolov8n.pt"
-        mock_model.weights = "/tmp/yolov8n.pt"
+        mock_model.ckpt_path = "/tmp/yolo11n.pt"
+        mock_model.weights = "/tmp/yolo118n.pt"
         yield mock_model
 
 
@@ -128,7 +128,7 @@ def test_ensure_yolo_model_downloaded_creates_cache_directory(tmp_path, mock_yol
 
     with patch("shutil.copy2") as mock_copy:
         # Mock the downloaded file
-        downloaded_path = Path("/tmp/yolov8n.pt")
+        downloaded_path = Path("/tmp/yolo11n.pt")
         mock_yolo.return_value.ckpt_path = str(downloaded_path)
         mock_yolo.return_value.weights = str(downloaded_path)
 
