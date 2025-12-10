@@ -865,6 +865,40 @@ wheels = [
 ]
 
 [[package]]
+name = "onnxruntime-rocm"
+version = "1.22.2.post1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "coloredlogs" },
+    { name = "flatbuffers" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "protobuf" },
+    { name = "sympy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/64/c1/2d745d7d895b2585faf2c2d26dc4aab1972ce14780b0a120131ace86cfa5/onnxruntime_rocm-1.22.2.post1-cp311-cp311-manylinux_2_35_x86_64.whl", hash = "sha256:e0940061b679224a7492125884e6988470aee2ef02c81b09eb46f02e0ddb0135", size = 217935614, upload-time = "2025-09-11T16:39:11.783Z" },
+]
+
+[[package]]
+name = "onnxruntime-webgpu"
+version = "1.24.0.dev20251031004"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "coloredlogs" },
+    { name = "flatbuffers" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "protobuf" },
+    { name = "sympy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/5e/987f0440757d9b3a2e92a779de56df53a36a8d7c24d0506ea883d3723acd/onnxruntime_webgpu-1.24.0.dev20251031004-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:721dd2ebb93b6710b844aa2fbd1ed9787f6e5cdc6287f2c47bb4b0d7964aa0e7", size = 22576825, upload-time = "2025-11-01T04:30:35.262Z" },
+    { url = "https://files.pythonhosted.org/packages/94/a2/ee142dd59436d584d89a85c437a7d1ae75329a34cfd533c1072f7c1e5653/onnxruntime_webgpu-1.24.0.dev20251031004-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:dce6b404745d65b5ebf9e7085d192991dd4aa0c55628b0096e9bbc5028b26934", size = 23189287, upload-time = "2025-11-01T04:29:51.615Z" },
+    { url = "https://files.pythonhosted.org/packages/26/ba/d9815879737e7d1c26b264bd7261a00619b0c38b0a7946ee6aa0b70421fb/onnxruntime_webgpu-1.24.0.dev20251031004-cp311-cp311-win_amd64.whl", hash = "sha256:efd4b982e77f73ed4384528670eff4a96e25603ab4bec88b52301becb903e2b4", size = 25990894, upload-time = "2025-11-01T04:30:24.008Z" },
+]
+
+[[package]]
 name = "onnxscript"
 version = "0.5.6"
 source = { registry = "https://pypi.org/simple" }
@@ -924,6 +958,8 @@ dependencies = [
     { name = "av" },
     { name = "fastapi" },
     { name = "numpy" },
+    { name = "onnxruntime-rocm" },
+    { name = "onnxruntime-webgpu" },
     { name = "opencv-python" },
     { name = "pydantic" },
     { name = "uvicorn" },
@@ -971,6 +1007,8 @@ requires-dist = [
     { name = "onnxruntime", marker = "sys_platform == 'linux' and extra == 'onnx-rocm'", specifier = "==1.20.1" },
     { name = "onnxruntime", marker = "extra == 'onnx-cpu'", specifier = "==1.20.1" },
     { name = "onnxruntime-gpu", marker = "sys_platform == 'linux' and extra == 'onnx-cuda'", specifier = "==1.23.2" },
+    { name = "onnxruntime-rocm" },
+    { name = "onnxruntime-webgpu" },
     { name = "onnxscript", marker = "extra == 'onnx-tools'", specifier = "==0.5.6" },
     { name = "onnxslim", marker = "extra == 'onnx-tools'", specifier = "==0.1.75" },
     { name = "opencv-python", specifier = "==4.9.0.80" },

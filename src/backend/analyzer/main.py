@@ -15,6 +15,8 @@ from common.core.detector import get_detector
 from common.core.depth import get_depth_estimator
 from analyzer.routes import router, on_shutdown
 
+import asyncio
+
 
 def create_lifespan(
     yolo_model_path: Optional[Path] = None,
@@ -29,9 +31,9 @@ def create_lifespan(
 
     @asynccontextmanager
     async def lifespan_context(app: FastAPI) -> AsyncIterator[None]:
-        # Warm up detector and depth estimator so initial /offer handling is instant.
-        get_detector(yolo_model_path)
-        get_depth_estimator(midas_cache_directory)
+        # Warm up detector and depth estimator so initial /offer handling is instant.        
+        await asyncio.to_thread(get_detector, yolo_model_path)
+        await asyncio.to_thread(get_depth_estimator, midas_cache_directory)
         yield
         with suppress(Exception):
             await on_shutdown()

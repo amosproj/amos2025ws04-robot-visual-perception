@@ -15,7 +15,7 @@ Detection = tuple[int, int, int, int, int, float]
 class ObjectDetectionBackend(Protocol):
     """Synchronous interface implemented by model-specific adapters."""
 
-    def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
+    async def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
         """Run inference on an RGB frame and return parsed detections."""
         ...
 
@@ -33,8 +33,14 @@ class ObjectDetector(Protocol):
 class DepthEstimator(Protocol):
     """Interface for depth estimation backends."""
 
+    async def predict_depth_map(
+        self, frame_rgb: np.ndarray, output_shape: tuple[int, int]
+    ) -> np.ndarray:
+        """Return depth as np.ndarray."""
+        ...
+
     def estimate_distance_m(
-        self, frame_rgb: np.ndarray, detections: list[Detection]
+        self, depth_map: np.ndarray, detections: list[Detection]
     ) -> list[float]:
         """Return per-detection distance estimates in meters."""
         ...

@@ -69,7 +69,8 @@ class _Detector(ObjectDetector):
 
         self._engine: ObjectDetectionBackend = _build_engine(model_path, backend)
         self._last_det: Optional[list[Detection]] = None
-        self._last_time: float = 0.0
+        self._last_time: Optional[float] = None
+        self._counter = 0
         self._lock = asyncio.Lock()
 
     async def infer(self, frame_rgb: np.ndarray) -> list[Detection]:
@@ -85,19 +86,11 @@ class _Detector(ObjectDetector):
             list[tuple[int, int, int, int, int, float]]: A list of detections, where each
             tuple contains (x1, y1, x2, y2, class_id, confidence).
         """
-        now = asyncio.get_running_loop().time()
-        if self._last_det is not None and (now - self._last_time) < 0.10:
-            return self._last_det
 
         async with self._lock:
             now = asyncio.get_running_loop().time()
-            if self._last_det is not None and (now - self._last_time) < 0.10:
-                return self._last_det
 
-            loop = asyncio.get_running_loop()
-            detections = await loop.run_in_executor(
-                None, self._engine.predict, frame_rgb
-            )
+            detections = await self._engine.predict(frame_rgb)
             self._last_det = detections
             self._last_time = now
             return detections
@@ -125,7 +118,7 @@ def get_detector(model_path: Optional[Path] = None) -> _Detector:
 class _DetectorEngine:
     """Base class for synchronous detector backends."""
 
-    def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
+    async def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
         """Run inference on an RGB frame and return parsed detections."""
         raise NotImplementedError
 
@@ -144,7 +137,7 @@ class _TorchDetector(_DetectorEngine):
         self._imgsz = config.DETECTOR_IMAGE_SIZE
         self._conf = config.DETECTOR_CONF_THRESHOLD
 
-    def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
+    async def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
         """Run a single-frame inference with the torch-backed YOLO model."""
         inference_results = self._model.predict(
             frame_rgb,
@@ -205,6 +198,7 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         sess_options.graph_optimization_level = (
             ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         )
+        sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
         self._session = ort.InferenceSession(
             str(model_path),
             providers=providers or None,
@@ -218,11 +212,29 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         self._max_det = config.DETECTOR_MAX_DETECTIONS
         self._num_classes = config.DETECTOR_NUM_CLASSES
 
-    def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
+    async def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
         """Run ONNX Runtime inference and return scaled, filtered detections."""
         input_tensor, ratio, dwdh = self._prepare_input(frame_rgb)
         ort_inputs = {self._input_name: input_tensor}
-        outputs = self._session.run(self._output_names, ort_inputs)[0]
+        
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+
+        def callback(results, user_data, error):
+            # IMPORTANT: callback runs on a worker thread
+            if error:
+                loop.call_soon_threadsafe(future.set_exception, ValueError(error))
+            else:
+                loop.call_soon_threadsafe(future.set_result, results)
+
+        self._session.run_async(
+            output_names=self._output_names, 
+            input_feed=ort_inputs,
+            callback=callback,
+            user_data=None
+        )
+
+        outputs = (await future)[0]
         h, w = frame_rgb.shape[:2]
         return self._postprocess(outputs, (h, w), ratio, dwdh)
 

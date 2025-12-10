@@ -17,7 +17,10 @@ import os
 from pathlib import Path
 
 from ultralytics import YOLO  # type: ignore[import-untyped]
-
+import torch
+import onnx
+import onnxslim
+from ultralytics.nn.modules import C2f, Classify, Detect, RTDETRDecoder
 
 def _str_to_bool(value: str) -> bool:
     return value.lower() not in {"false", "0", "no", "off", ""}
@@ -38,20 +41,72 @@ def main() -> None:
         )
 
     model = YOLO(str(model_path))
-    exported_path = model.export(
-        format="onnx",
-        opset=opset,
-        imgsz=imgsz,
-        simplify=simplify,
+
+    # exported_path = model.export(
+    #     format="onnx",
+    #     opset=22,
+    #     imgsz=imgsz,
+    #     simplify=simplify,
+    #     half=True,
+    #     device=0,
+    # )
+
+    model = model.model
+    for p in model.parameters():
+        p.requires_grad = False
+    model.eval()
+    model.float()
+    model = model.fuse()
+
+    for m in model.modules():
+        if isinstance(m, Classify):
+            m.export = True
+        if isinstance(m, (Detect, RTDETRDecoder)):  # includes all Detect subclasses like Segment, Pose, OBB
+            m.export = True
+            m.format = "onnx"
+            # m.max_det = self.args.max_det
+        elif isinstance(m, C2f):
+            # EdgeTPU does not support FlexSplitV while split provides cleaner ONNX graph
+            m.forward = m.forward_split
+
+    
+
+    # model = model.half()
+    dummy_input = torch.zeros(1, 3, 640, 640, requires_grad=False)
+
+    y = None
+    for _ in range(2):
+        y = model(dummy_input)  # dry runs
+
+    model = model # .half()
+    dummy_input = dummy_input # .half()
+
+    torch.onnx.export(
+        model,
+        dummy_input,
+        onnx_path,
+        opset_version=opset,
+        input_names=["images"],
+        output_names=["output0"],
+        do_constant_folding=True,
+        # dynamic_axes={
+        #     "input": {0: "batch", 2: "height", 3: "width"},
+        #     "output": {0: "batch", 1: "height", 2: "width"},
+        # },
     )
 
-    exported_path = Path(exported_path).resolve()
-    if exported_path != onnx_path:
-        onnx_path.parent.mkdir(parents=True, exist_ok=True)
-        exported_path.replace(onnx_path)
-        print(f"Moved exported model to {onnx_path}")
-    else:
-        print(f"Exported ONNX model to {onnx_path}")
+    model_onnx = onnx.load(onnx_path)  # load onnx model
+    model_onnx = onnxslim.slim(model_onnx)
+    onnx.save(model_onnx, onnx_path)
+
+
+    # exported_path = Path(exported_path).resolve()
+    # if exported_path != onnx_path:
+    #     onnx_path.parent.mkdir(parents=True, exist_ok=True)
+    #     exported_path.replace(onnx_path)
+    #     print(f"Moved exported model to {onnx_path}")
+    # else:
+    #     print(f"Exported ONNX model to {onnx_path}")
 
 
 if __name__ == "__main__":  # pragma: no cover - thin wrapper

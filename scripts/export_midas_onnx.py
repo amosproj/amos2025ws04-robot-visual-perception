@@ -18,6 +18,8 @@ import os
 from pathlib import Path
 
 import torch
+import onnx 
+import onnxslim
 
 
 def _str_to_bool(value: str) -> bool:
@@ -29,8 +31,8 @@ def main() -> None:
     model_type = os.getenv("MIDAS_MODEL_TYPE", "MiDaS_small")
     cache_dir = os.getenv("MIDAS_CACHE_DIR")
     opset = int(os.getenv("ONNX_OPSET", "18"))
-    height = int(os.getenv("MIDAS_ONNX_INPUT_HEIGHT", "256"))
-    width = int(os.getenv("MIDAS_ONNX_INPUT_WIDTH", "256"))
+    # height = int(os.getenv("MIDAS_ONNX_INPUT_HEIGHT", "192"))
+    # width = int(os.getenv("MIDAS_ONNX_INPUT_WIDTH", "192"))
     onnx_path = Path(
         os.getenv("MIDAS_ONNX_MODEL_PATH", "models/midas_small.onnx")
     ).resolve()
@@ -43,8 +45,18 @@ def main() -> None:
     print(f"Loading MiDaS model '{model_type}' from {model_repo}...")
     model = torch.hub.load(model_repo, model_type, trust_repo=True)
     model.eval()
+    model.float()
+    # model = model.half()
 
-    dummy_input = torch.randn(1, 3, height, width, requires_grad=False)
+    dummy_input = torch.zeros(1, 3, 192, 256, requires_grad=False) # .half()
+
+    y = None
+    for _ in range(2):
+        y = model(dummy_input)  # dry runs
+
+    model = model# .half()
+    dummy_input = dummy_input# .half()
+
     onnx_path.parent.mkdir(parents=True, exist_ok=True)
 
     print(f"Exporting to ONNX ({onnx_path}) with opset={opset} ...")
@@ -57,11 +69,16 @@ def main() -> None:
         do_constant_folding=True,
         input_names=["input"],
         output_names=["output"],
-        dynamic_axes={
-            "input": {0: "batch", 2: "height", 3: "width"},
-            "output": {0: "batch", 1: "height", 2: "width"},
-        },
+        # dynamic_axes={
+        #     "input": {0: "batch", 2: "height", 3: "width"},
+        #     "output": {0: "batch", 1: "height", 2: "width"},
+        # },
     )
+
+    model_onnx = onnx.load(onnx_path)  # load onnx model
+    model_onnx = onnxslim.slim(model_onnx)
+    onnx.save(model_onnx, onnx_path)
+
     print(f"Export complete: {onnx_path}")
     print(
         "Tip: set MIDAS_ONNX_MODEL_PATH to use a custom output location, "

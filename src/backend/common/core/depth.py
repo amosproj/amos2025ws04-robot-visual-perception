@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, Literal, Optional
 
+import asyncio
 import numpy as np
 import torch
 
@@ -116,18 +117,12 @@ class _BaseMiDasDepthEstimator(DepthEstimator):
         self.transform = self._load_transform()
 
     def estimate_distance_m(
-        self, frame_rgb: np.ndarray, dets: list[tuple[int, int, int, int, int, float]]
+        self, depth_map: np.ndarray, detections: list[tuple[int, int, int, int, int, float]]
     ) -> list[float]:
         """Estimate distance in meters for each detection based on depth map."""
         self.update_id += 1
-        if self.update_id % self.update_freq != 0 and len(self.last_depths) == len(
-            dets
-        ):
-            return self.last_depths
 
-        h, w, _ = frame_rgb.shape
-        depth_map = self._predict_depth_map(frame_rgb, (h, w))
-        distances = self._distances_from_depth_map(depth_map, dets)
+        distances = self._distances_from_depth_map(depth_map, detections)
         self.last_depths = distances
         return distances
 
@@ -139,7 +134,7 @@ class _BaseMiDasDepthEstimator(DepthEstimator):
             return midas_transforms.dpt_transform
         return midas_transforms.small_transform
 
-    def _predict_depth_map(
+    async def predict_depth_map(
         self, frame_rgb: np.ndarray, output_shape: tuple[int, int]
     ) -> np.ndarray:
         raise NotImplementedError
@@ -191,14 +186,40 @@ class MiDasDepthEstimator(_BaseMiDasDepthEstimator):
             .eval()
         )
 
-    def _predict_depth_map(
+    async def predict_depth_map(
         self, frame_rgb: np.ndarray, output_shape: tuple[int, int]
     ) -> np.ndarray:
-        input_batch = self.transform(frame_rgb).to(self.device)
-        with torch.no_grad():
-            prediction = self.depth_estimation_model(input_batch)
-        return resize_to_frame(prediction, output_shape)
+        def inner(self, frame_rgb: np.ndarray, output_shape: tuple[int, int]):
+            input_batch = self.transform(frame_rgb).to(self.device)
+            with torch.no_grad():
+                prediction = self.depth_estimation_model(input_batch)
+            return resize_to_frame(prediction, output_shape)
 
+        return await asyncio.to_thread(inner, self, frame_rgb, output_shape)
+
+import multiprocessing as mp
+
+def worker(onnx_model_path, providers, input_queue, output_queue):
+    sess_options = ort.SessionOptions()
+    sess_options.enable_mem_pattern = False
+    sess_options.graph_optimization_level = (
+        ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    )
+    session = ort.InferenceSession(
+        onnx_model_path,
+        providers=providers,
+        sess_options=sess_options,
+    )
+    input_name = session.get_inputs()[0].name
+    output_name = session.get_outputs()[0].name
+
+    while True:
+        input = input_queue.get()
+        outputs = session.run(
+            output_names=[output_name],
+            input_feed={input_name: input},
+        )
+        output_queue.put(outputs)
 
 class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
     """Depth estimator backed by an exported ONNX MiDaS model."""
@@ -211,6 +232,11 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
         midas_model: str = config.MIDAS_MODEL_REPO,
         onnx_model_path: Optional[Path] = None,
     ) -> None:
+        self.counter = 0
+        self.buf = None
+        self.input_queue = mp.Queue()
+        self.output_queue = mp.Queue()
+
         if ort is None:
             raise RuntimeError(
                 "onnxruntime is required for DEPTH_BACKEND='onnx'. Install "
@@ -228,18 +254,10 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
             )
 
         self.providers = self._resolve_providers()
-        sess_options = ort.SessionOptions()
-        sess_options.enable_mem_pattern = False
-        sess_options.graph_optimization_level = (
-            ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-        )
-        self._session = ort.InferenceSession(
-            str(self.onnx_model_path),
-            providers=self.providers or None,
-            sess_options=sess_options,
-        )
-        self._input_name = self._session.get_inputs()[0].name
-        self._output_name = self._session.get_outputs()[0].name
+        
+                
+        process = mp.Process(target=worker, args=(self.onnx_model_path, self.providers, self.input_queue, self.output_queue))
+        process.start()
 
         super().__init__(
             midas_cache_directory=midas_cache_directory,
@@ -264,17 +282,25 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
         providers = [p for p in preferred if p in available]
         return providers or available
 
-    def _predict_depth_map(
+    async def predict_depth_map(
         self, frame_rgb: np.ndarray, output_shape: tuple[int, int]
     ) -> np.ndarray:
+        self.counter += 1
+
+        if self.counter % 10 != 0 and self.buf is not None:
+            return self.buf
+
         input_batch = self.transform(frame_rgb)
-        input_array = input_batch.detach().cpu().numpy().astype(np.float32)
-        ort_inputs = {self._input_name: input_array}
-        output = self._session.run([self._output_name], ort_inputs)[0]
+        input_array = input_batch.numpy().astype(np.float32) # .detach().cpu().numpy().astype(np.float16)
+
+        await asyncio.to_thread(self.input_queue.put, input_array)
+        output = await asyncio.to_thread(self.output_queue.get)
+
         prediction = np.asarray(output)
         if prediction.ndim == 3:  # (1,H,W) -> (1,1,H,W)
             prediction = np.expand_dims(prediction, axis=1)
-        return resize_to_frame(prediction, output_shape)
+        self.buf = resize_to_frame(prediction, output_shape)
+        return self.buf
 
 
 # Register built-in backends
