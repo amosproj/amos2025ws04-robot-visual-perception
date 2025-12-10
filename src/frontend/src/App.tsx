@@ -117,9 +117,7 @@ function App() {
           latestMetadata.detections
             .map((d) => {
               const classId =
-                typeof d.label === 'string'
-                  ? parseInt(d.label, 10)
-                  : d.label;
+                typeof d.label === 'string' ? parseInt(d.label, 10) : d.label;
               return classId;
             })
             .filter((id) => !isNaN(id))

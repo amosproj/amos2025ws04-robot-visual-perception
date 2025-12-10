@@ -107,7 +107,11 @@ export function useAnalyzerWebSocket({
         wsRef.current = null;
 
         // Auto-reconnect with exponential backoff (but not after manual disconnect)
-        if (autoConnect && !manualDisconnectRef.current && reconnectAttempts.current < 10) {
+        if (
+          autoConnect &&
+          !manualDisconnectRef.current &&
+          reconnectAttempts.current < 10
+        ) {
           const delay = Math.min(
             1000 * Math.pow(2, reconnectAttempts.current),
             30000
