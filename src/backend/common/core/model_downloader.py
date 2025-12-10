@@ -63,12 +63,9 @@ def ensure_yolo_model_downloaded(
             yolo_instance, "weights", None
         )
 
-        if (
-            downloaded_path
-            and (downloaded_path := Path(downloaded_path)).exists()
-            and downloaded_path != model_path
-        ):
-            _copy_model_file(downloaded_path, model_path)
+        if downloaded_path and (downloaded_path := Path(downloaded_path)).exists():
+            if downloaded_path != model_path:
+                _copy_model_file(downloaded_path, model_path)
             return model_path
 
         # Fallback to default cache location

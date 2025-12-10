@@ -75,30 +75,48 @@ def main() -> None:
     args = parse_analyzer_arguments()
 
     def validate_path(
-        path_str: str, is_dir: bool = False
+        path_str: Optional[str], is_dir: bool = False
     ) -> Tuple[Optional[Path], bool]:
-        """Validate a path and return the resolved Path object and validation status."""
+        """Validate a path and return the resolved Path object and validation status.
+
+        Args:
+            path_str: The path string to validate. If None or empty string, returns (None, True).
+            is_dir: If True, validates as a directory; otherwise as a file.
+
+        Returns:
+            Tuple of (resolved Path object or None, validation success status).
+            Returns (None, True) if path_str is None or empty.
+        """
         if not path_str:
             return None, True
 
         path = Path(path_str).resolve()
-        if not args.dev:
-            if not path.exists():
-                logger.error(
-                    f"{'Directory' if is_dir else 'File'} does not exist: {path}"
-                )
-                logger.info(
-                    "Hint: Use --dev flag to automatically download models, or provide a valid path."
-                )
-                return None, False
-            if is_dir and not path.is_dir():
-                logger.error(f"Expected a directory, but got a file: {path}")
-                return None, False
-            if not is_dir and path.is_dir():
-                logger.error(f"Expected a file, but got a directory: {path}")
-                return None, False
-        elif is_dir:
-            path.mkdir(parents=True, exist_ok=True)
+
+        # In dev mode, ensure parent directory exists for files, create directory if it's a directory
+        if args.dev:
+            if is_dir:
+                path.mkdir(parents=True, exist_ok=True)
+            else:
+                # For files, ensure parent directory exists
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if not path.exists():
+                    logger.warning(f"File does not exist but will be created: {path}")
+            return path, True
+
+        # In non-dev mode, validate path existence and type
+        if not path.exists():
+            path_type = "directory" if is_dir else "file"
+            logger.error(f"{path_type.capitalize()} does not exist: {path}")
+            logger.info(
+                "Hint: Use --dev flag to automatically download models, or provide a valid path."
+            )
+            return None, False
+
+        if (is_dir and not path.is_dir()) or (not is_dir and path.is_dir()):
+            expected = "directory" if is_dir else "file"
+            actual = "directory" if path.is_dir() else "file"
+            logger.error(f"Expected a {expected}, but got a {actual}: {path}")
+            return None, False
 
         return path, True
 
