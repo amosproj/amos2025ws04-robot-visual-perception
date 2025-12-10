@@ -59,8 +59,6 @@ interface VideoOverlayProps {
 export interface VideoOverlayHandle {
   /** Send metadata to be rendered (will be called by backend data stream) */
   updateMetadata: (metadata: MetadataFrame) => void;
-  /** Clear all bounding boxes */
-  clear: () => void;
 }
 
 /**
@@ -203,16 +201,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
     useImperativeHandle(ref, () => ({
       updateMetadata: (metadata: MetadataFrame) => {
         metadataRef.current = metadata;
-      },
-      clear: () => {
-        metadataRef.current = null;
-        lastRenderedTimestamp.current = 0;
-        const canvas = canvasRef.current;
-        const ctx = canvas?.getContext('2d');
-        if (ctx && canvas) {
-          const dpr = window.devicePixelRatio || 1;
-          ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-        }
       },
     }));
 

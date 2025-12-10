@@ -36,8 +36,6 @@ export interface VideoPlayerProps {
 }
 
 export interface VideoPlayerHandle {
-  /** Clear the video overlay */
-  clearOverlay: () => void;
   /** Update overlay with metadata */
   updateOverlay: (metadata: any) => void;
 }
@@ -65,7 +63,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
 
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
-      clearOverlay: () => overlayRef.current?.clear(),
       updateOverlay: (metadata: any) =>
         overlayRef.current?.updateMetadata(metadata),
     }));

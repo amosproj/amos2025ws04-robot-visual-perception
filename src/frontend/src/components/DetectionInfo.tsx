@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { useMemo, memo } from 'react';
+import { useMemo, memo, useRef } from 'react';
 import { getCocoLabel } from '../constants/cocoLabels';
 
 export interface Detection {
@@ -39,22 +39,49 @@ function DetectionInfo({
   detections,
   showGrouped = false,
 }: DetectionInfoProps) {
+  // Track the order in which labels were first seen for stable sorting
+  const firstSeenOrderRef = useRef<Map<string, number>>(new Map());
+  const nextOrderRef = useRef<number>(0);
+
+  // Update first-seen order for new labels
+  useMemo(() => {
+    const currentLabels = new Set(detections.map((d) => getCocoLabel(d.label)));
+
+    // Add new labels with next available order
+    currentLabels.forEach((label) => {
+      if (!firstSeenOrderRef.current.has(label)) {
+        firstSeenOrderRef.current.set(label, nextOrderRef.current++);
+      }
+    });
+
+    // Clean up labels that are no longer present
+    const labelsToRemove: string[] = [];
+    firstSeenOrderRef.current.forEach((_, label) => {
+      if (!currentLabels.has(label)) {
+        labelsToRemove.push(label);
+      }
+    });
+    labelsToRemove.forEach((label) => {
+      firstSeenOrderRef.current.delete(label);
+    });
+  }, [detections]);
+
   if (!detections || detections.length === 0) {
     return null;
   }
 
-  // Sort detections by distance (closest first)
+  // Sort detections by first-seen order (stable sorting)
   const sortedDetections = useMemo(() => {
     return [...detections].sort((a, b) => {
-      // If both have distance, sort by distance
-      if (a.distance !== undefined && b.distance !== undefined) {
-        return a.distance - b.distance;
-      }
-      // If only one has distance, put it first
-      if (a.distance !== undefined) return -1;
-      if (b.distance !== undefined) return 1;
-      // Otherwise maintain order
-      return 0;
+      const labelA = getCocoLabel(a.label);
+      const labelB = getCocoLabel(b.label);
+
+      const orderA =
+        firstSeenOrderRef.current.get(labelA) ?? Number.MAX_SAFE_INTEGER;
+      const orderB =
+        firstSeenOrderRef.current.get(labelB) ?? Number.MAX_SAFE_INTEGER;
+
+      return orderA - orderB;
     });
   }, [detections]);
 
