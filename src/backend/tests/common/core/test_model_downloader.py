@@ -57,7 +57,7 @@ def test_get_midas_cache_directory_custom(tmp_path):
 
 def test_ensure_yolo_model_downloaded_uses_cached_model(tmp_models_dir):
     """Test that ensure_yolo_model_downloaded returns cached model if it exists."""
-    model_name = "yolov8n.pt"
+    model_name = "yolo11n.pt"
     model_path = tmp_models_dir / model_name
     model_path.touch()
 
@@ -72,7 +72,7 @@ def test_ensure_yolo_model_downloaded_downloads_if_not_cached(
     mock_yolo, tmp_models_dir
 ):
     """Test that ensure_yolo_model_downloaded downloads model if not cached."""
-    model_name = "yolov8n.pt"
+    model_name = "yolo11n.pt"
     model_path = tmp_models_dir / model_name
 
     mock_yolo_instance = MagicMock()
@@ -122,7 +122,7 @@ def test_ensure_midas_model_available_handles_errors_gracefully(tmp_path, mock_t
 
 def test_ensure_yolo_model_downloaded_creates_cache_directory(tmp_path, mock_yolo):
     """Test that ensure_yolo_model_downloaded creates cache directory if it doesn't exist."""
-    model_name = "yolov8n.pt"
+    model_name = "yolo11n.pt"
     cache_dir = tmp_path / "new_models_dir"
     model_path = cache_dir / model_name
 

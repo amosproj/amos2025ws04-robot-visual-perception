@@ -40,6 +40,17 @@ class Config:
     # Depth estimation settings
     REGION_SIZE = int(os.getenv("REGION_SIZE", "5"))
     SCALE_FACTOR = float(os.getenv("SCALE_FACTOR", "432.0"))
+    DEPTH_BACKEND: str = os.getenv("DEPTH_BACKEND", "torch").lower()
+    MIDAS_MODEL_TYPE: str = os.getenv("MIDAS_MODEL_TYPE", "MiDaS_small")
+    MIDAS_MODEL_REPO: str = os.getenv("MIDAS_MODEL_REPO", "intel-isl/MiDaS")
+    MIDAS_ONNX_MODEL_PATH: Path = Path(
+        os.getenv("MIDAS_ONNX_MODEL_PATH", "models/midas_small.onnx")
+    ).resolve()
+    MIDAS_ONNX_PROVIDERS: list[str] = [
+        provider.strip()
+        for provider in os.getenv("MIDAS_ONNX_PROVIDERS", "").split(",")
+        if provider.strip()
+    ]
     CAMERA_FOV_X_DEG = float(os.getenv("CAMERA_FOV_X_DEG", "78.0"))
     CAMERA_FOV_Y_DEG = float(os.getenv("CAMERA_FOV_Y_DEG", "65.0"))
     CAMERA_FX = float(os.getenv("CAMERA_FX", "0"))
@@ -63,7 +74,7 @@ class Config:
     CORS_ORIGINS: list[str] = os.getenv("CORS_ORIGINS", "*").split(",")
 
     # Model settings
-    MODEL_PATH: Path = Path(os.getenv("MODEL_PATH", "models/yolov8n.pt")).resolve()
+    MODEL_PATH: Path = Path(os.getenv("MODEL_PATH", "models/yolo11n.pt")).resolve()
     ONNX_MODEL_PATH: Path = Path(
         os.getenv("ONNX_MODEL_PATH", str(MODEL_PATH.with_suffix(".onnx")))
     ).resolve()

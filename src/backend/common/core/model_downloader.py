@@ -31,18 +31,22 @@ def _copy_model_file(source: Path, destination: Path) -> None:
 
 
 def ensure_yolo_model_downloaded(
-    model_name: str = "yolov8n.pt",
+    model_name: str = "yolo11n.pt",
     cache_directory: Optional[Path] = None,
 ) -> Path:
     """Ensure YOLO model is downloaded and cached locally.
 
     Args:
-        model_name: Name of the YOLO model to download (e.g., "yolov8n.pt").
+        model_name: Name of the YOLO model to download (e.g., "yolo11n.pt").
         cache_directory: Directory where models should be cached. If None,
             uses "models" directory in the current working directory.
 
     Returns:
         Path to the cached model file.
+
+    Example:
+        >>> model_path = ensure_yolo_model_downloaded("yolo11n.pt")
+        >>> # Model is now available at model_path
     """
     cache_dir = Path(cache_directory) if cache_directory else DEFAULT_MODEL_DIR
     cache_dir.mkdir(parents=True, exist_ok=True)

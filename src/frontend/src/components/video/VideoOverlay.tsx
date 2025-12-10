@@ -59,8 +59,6 @@ interface VideoOverlayProps {
 export interface VideoOverlayHandle {
   /** Send metadata to be rendered (will be called by backend data stream) */
   updateMetadata: (metadata: MetadataFrame) => void;
-  /** Clear all bounding boxes */
-  clear: () => void;
 }
 
 /**
@@ -78,21 +76,131 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
     const animationFrameRef = useRef<number>();
     const fpsCounterRef = useRef({ lastTime: 0, frames: 0, fps: 0 });
     const lastRenderedTimestamp = useRef<number>(0);
+    const lastLayoutRef = useRef({
+      width: 0,
+      height: 0,
+      top: 0,
+      left: 0,
+      dpr: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+    });
+
+    const clamp = (value: number, min: number, max: number) =>
+      Math.min(Math.max(value, min), max);
+
+    const computeDisplayedVideoRect = (
+      video: HTMLVideoElement,
+      videoRect: DOMRect
+    ) => {
+      const intrinsicWidth = video.videoWidth || videoRect.width;
+      const intrinsicHeight = video.videoHeight || videoRect.height;
+      const elementWidth = videoRect.width;
+      const elementHeight = videoRect.height;
+      const objectFit =
+        window.getComputedStyle(video).objectFit?.toLowerCase() || 'contain';
+
+      if (!intrinsicWidth || !intrinsicHeight) {
+        return {
+          width: elementWidth,
+          height: elementHeight,
+          offsetX: 0,
+          offsetY: 0,
+        };
+      }
+
+      const widthRatio = elementWidth / intrinsicWidth;
+      const heightRatio = elementHeight / intrinsicHeight;
+      let renderWidth = elementWidth;
+      let renderHeight = elementHeight;
+
+      switch (objectFit) {
+        case 'cover': {
+          const scale = Math.max(widthRatio, heightRatio);
+          renderWidth = intrinsicWidth * scale;
+          renderHeight = intrinsicHeight * scale;
+          break;
+        }
+        case 'fill': {
+          renderWidth = elementWidth;
+          renderHeight = elementHeight;
+          break;
+        }
+        case 'none': {
+          renderWidth = intrinsicWidth;
+          renderHeight = intrinsicHeight;
+          break;
+        }
+        case 'scale-down': {
+          const scale = Math.min(1, Math.min(widthRatio, heightRatio));
+          renderWidth = intrinsicWidth * scale;
+          renderHeight = intrinsicHeight * scale;
+          break;
+        }
+        case 'contain':
+        default: {
+          const scale = Math.min(widthRatio, heightRatio);
+          renderWidth = intrinsicWidth * scale;
+          renderHeight = intrinsicHeight * scale;
+        }
+      }
+
+      const offsetX = (elementWidth - renderWidth) / 2;
+      const offsetY = (elementHeight - renderHeight) / 2;
+
+      return { width: renderWidth, height: renderHeight, offsetX, offsetY };
+    };
+
+    const syncCanvasLayout = (
+      canvas: HTMLCanvasElement,
+      video: HTMLVideoElement,
+      ctx: CanvasRenderingContext2D
+    ) => {
+      const videoRect = video.getBoundingClientRect();
+      const containerRect = video.parentElement?.getBoundingClientRect();
+      const { width, height, offsetX, offsetY } = computeDisplayedVideoRect(
+        video,
+        videoRect
+      );
+      const dpr = window.devicePixelRatio || 1;
+
+      const top =
+        (containerRect ? videoRect.top - containerRect.top : 0) + offsetY;
+      const left =
+        (containerRect ? videoRect.left - containerRect.left : 0) + offsetX;
+
+      const sizeChanged =
+        Math.abs(width - lastLayoutRef.current.width) > 0.5 ||
+        Math.abs(height - lastLayoutRef.current.height) > 0.5 ||
+        dpr !== lastLayoutRef.current.dpr;
+      const positionChanged =
+        Math.abs(top - lastLayoutRef.current.top) > 0.5 ||
+        Math.abs(left - lastLayoutRef.current.left) > 0.5;
+
+      if (sizeChanged) {
+        canvas.width = Math.max(1, Math.round(width * dpr));
+        canvas.height = Math.max(1, Math.round(height * dpr));
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      if (sizeChanged || positionChanged) {
+        canvas.style.position = 'absolute';
+        canvas.style.top = `${top}px`;
+        canvas.style.left = `${left}px`;
+        canvas.style.zIndex = '10';
+      }
+
+      if (sizeChanged || positionChanged) {
+        lastLayoutRef.current = { width, height, top, left, dpr };
+      }
+
+      return sizeChanged || positionChanged;
+    };
 
     // Expose methods to parent component
     useImperativeHandle(ref, () => ({
       updateMetadata: (metadata: MetadataFrame) => {
         metadataRef.current = metadata;
-      },
-      clear: () => {
-        metadataRef.current = null;
-        lastRenderedTimestamp.current = 0;
-        const canvas = canvasRef.current;
-        const ctx = canvas?.getContext('2d');
-        if (ctx && canvas) {
-          const dpr = window.devicePixelRatio || 1;
-          ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-        }
       },
     }));
 
@@ -108,35 +216,9 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       });
       if (!ctx) return;
 
-      // Make canvas exactly match video element position and size
-      const updateCanvasSize = () => {
-        if (video.videoWidth === 0 || video.videoHeight === 0) return;
-
-        const videoRect = video.getBoundingClientRect();
-        const containerRect = video.parentElement?.getBoundingClientRect();
-
-        // Canvas = exact video element size
-        canvas.width = videoRect.width;
-        canvas.height = videoRect.height;
-        canvas.style.width = `${videoRect.width}px`;
-        canvas.style.height = `${videoRect.height}px`;
-
-        // Position canvas exactly where the video is within its container
-        canvas.style.position = 'absolute';
-        if (containerRect) {
-          // Calculate video position relative to container
-          const offsetX = videoRect.left - containerRect.left;
-          const offsetY = videoRect.top - containerRect.top;
-          canvas.style.top = `${offsetY}px`;
-          canvas.style.left = `${offsetX}px`;
-        } else {
-          canvas.style.top = '0';
-          canvas.style.left = '0';
-        }
-        canvas.style.zIndex = '10';
-      };
-
       // Update canvas on video load or resize
+      const updateCanvasSize = () => syncCanvasLayout(canvas, video, ctx);
+
       video.addEventListener('loadedmetadata', updateCanvasSize);
 
       // Watch for any changes to video element or container
@@ -146,28 +228,19 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         resizeObserver.observe(video.parentElement);
       }
 
-      // Also listen for window resize (which can affect container layout)
-      window.addEventListener('resize', updateCanvasSize);
+      // Also listen for window resize and zoom changes (devicePixelRatio)
+      const handleWindowResize = () => updateCanvasSize();
+      window.addEventListener('resize', handleWindowResize);
 
       updateCanvasSize();
 
       const render = (currentTime: number) => {
-        // Update canvas position regularly to handle dynamic layout changes
-        const videoRect = video.getBoundingClientRect();
-        const containerRect = video.parentElement?.getBoundingClientRect();
+        // Keep canvas aligned with the actually drawn video area (handles zoom/fullscreen/object-fit)
+        updateCanvasSize();
 
-        if (
-          containerRect &&
-          (canvas.style.width !== `${videoRect.width}px` ||
-            canvas.style.height !== `${videoRect.height}px`)
-        ) {
-          // Size or position changed, update immediately
-          updateCanvasSize();
-        }
-
-        // Canvas is same size as video element
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
+        const dpr = lastLayoutRef.current.dpr || 1;
+        const canvasWidth = lastLayoutRef.current.width;
+        const canvasHeight = lastLayoutRef.current.height;
 
         const metadata = metadataRef.current;
 
@@ -179,7 +252,9 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         ) {
           // If paused, clear the canvas but keep the animation loop running for when it resumes
           if (isPaused) {
-            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
           }
           animationFrameRef.current = requestAnimationFrame(render);
           return;
@@ -188,15 +263,28 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         lastRenderedTimestamp.current = metadata.timestamp;
 
         // Clear canvas
-        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         metadata.detections.forEach((detection, index) => {
           const { box, label, confidence, distance } = detection;
 
-          const bboxX = box.x * canvasWidth;
-          const bboxY = box.y * canvasHeight;
-          const bboxWidth = box.width * canvasWidth;
-          const bboxHeight = box.height * canvasHeight;
+          const rawX = box.x * canvasWidth;
+          const rawY = box.y * canvasHeight;
+          const rawWidth = box.width * canvasWidth;
+          const rawHeight = box.height * canvasHeight;
+
+          const bboxX = clamp(rawX, 0, canvasWidth);
+          const bboxY = clamp(rawY, 0, canvasHeight);
+          const bboxMaxX = clamp(rawX + rawWidth, 0, canvasWidth);
+          const bboxMaxY = clamp(rawY + rawHeight, 0, canvasHeight);
+          const bboxWidth = Math.max(0, bboxMaxX - bboxX);
+          const bboxHeight = Math.max(0, bboxMaxY - bboxY);
+
+          if (bboxWidth === 0 || bboxHeight === 0) {
+            return;
+          }
 
           // Color scheme
           const colors = [
@@ -232,22 +320,27 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           const labelY =
             bboxY > textHeight + padding
               ? bboxY - 4
-              : bboxY + bboxHeight + textHeight + 4;
+              : Math.min(canvasHeight - 2, bboxY + bboxHeight + textHeight + 4);
+          const maxLabelWidth = Math.min(
+            canvasWidth,
+            textMetrics.width + padding * 2
+          );
+          const labelX = clamp(bboxX, 0, canvasWidth - maxLabelWidth);
 
           // Background
           const bgGradient = ctx.createLinearGradient(
-            bboxX,
+            labelX,
             labelY - textHeight,
-            bboxX,
+            labelX,
             labelY
           );
           bgGradient.addColorStop(0, `${color}ee`);
           bgGradient.addColorStop(1, `${color}cc`);
           ctx.fillStyle = bgGradient;
           ctx.fillRect(
-            bboxX,
+            labelX,
             labelY - textHeight - padding / 2,
-            textMetrics.width + padding * 2,
+            maxLabelWidth,
             textHeight + padding
           );
 
@@ -255,8 +348,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           ctx.fillStyle = '#000000';
           ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 3;
-          ctx.strokeText(fullText, bboxX + padding, labelY - padding / 2);
-          ctx.fillText(fullText, bboxX + padding, labelY - padding / 2);
+          ctx.strokeText(fullText, labelX + padding, labelY - padding / 2);
+          ctx.fillText(fullText, labelX + padding, labelY - padding / 2);
         });
 
         // FPS
@@ -278,7 +371,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         if (animationFrameRef.current)
           cancelAnimationFrame(animationFrameRef.current);
         resizeObserver.disconnect();
-        window.removeEventListener('resize', updateCanvasSize);
+        window.removeEventListener('resize', handleWindowResize);
         video.removeEventListener('loadedmetadata', updateCanvasSize);
       };
     }, [videoRef, onFrameProcessed]);
