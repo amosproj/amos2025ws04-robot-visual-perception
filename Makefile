@@ -12,7 +12,8 @@
 	run-backend-local run-frontend-local \
 	docker-build docker-build-frontend docker-build-backend \
 	docker-build-analyzer docker-build-analyzer-cuda docker-build-analyzer-rocm \
-	docker-compose-up docker-compose-down
+	docker-compose-up docker-compose-down \
+	download-models download-models-onnx export-onnx
 
 help:
 	@echo "make"
@@ -78,6 +79,10 @@ help:
 	@echo "      exports YOLO to ONNX (default opset 18; honors MODEL_PATH/ONNX_MODEL_PATH)"
 	@echo "  export-midas-onnx"
 	@echo "      exports MiDaS to ONNX (default opset 18; honors MIDAS_* env vars)"
+	@echo "  download-models"
+	@echo "      downloads YOLO and MiDaS models to src/backend/models/"
+	@echo "  download-models-onnx"
+	@echo "      downloads YOLO and MiDaS models, exports both to ONNX format"
 
 dev: install
 
@@ -187,3 +192,11 @@ export-onnx:
 export-midas-onnx:
 	@echo "Exporting MiDaS model to ONNX (default opset 18)..."
 	cd src/backend && uv run python ../../scripts/export_midas_onnx.py
+
+download-models:
+	@echo "Downloading YOLO and MiDaS models..."
+	cd src/backend && uv run python ../../scripts/download_models.py
+
+download-models-onnx:
+	@echo "Downloading YOLO and MiDaS models (with ONNX export)..."
+	cd src/backend && uv run python ../../scripts/download_models.py --onnx

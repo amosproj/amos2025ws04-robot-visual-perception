@@ -44,9 +44,9 @@ bin/
 .mypy_cache/
 .pytest_cache/
 venv/
-yolov8n.pt
 
 sbom.json
 sbom-dependencies.csv
 
+# models directory
 src/backend/models
