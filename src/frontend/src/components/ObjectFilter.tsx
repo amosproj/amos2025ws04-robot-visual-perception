@@ -23,6 +23,8 @@ export interface ObjectFilterProps {
   isAnalyzerConnected: boolean;
   /** Whether the video is currently connected */
   isVideoConnected: boolean;
+  /** Callback when clear all is triggered */
+  onClearAll?: () => void;
 }
 
 interface DetectedClass {
@@ -101,6 +103,7 @@ function ObjectFilter({
   onToggle,
   isAnalyzerConnected,
   isVideoConnected,
+  onClearAll,
 }: ObjectFilterProps) {
   // Track all classes ever seen in the session with their first-seen timestamp
   const [seenClasses, setSeenClasses] = useState<Map<number, number>>(
@@ -180,7 +183,8 @@ function ObjectFilter({
 
   const handleClearAll = useCallback(() => {
     onSelectionChange(new Set());
-  }, [onSelectionChange]);
+    onClearAll?.();
+  }, [onSelectionChange, onClearAll]);
 
   const hasDetections = detectedClasses.length > 0;
   const allSelected =

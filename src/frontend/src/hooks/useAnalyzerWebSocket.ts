@@ -11,6 +11,7 @@ import type { MetadataFrame } from '../components/video/VideoOverlay';
 interface AnalyzerWebSocketOptions {
   endpoint?: string;
   autoConnect?: boolean;
+  onBeforeDisconnect?: () => void;
 }
 
 interface UseAnalyzerWebSocketResult {
@@ -24,6 +25,7 @@ interface UseAnalyzerWebSocketResult {
 export function useAnalyzerWebSocket({
   endpoint = 'ws://localhost:8001/ws',
   autoConnect = true,
+  onBeforeDisconnect,
 }: AnalyzerWebSocketOptions = {}): UseAnalyzerWebSocketResult {
   const [isConnected, setIsConnected] = useState(false);
   const [latestMetadata, setLatestMetadata] = useState<MetadataFrame | null>(
@@ -127,7 +129,7 @@ export function useAnalyzerWebSocket({
     }
   }, [endpoint, autoConnect]);
 
-  const disconnect = useCallback(() => {
+  const disconnectImmediate = useCallback(() => {
     // Mark as manual disconnect to prevent auto-reconnect
     manualDisconnectRef.current = true;
     reconnectAttempts.current = 0;
@@ -145,15 +147,29 @@ export function useAnalyzerWebSocket({
     setLatestMetadata(null);
   }, []);
 
+  const disconnect = useCallback(() => {
+    // Call pre-disconnect callback if provided (only on manual disconnect)
+    if (onBeforeDisconnect) {
+      onBeforeDisconnect();
+      // Wait 1 second before proceeding with disconnect
+      setTimeout(() => {
+        disconnectImmediate();
+      }, 200);
+    } else {
+      disconnectImmediate();
+    }
+  }, [onBeforeDisconnect, disconnectImmediate]);
+
   useEffect(() => {
     if (autoConnect) {
       connect();
     }
 
     return () => {
-      disconnect();
+      // Skip pre-disconnect callback on cleanup (not a manual disconnect)
+      disconnectImmediate();
     };
-  }, [connect, disconnect, autoConnect]);
+  }, [connect, disconnectImmediate, autoConnect]);
 
   return {
     isConnected,

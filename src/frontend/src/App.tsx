@@ -53,6 +53,10 @@ function App() {
   } = useAnalyzerWebSocket({
     endpoint: 'ws://localhost:8001/ws', // Analyzer service
     autoConnect: false, // Manual control for proper disconnect
+    onBeforeDisconnect: () => {
+      // Clear selections before disconnect to remove bounding boxes smoothly
+      setSelectedClasses(new Set());
+    },
   });
 
   // Filter metadata based on selected classes
@@ -144,7 +148,7 @@ function App() {
   }, [connectVideo, connectAnalyzer]);
 
   const handleClearOverlay = () => {
-    videoPlayerRef.current?.clearOverlay();
+    setSelectedClasses(new Set());
   };
 
   return (
