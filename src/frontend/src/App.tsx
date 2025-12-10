@@ -7,6 +7,7 @@
 import { useRef, useEffect, useState, useMemo } from 'react';
 import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
+import { logger } from './lib/logger';
 
 import Header from './components/Header';
 import ConnectionControls from './components/ConnectionControls';
@@ -15,6 +16,7 @@ import MetadataWidget from './components/MetadataWidget';
 import ObjectFilter from './components/ObjectFilter';
 
 function App() {
+  const log = useMemo(() => logger.child({ component: 'App' }), []);
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
@@ -133,9 +135,10 @@ function App() {
       if (allClasses.size > 0) {
         setSelectedClasses(allClasses);
         hasAutoSelectedRef.current = true; // Mark as completed
+        log.info('ui.filter.auto_select', { classes: Array.from(allClasses) });
       }
     }
-  }, [analyzerConnected, latestMetadata, videoState]);
+  }, [analyzerConnected, latestMetadata, videoState, log]);
 
   // Clear overlay and force "clear all" when video disconnects
   useEffect(() => {
@@ -156,6 +159,32 @@ function App() {
 
   const handleClearOverlay = () => {
     setSelectedClasses(new Set());
+    log.info('ui.overlay.cleared');
+  };
+
+  const handleSelectionChange = (nextSelection: Set<number>) => {
+    // Clone to avoid mutation surprises from child components
+    const cloned = new Set(nextSelection);
+    setSelectedClasses(cloned);
+    log.info('ui.filter.selection_changed', {
+      classes: Array.from(cloned).sort(),
+    });
+  };
+
+  const handleToggleObjectFilter = () => {
+    setIsObjectFilterOpen((prev) => {
+      const next = !prev;
+      log.info('ui.filter.toggle', { isOpen: next });
+      return next;
+    });
+  };
+
+  const handleToggleMetadataWidget = () => {
+    setIsMetadataWidgetOpen((prev) => {
+      const next = !prev;
+      log.info('ui.metadata.toggle', { isOpen: next });
+      return next;
+    });
   };
 
   return (
@@ -180,9 +209,9 @@ function App() {
       <ObjectFilter
         detections={latestMetadata?.detections || []}
         selectedClasses={selectedClasses}
-        onSelectionChange={setSelectedClasses}
+        onSelectionChange={handleSelectionChange}
         isOpen={isObjectFilterOpen}
-        onToggle={() => setIsObjectFilterOpen(!isObjectFilterOpen)}
+        onToggle={handleToggleObjectFilter}
         isAnalyzerConnected={analyzerConnected}
         isVideoConnected={videoState === 'connected'}
       />
@@ -201,7 +230,7 @@ function App() {
             detectionMetadata={latestMetadata}
             defaultGrouped={false}
             isOpen={isMetadataWidgetOpen}
-            onToggle={() => setIsMetadataWidgetOpen(!isMetadataWidgetOpen)}
+            onToggle={handleToggleMetadataWidget}
           />
         }
       />
