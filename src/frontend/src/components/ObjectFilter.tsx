@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { useState, useMemo, useCallback, memo } from 'react';
+import { useState, useMemo, useCallback, memo, useEffect } from 'react';
 import { getCocoLabel } from '../constants/cocoLabels';
 import { BoundingBox } from './video/VideoOverlay';
 
@@ -19,6 +19,12 @@ export interface ObjectFilterProps {
   isOpen: boolean;
   /** Callback to toggle widget visibility */
   onToggle: () => void;
+  /** Whether the analyzer is currently connected */
+  isAnalyzerConnected: boolean;
+  /** Whether the video is currently connected */
+  isVideoConnected: boolean;
+  /** Callback when clear all is triggered */
+  onClearAll?: () => void;
 }
 
 interface DetectedClass {
@@ -41,17 +47,25 @@ const ClassCheckboxItem = memo(
     classInfo,
     isSelected,
     onToggle,
+    disabled = false,
   }: {
     classInfo: DetectedClass;
     isSelected: boolean;
     onToggle: (classId: number) => void;
+    disabled?: boolean;
   }) => {
     return (
       <label
-        className="flex items-center justify-between p-2 hover:bg-[#333] rounded cursor-pointer transition-colors"
+        className={`flex items-center justify-between p-2 rounded transition-colors ${
+          disabled
+            ? 'opacity-50 cursor-not-allowed'
+            : 'hover:bg-[#333] cursor-pointer'
+        }`}
         onClick={(e) => {
           e.preventDefault();
-          onToggle(classInfo.classId);
+          if (!disabled) {
+            onToggle(classInfo.classId);
+          }
         }}
       >
         <div className="flex items-center gap-2 flex-1">
@@ -59,7 +73,8 @@ const ClassCheckboxItem = memo(
             type="checkbox"
             checked={isSelected}
             onChange={() => {}} // Handled by label onClick
-            className="w-4 h-4 accent-[#00d4ff] cursor-pointer"
+            disabled={disabled}
+            className="w-4 h-4 accent-[#00d4ff] cursor-pointer disabled:cursor-not-allowed"
           />
           <span className="text-sm text-[#e0e0e0]">{classInfo.label}</span>
         </div>
@@ -86,11 +101,21 @@ function ObjectFilter({
   onSelectionChange,
   isOpen,
   onToggle,
+  isAnalyzerConnected,
+  isVideoConnected,
+  onClearAll,
 }: ObjectFilterProps) {
   // Track all classes ever seen in the session with their first-seen timestamp
   const [seenClasses, setSeenClasses] = useState<Map<number, number>>(
     new Map()
   );
+
+  // Clear seen classes when analyzer disconnects
+  useEffect(() => {
+    if (!isAnalyzerConnected) {
+      setSeenClasses(new Map());
+    }
+  }, [isAnalyzerConnected]);
 
   // Compute current frame's class counts and update seen classes
   const currentClasses = useMemo(() => {
@@ -105,15 +130,11 @@ function ObjectFilter({
       if (!isNaN(classId)) {
         classMap.set(classId, (classMap.get(classId) || 0) + 1);
 
-        // Track when this class was first seen and auto-select it
+        // Track when this class was first seen
         setSeenClasses((prev) => {
           if (!prev.has(classId)) {
             const updated = new Map(prev);
             updated.set(classId, Date.now());
-
-            // Auto-select newly detected classes (default: select all)
-            onSelectionChange(new Set([...selectedClasses, classId]));
-
             return updated;
           }
           return prev;
@@ -122,7 +143,7 @@ function ObjectFilter({
     });
 
     return classMap;
-  }, [detections, selectedClasses, onSelectionChange]);
+  }, [detections]);
 
   // Build stable list of detected classes (ordered by first-seen, newest at top)
   const detectedClasses = useMemo(() => {
@@ -162,7 +183,8 @@ function ObjectFilter({
 
   const handleClearAll = useCallback(() => {
     onSelectionChange(new Set());
-  }, [onSelectionChange]);
+    onClearAll?.();
+  }, [onSelectionChange, onClearAll]);
 
   const hasDetections = detectedClasses.length > 0;
   const allSelected =
@@ -212,17 +234,17 @@ function ObjectFilter({
               <div className="flex gap-2 mb-3">
                 <button
                   onClick={handleSelectAll}
-                  disabled={allSelected}
+                  disabled={allSelected || !isVideoConnected}
                   className="flex-1 text-xs px-2 py-1.5 bg-[#404040] hover:bg-[#505050] disabled:bg-[#333] disabled:text-[#666] text-[#00d4ff] rounded border border-[#555] transition-colors"
                 >
-                  Select / Show All Boxes
+                  Select All
                 </button>
                 <button
                   onClick={handleClearAll}
-                  disabled={noneSelected}
+                  disabled={noneSelected || !isVideoConnected}
                   className="flex-1 text-xs px-2 py-1.5 bg-[#404040] hover:bg-[#505050] disabled:bg-[#333] disabled:text-[#666] text-[#00d4ff] rounded border border-[#555] transition-colors"
                 >
-                  Clear / Hide All Boxes
+                  Clear All
                 </button>
               </div>
             )}
@@ -236,6 +258,7 @@ function ObjectFilter({
                     classInfo={classInfo}
                     isSelected={selectedClasses.has(classInfo.classId)}
                     onToggle={handleToggleClass}
+                    disabled={!isVideoConnected}
                   />
                 ))}
               </div>

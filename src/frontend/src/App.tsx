@@ -24,6 +24,8 @@ function App() {
   const [selectedClasses, setSelectedClasses] = useState<Set<number>>(
     new Set()
   );
+  const prevAnalyzerConnectedRef = useRef(false);
+  const hasAutoSelectedRef = useRef(false);
 
   // WebRTC connection to webcam service (for raw video)
   const {
@@ -52,6 +54,10 @@ function App() {
   } = useAnalyzerWebSocket({
     endpoint: 'ws://localhost:8001/ws', // Analyzer service
     autoConnect: false, // Manual control for proper disconnect
+    onBeforeDisconnect: () => {
+      // Clear selections before disconnect to remove bounding boxes smoothly
+      setSelectedClasses(new Set());
+    },
   });
 
   // Filter metadata based on selected classes
@@ -85,6 +91,62 @@ function App() {
       videoPlayerRef.current.updateOverlay(filteredMetadata);
     }
   }, [filteredMetadata, isPaused]);
+
+  // Clear overlay when video is paused
+  useEffect(() => {
+    if (isPaused && videoPlayerRef.current) {
+      setSelectedClasses(new Set());
+    }
+  }, [isPaused]);
+
+  // Clear overlay and selections when analyzer disconnects
+  useEffect(() => {
+    if (!analyzerConnected) {
+      // On disconnect: clear overlay and selections
+      if (videoPlayerRef.current) {
+        setSelectedClasses(new Set());
+      }
+      setSelectedClasses(new Set());
+      hasAutoSelectedRef.current = false; // Reset for next connection
+    }
+    prevAnalyzerConnectedRef.current = analyzerConnected;
+  }, [analyzerConnected]);
+
+  // Auto-select all detected classes when first metadata arrives after analyzer connects
+  useEffect(() => {
+    if (
+      analyzerConnected &&
+      latestMetadata?.detections &&
+      videoState === 'connected' &&
+      !hasAutoSelectedRef.current
+    ) {
+      // Auto-select all classes from the first frame (only once per connection)
+      const allClasses = new Set(
+        latestMetadata.detections
+          .map((d) => {
+            const classId =
+              typeof d.label === 'string' ? parseInt(d.label, 10) : d.label;
+            return classId;
+          })
+          .filter((id) => !isNaN(id))
+      );
+      if (allClasses.size > 0) {
+        setSelectedClasses(allClasses);
+        hasAutoSelectedRef.current = true; // Mark as completed
+      }
+    }
+  }, [analyzerConnected, latestMetadata, videoState]);
+
+  // Clear overlay and force "clear all" when video disconnects
+  useEffect(() => {
+    if (videoState !== 'connected') {
+      if (videoPlayerRef.current) {
+        setSelectedClasses(new Set());
+      }
+      // Force clear all selections when video is disconnected
+      setSelectedClasses(new Set());
+    }
+  }, [videoState]);
 
   // Auto-connect to services when component mounts
   useEffect(() => {
@@ -121,6 +183,8 @@ function App() {
         onSelectionChange={setSelectedClasses}
         isOpen={isObjectFilterOpen}
         onToggle={() => setIsObjectFilterOpen(!isObjectFilterOpen)}
+        isAnalyzerConnected={analyzerConnected}
+        isVideoConnected={videoState === 'connected'}
       />
       <VideoPlayer
         ref={videoPlayerRef}
