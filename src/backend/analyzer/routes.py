@@ -250,9 +250,7 @@ class AnalyzerWebSocketManager:
                     # await asyncio.sleep(0.033)  # ~30 FPS processing
 
                 except Exception as e:
-                    logger.warning(
-                        "Frame processing error", extra={"error": str(e)}
-                    )
+                    logger.warning("Frame processing error", extra={"error": str(e)})
                     await asyncio.sleep(0.1)
 
         except asyncio.CancelledError:

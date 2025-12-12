@@ -168,10 +168,13 @@ def configure_logging(
             logger_provider.add_log_record_processor(
                 BatchLogRecordProcessor(otlp_exporter)
             )
-        except Exception as err:  # pragma: no cover - exporter failures handled gracefully
+        except (
+            Exception
+        ) as err:  # pragma: no cover - exporter failures handled gracefully
             # If exporter setup fails, keep console logs and continue.
             logging.getLogger(__name__).warning(
-                "OTLP exporter setup failed; console logging only", extra={"error": str(err)}
+                "OTLP exporter setup failed; console logging only",
+                extra={"error": str(err)},
             )
 
     otel_handler = LoggingHandler(level=log_level, logger_provider=logger_provider)
