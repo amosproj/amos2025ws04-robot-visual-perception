@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager, suppress
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import AsyncContextManager, Optional
+import warnings
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,7 +14,18 @@ from common import __version__
 from common.config import config
 from common.core.detector import get_detector
 from common.core.depth import get_depth_estimator
+from common.logging_config import configure_logging
 from analyzer.routes import router, on_shutdown
+
+# Initialize logging early
+configure_logging(service_name="analyzer", service_version=__version__)
+
+# Silence upstream deprecation noise from timm until upstream fixes imports
+warnings.filterwarnings(
+    "ignore",
+    message="Importing from timm.models.layers is deprecated",
+    category=FutureWarning,
+)
 
 
 def create_lifespan(

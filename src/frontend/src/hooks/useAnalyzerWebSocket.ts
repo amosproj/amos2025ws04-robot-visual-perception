@@ -5,8 +5,9 @@
  */
 
 // hooks/useAnalyzerWebSocket.ts
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type { MetadataFrame } from '../components/video/VideoOverlay';
+import { logger } from '../lib/logger';
 
 interface AnalyzerWebSocketOptions {
   endpoint?: string;
@@ -27,6 +28,10 @@ export function useAnalyzerWebSocket({
   autoConnect = true,
   onBeforeDisconnect,
 }: AnalyzerWebSocketOptions = {}): UseAnalyzerWebSocketResult {
+  const log = useMemo(
+    () => logger.child({ component: 'useAnalyzerWebSocket', endpoint }),
+    [endpoint]
+  );
   const [isConnected, setIsConnected] = useState(false);
   const [latestMetadata, setLatestMetadata] = useState<MetadataFrame | null>(
     null
@@ -44,12 +49,12 @@ export function useAnalyzerWebSocket({
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     try {
-      console.log(`Connecting to Analyzer WebSocket: ${endpoint}`);
+      log.info('analyzer.connect.start');
       const ws = new WebSocket(endpoint);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('✅ Analyzer WebSocket connected');
+        log.info('analyzer.connect.success');
         setIsConnected(true);
         reconnectAttempts.current = 0;
         manualDisconnectRef.current = false; // Reset flag on successful connection
@@ -67,6 +72,9 @@ export function useAnalyzerWebSocket({
       ws.onmessage = (event) => {
         // Ignore messages if manually disconnected (race condition protection)
         if (manualDisconnectRef.current) {
+          log.debug('analyzer.message.ignored', {
+            reason: 'manual_disconnect',
+          });
           return;
         }
 
@@ -95,13 +103,23 @@ export function useAnalyzerWebSocket({
           if (data.fps !== null && data.fps !== undefined) {
             setFps(Math.round(data.fps * 10) / 10); // Round to 1 decimal
           }
+          log.debug('analyzer.message.received', {
+            frameId: metadata.frameId,
+            detections: metadata.detections.length,
+            fps: data.fps,
+          });
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          log.error('analyzer.message.parse_error', { error: String(error) });
         }
       };
 
       ws.onclose = (event) => {
-        console.log(`Analyzer WebSocket disconnected (code: ${event.code})`);
+        log.warn('analyzer.disconnect', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          manual: manualDisconnectRef.current,
+        });
         setIsConnected(false);
         setLatestMetadata(null);
         wsRef.current = null;
@@ -117,21 +135,22 @@ export function useAnalyzerWebSocket({
             30000
           );
           reconnectAttempts.current++;
-          console.log(
-            `Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`
-          );
+          log.info('analyzer.reconnect.scheduled', {
+            attempt: reconnectAttempts.current,
+            delayMs: delay,
+          });
 
           reconnectTimeoutRef.current = setTimeout(connect, delay);
         }
       };
 
       ws.onerror = (error) => {
-        console.error('Analyzer WebSocket error:', error);
+        log.error('analyzer.socket.error', { error: String(error) });
       };
     } catch (error) {
-      console.error('Failed to connect to Analyzer WebSocket:', error);
+      log.error('analyzer.connect.failed', { error: String(error) });
     }
-  }, [endpoint, autoConnect]);
+  }, [endpoint, autoConnect, log]);
 
   const disconnectImmediate = useCallback(() => {
     // Mark as manual disconnect to prevent auto-reconnect
@@ -154,6 +173,7 @@ export function useAnalyzerWebSocket({
   const disconnect = useCallback(() => {
     // Call pre-disconnect callback if provided (only on manual disconnect)
     if (onBeforeDisconnect) {
+      log.info('analyzer.disconnect.requested');
       onBeforeDisconnect();
       // Wait 1 second before proceeding with disconnect
       setTimeout(() => {
@@ -162,7 +182,7 @@ export function useAnalyzerWebSocket({
     } else {
       disconnectImmediate();
     }
-  }, [onBeforeDisconnect, disconnectImmediate]);
+  }, [onBeforeDisconnect, disconnectImmediate, log]);
 
   useEffect(() => {
     if (autoConnect) {
