@@ -15,6 +15,28 @@ from opentelemetry.semconv.resource import ResourceAttributes
 
 
 _configured = False
+_STANDARD_FIELDS: set[str] = {
+    "name",
+    "msg",
+    "args",
+    "levelname",
+    "levelno",
+    "pathname",
+    "filename",
+    "module",
+    "exc_info",
+    "exc_text",
+    "stack_info",
+    "lineno",
+    "funcName",
+    "created",
+    "msecs",
+    "relativeCreated",
+    "thread",
+    "threadName",
+    "processName",
+    "process",
+}
 
 
 class JsonFormatter(logging.Formatter):
@@ -44,36 +66,55 @@ class JsonFormatter(logging.Formatter):
             payload["span_id"] = format(span_ctx.span_id, "016x")
 
         # Attach any custom extra fields that were added to the record
-        standard = {
-            "name",
-            "msg",
-            "args",
-            "levelname",
-            "levelno",
-            "pathname",
-            "filename",
-            "module",
-            "exc_info",
-            "exc_text",
-            "stack_info",
-            "lineno",
-            "funcName",
-            "created",
-            "msecs",
-            "relativeCreated",
-            "thread",
-            "threadName",
-            "processName",
-            "process",
-        }
         for key, value in record.__dict__.items():
-            if key not in standard and key not in payload:
+            if key not in _STANDARD_FIELDS and key not in payload:
                 payload[key] = value
 
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
 
         return json.dumps(payload, ensure_ascii=True)
+
+
+class PrettyFormatter(logging.Formatter):
+    """Human-readable, single-line log formatter."""
+
+    def __init__(self, service_name: str, environment: str) -> None:
+        super().__init__()
+        self.service_name = service_name
+        self.environment = environment
+
+    def format(self, record: logging.LogRecord) -> str:
+        ts = datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat()
+        span = trace.get_current_span()
+        span_ctx = span.get_span_context()
+
+        parts = [
+            ts,
+            f"{record.levelname:<7}",
+            f"[{record.name}]",
+            record.getMessage(),
+        ]
+
+        extras: dict[str, Any] = {
+            "service": self.service_name,
+            "env": self.environment,
+        }
+
+        if span_ctx and span_ctx.is_valid:
+            extras["trace_id"] = format(span_ctx.trace_id, "032x")
+            extras["span_id"] = format(span_ctx.span_id, "016x")
+
+        for key, value in record.__dict__.items():
+            if key not in _STANDARD_FIELDS and key not in extras:
+                extras[key] = value
+
+        if record.exc_info:
+            extras["exception"] = self.formatException(record.exc_info)
+
+        extras_str = " ".join(f"{k}={v}" for k, v in extras.items())
+        parts.append(extras_str)
+        return " ".join(filter(None, parts))
 
 
 def configure_logging(
@@ -95,7 +136,12 @@ def configure_logging(
 
     log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
     log_level = getattr(logging, log_level_name, logging.INFO)
-    env = environment or os.getenv("ENVIRONMENT", "development")
+    env: str = (
+        environment
+        if environment is not None
+        else os.getenv("ENVIRONMENT", "development")
+    )
+    log_format: str = os.getenv("LOG_FORMAT", "json").lower()
 
     resource = Resource.create(
         {
@@ -131,7 +177,12 @@ def configure_logging(
     otel_handler = LoggingHandler(level=log_level, logger_provider=logger_provider)
     console_handler = logging.StreamHandler()
     console_handler.setLevel(log_level)
-    console_handler.setFormatter(JsonFormatter(service_name, env))
+    formatter = (
+        PrettyFormatter(service_name, env)
+        if log_format == "pretty"
+        else JsonFormatter(service_name, env)
+    )
+    console_handler.setFormatter(formatter)
 
     root = logging.getLogger()
     root.setLevel(log_level)
