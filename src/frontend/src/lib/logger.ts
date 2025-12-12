@@ -17,7 +17,12 @@ const levelWeights: Record<LogLevel, number> = {
 
 function parseLevel(raw?: string): LogLevel {
   const value = raw?.toLowerCase();
-  if (value === 'debug' || value === 'info' || value === 'warn' || value === 'error') {
+  if (
+    value === 'debug' ||
+    value === 'info' ||
+    value === 'warn' ||
+    value === 'error'
+  ) {
     return value;
   }
   return 'info';
@@ -78,17 +83,41 @@ function consoleTransport(entry: LogEntry) {
 }
 
 export interface Logger {
-  debug: (event: string, data?: Record<string, unknown>, message?: string) => void;
-  info: (event: string, data?: Record<string, unknown>, message?: string) => void;
-  warn: (event: string, data?: Record<string, unknown>, message?: string) => void;
-  error: (event: string, data?: Record<string, unknown>, message?: string) => void;
+  debug: (
+    event: string,
+    data?: Record<string, unknown>,
+    message?: string
+  ) => void;
+  info: (
+    event: string,
+    data?: Record<string, unknown>,
+    message?: string
+  ) => void;
+  warn: (
+    event: string,
+    data?: Record<string, unknown>,
+    message?: string
+  ) => void;
+  error: (
+    event: string,
+    data?: Record<string, unknown>,
+    message?: string
+  ) => void;
   child: (context: LogContext) => Logger;
 }
 
-function createLogger(baseContext: LogContext = {}, transports: Transport[] = [consoleTransport]): Logger {
+function createLogger(
+  baseContext: LogContext = {},
+  transports: Transport[] = [consoleTransport]
+): Logger {
   const threshold = levelWeights[envLevel];
 
-  const log = (level: LogLevel, event: string, data?: Record<string, unknown>, message?: string) => {
+  const log = (
+    level: LogLevel,
+    event: string,
+    data?: Record<string, unknown>,
+    message?: string
+  ) => {
     if (levelWeights[level] < threshold) return;
     const entry: LogEntry = {
       level,
@@ -106,7 +135,8 @@ function createLogger(baseContext: LogContext = {}, transports: Transport[] = [c
     info: (event, data, message) => log('info', event, data, message),
     warn: (event, data, message) => log('warn', event, data, message),
     error: (event, data, message) => log('error', event, data, message),
-    child: (context: LogContext) => createLogger({ ...baseContext, ...context }, transports),
+    child: (context: LogContext) =>
+      createLogger({ ...baseContext, ...context }, transports),
   };
 }
 
