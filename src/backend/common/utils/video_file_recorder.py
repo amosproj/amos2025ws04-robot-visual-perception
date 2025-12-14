@@ -11,10 +11,12 @@ WARMUP_FRAMES = 20
 
 running = True
 
+
 def signal_handler(sig, frame):
     global running
     print("\nStopping recording...")
     running = False
+
 
 signal.signal(signal.SIGINT, signal_handler)
 

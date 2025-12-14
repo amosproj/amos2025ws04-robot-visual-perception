@@ -12,6 +12,7 @@ from common import __version__
 from common.config import config
 from file.routes import router, on_shutdown
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield

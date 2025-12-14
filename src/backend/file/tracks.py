@@ -10,6 +10,7 @@ import numpy as np
 from aiortc import VideoStreamTrack
 from av import VideoFrame
 
+
 class VideoFileTrack(VideoStreamTrack):
     """
     WebRTC video track that streams frames from an MP4 file.
@@ -29,7 +30,7 @@ class VideoFileTrack(VideoStreamTrack):
         """Open the video file."""
         if not os.path.exists(self.video_path):
             raise FileNotFoundError(f"Video file not found: {self.video_path}")
-        
+
         self.cap = cv2.VideoCapture(self.video_path)
         if not self.cap.isOpened():
             raise RuntimeError(f"Failed to open video file: {self.video_path}")
@@ -40,15 +41,15 @@ class VideoFileTrack(VideoStreamTrack):
             return None
 
         ret, frame = self.cap.read()
-        
+
         # If we've reached the end of the video, loop back to the beginning
         if not ret:
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             ret, frame = self.cap.read()
-            
+
         if not ret:
             return None
-            
+
         return frame
 
     async def recv(self) -> VideoFrame:

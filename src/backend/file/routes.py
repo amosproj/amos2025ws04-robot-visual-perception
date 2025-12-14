@@ -65,7 +65,7 @@ async def offer(sdp: SDPModel) -> dict[str, str]:
 
     # Create video file track
     video_path = config.VIDEO_FILE_PATH
-    
+
     try:
         local_video = VideoFileTrack(video_path)
         pc.addTrack(local_video)
