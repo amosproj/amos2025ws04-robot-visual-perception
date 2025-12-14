@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 robot-visual-perception
+#
+# SPDX-License-Identifier: MIT
+
 import cv2
 import signal
 import sys
