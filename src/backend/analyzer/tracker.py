@@ -116,11 +116,11 @@ class TrackingManager:
             self._tracked_objects[track_id].add_detection(det)
             used_track_ids.add(track_id)
 
-    def get_interpolated_detections(
+    def get_interpolated_detections_and_distances(
         self,
         frame_id: int,
         timestamp: float,
-    ) -> list[TrackedDetection]:
+    ) -> tuple[list[Detection], list[float]]:
         """Get interpolated detections for frames without actual detection.
 
         Args:
@@ -128,9 +128,11 @@ class TrackingManager:
             timestamp: Target timestamp
 
         Returns:
-            List of interpolated TrackedDetection objects.
+            List of interpolated Detection objects.
+            List of their distances.
         """
-        interpolated: list[TrackedDetection] = []
+        interpolated: list[Detection] = []
+        distances: list[float] = []
 
         for track in self._tracked_objects.values():
             interp_det = track.get_interpolated(
@@ -138,8 +140,9 @@ class TrackingManager:
             )
             if interp_det:
                 interpolated.append(interp_det)
+                distances.append(interp_det.distance)
 
-        return interpolated
+        return interpolated, distances
 
     def clear(self) -> None:
         """Clear all tracks and reset tracking state."""

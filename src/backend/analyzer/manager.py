@@ -308,22 +308,11 @@ class AnalyzerWebSocketManager:
             )
 
         else:
-            interpolated = self._tracking_manager.get_interpolated_detections(
-                state.frame_id, state.last_fps_time
+            detections, distances = (
+                self._tracking_manager.get_interpolated_detections_and_distances(
+                    state.frame_id, state.last_fps_time
+                )
             )
-            if interpolated:
-                detections = [
-                    Detection(
-                        x1=int(td.x1),
-                        y1=int(td.y1),
-                        x2=int(td.x2),
-                        y2=int(td.y2),
-                        cls_id=td.cls_id,
-                        confidence=td.confidence,
-                    )
-                    for td in interpolated
-                ]
-                distances = [td.distance for td in interpolated]
 
         # cleanup every frame, regardless of detections
         self._tracking_manager._remove_stale_tracks(state.frame_id)
