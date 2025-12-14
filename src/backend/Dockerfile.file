@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2025 robot-visual-perception
+#
+# SPDX-License-Identifier: MIT
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# Install system dependencies for opencv
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml uv.lock ./
+# only core
+RUN uv sync --frozen --no-dev
+    
+COPY common/ ./common/
+COPY file/ ./file/
+COPY models/ ./models/
+
+EXPOSE 8000
+
+CMD ["uv", "run", "uvicorn", "file.main:app", "--host", "0.0.0.0", "--port", "8000"]
+

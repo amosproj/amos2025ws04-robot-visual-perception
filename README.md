@@ -53,6 +53,10 @@ make dev
 ```
 make run-webcam-local
 ```
+Or alternatively, if you provide a .mp4 file in the `/backend` folder per default, you can start the file service instead
+```
+make run-file-local
+```
 3) Start the analyzer service (separate terminal)
 ```
 make run-analyzer-local
@@ -118,6 +122,7 @@ Optional environment variables:
 - `ONNX_PROVIDERS` – comma separated list such as `CUDAExecutionProvider,CPUExecutionProvider`
 - `DETECTOR_IMAGE_SIZE`, `DETECTOR_CONF_THRESHOLD`, `DETECTOR_IOU_THRESHOLD`, `DETECTOR_MAX_DETECTIONS`, `DETECTOR_NUM_CLASSES`
 - `MODEL_PATH` (default `models/yolo11n.pt`) – default YOLO model path (used when no CLI flag is provided)
+- `VIDEO_FILE_PATH` (default `video.mp4` relative to the `/backend` folder) – default video file path for the file webRTC service
 
 > Check `src/backend/common/config.py`.
 

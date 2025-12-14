@@ -50,3 +50,6 @@ sbom.json
 sbom-dependencies.csv
 
 src/backend/models
+
+# Temporary files
+*.mp4

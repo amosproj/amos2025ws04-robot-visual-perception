@@ -133,6 +133,10 @@ run-webcam-local:
 	@echo "Starting webcam service on port 8000..."
 	cd src/backend && uv run uvicorn webcam.main:app --host 0.0.0.0 --port 8000 --reload
 
+run-file-local:
+	@echo "Starting file service on port 8000..."
+	cd src/backend && uv run uvicorn file.main:app --host 0.0.0.0 --port 8000 --reload
+
 run-analyzer-local:
 	@echo "Starting analyzer service on port 8001..."
 	cd src/backend && uv run uvicorn analyzer.main:app --host 0.0.0.0 --port 8001 --reload
@@ -154,6 +158,9 @@ docker-build-backend: docker-build-webcam docker-build-analyzer
 
 docker-build-webcam:
 	docker build -f src/backend/Dockerfile.webcam -t robot-webcam:latest src/backend
+
+docker-build-file:
+	docker build -f src/backend/Dockerfile.file -t robot-file:latest src/backend
 
 docker-build-analyzer:
 	docker build -f src/backend/Dockerfile.analyzer --build-arg ONNX_RUNTIME=onnx-cpu -t robot-analyzer:latest src/backend
