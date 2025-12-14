@@ -4,7 +4,7 @@
 import numpy as np
 import pytest
 
-from common.utils.geometry import get_detections, draw_detections
+from common.utils.geometry import get_detections, draw_detections, calculate_iou
 from common.core.contracts import Detection
 from tests.test_utils import DummyResult, DummyBoxes
 
@@ -71,3 +71,29 @@ def test_draw_detections_runs_and_returns_same_shape(frame_input) -> None:
     assert result.shape == frame.shape
     assert result.dtype == frame.dtype
     assert not np.all(result == frame)
+
+
+@pytest.mark.parametrize(
+    "box1, box2, expected_iou",
+    [
+        ((10, 20, 50, 60), (10, 20, 50, 60), 1.0),
+        ((10, 20, 50, 60), (100, 100, 150, 160), 0.0),
+        ((10, 10, 50, 50), (30, 30, 70, 70), 0.143),
+        ((10, 10, 50, 50), (50, 10, 90, 50), 0.0),
+        ((10, 10, 10, 10), (20, 20, 20, 20), 0.0),
+    ],
+    ids=[
+        "perfect_overlap",
+        "no_overlap",
+        "partial_overlap",
+        "touching_boxes",
+        "zero_area_boxes",
+    ],
+)
+def test_calculate_iou(
+    box1: tuple[float, float, float, float],
+    box2: tuple[float, float, float, float],
+    expected_iou: float,
+) -> None:
+    result = calculate_iou(box1, box2)
+    assert result == pytest.approx(expected_iou, abs=0.01)
