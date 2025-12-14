@@ -94,7 +94,7 @@ class Config:
 
     # Tracking/interpolation settings
     # Minimum IoU to match detection to track
-    TRACKING_IOU_THRESHOLD: float = float(os.getenv("TRACKING_IOU_THRESHOLD", "0.3"))
+    TRACKING_IOU_THRESHOLD: float = float(os.getenv("TRACKING_IOU_THRESHOLD", "0.1"))
     # Frames before removing stale tracks
     TRACKING_MAX_FRAMES_WITHOUT_DETECTION: int = int(
         os.getenv("TRACKING_MAX_FRAMES_WITHOUT_DETECTION", "10")

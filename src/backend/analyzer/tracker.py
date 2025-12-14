@@ -43,7 +43,7 @@ class TrackingManager:
         distances: list[float],
         frame_id: int,
         timestamp: float,
-    ) -> None:
+    ) -> set[int]:
         """Match new detections to existing tracks or create new tracks.
 
         Args:
@@ -53,7 +53,7 @@ class TrackingManager:
             timestamp: Current timestamp
 
         Returns:
-            None
+            Set of track IDs that were updated (matched or newly created).
         """
         used_track_ids: set[int] = set()
 
@@ -116,16 +116,21 @@ class TrackingManager:
             self._tracked_objects[track_id].add_detection(det)
             used_track_ids.add(track_id)
 
+        return used_track_ids
+
     def get_interpolated_detections_and_distances(
         self,
         frame_id: int,
         timestamp: float,
+        track_ids_to_exclude: set[int],
     ) -> tuple[list[Detection], list[float]]:
         """Get interpolated detections for frames without actual detection.
 
         Args:
             frame_id: Target frame identifier
             timestamp: Target timestamp
+            exclude_track_ids: Set of track IDs to exclude from interpolation
+                ( racks that were just updated with real detections)
 
         Returns:
             List of interpolated Detection objects.
@@ -134,7 +139,9 @@ class TrackingManager:
         interpolated: list[Detection] = []
         distances: list[float] = []
 
-        for track in self._tracked_objects.values():
+        for track_id, track in self._tracked_objects.items():
+            if track_id in track_ids_to_exclude:
+                continue
             interp_det = track.get_interpolated(
                 frame_id, timestamp, self.confidence_decay
             )

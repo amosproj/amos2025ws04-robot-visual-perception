@@ -299,25 +299,32 @@ class AnalyzerWebSocketManager:
         if not self.active_connections or not should_detect:
             return [], []
 
-        detections = await detector.infer(frame_small)
+        detections: list[Detection] = []
+        distances: list[float] = []
+        updated_track_ids: set[int] = set()
 
+        detections = await detector.infer(frame_small)
         if detections:
             distances = estimator.estimate_distance_m(frame_small, detections)
-            self._tracking_manager.match_detections_to_tracks(
+            updated_track_ids = self._tracking_manager.match_detections_to_tracks(
                 detections, distances, state.frame_id, state.last_fps_time
             )
 
-        else:
-            detections, distances = (
-                self._tracking_manager.get_interpolated_detections_and_distances(
-                    state.frame_id, state.last_fps_time
-                )
+        interpolated_detections, interpolated_distances = (
+            self._tracking_manager.get_interpolated_detections_and_distances(
+                state.frame_id,
+                state.last_fps_time,
+                track_ids_to_exclude=updated_track_ids,
             )
+        )
+
+        all_detections = detections + interpolated_detections
+        all_distances = distances + interpolated_distances
 
         # cleanup every frame, regardless of detections
         self._tracking_manager._remove_stale_tracks(state.frame_id)
 
-        return detections, distances
+        return all_detections, all_distances
 
     async def _send_metadata(self, metadata: MetadataMessage) -> None:
         """Send metadata to all active WebSocket clients."""
