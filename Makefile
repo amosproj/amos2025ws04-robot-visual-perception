@@ -76,6 +76,8 @@ help:
 	@echo "      stops all docker-compose services"
 	@echo "  export-onnx"
 	@echo "      exports YOLO to ONNX (default opset 18; honors MODEL_PATH/ONNX_MODEL_PATH)"
+	@echo "  export-midas-onnx"
+	@echo "      exports MiDaS to ONNX (default opset 18; honors MIDAS_* env vars)"
 
 dev: install
 
@@ -181,3 +183,7 @@ sbom-check:
 export-onnx:
 	@echo "Exporting YOLO model to ONNX (default opset 18)..."
 	cd src/backend && uv run python ../../scripts/export_onnx.py
+
+export-midas-onnx:
+	@echo "Exporting MiDaS model to ONNX (default opset 18)..."
+	cd src/backend && uv run python ../../scripts/export_midas_onnx.py

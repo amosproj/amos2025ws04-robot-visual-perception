@@ -1,13 +1,16 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
+from pathlib import Path
 import types
 from typing import Optional
-from pathlib import Path
+
 import numpy as np
 import pytest
 from tests.test_utils import DummyBoxes, DummyResult
+
 import common.core.detector as det
+from .conftest import DummySession, DummySessionOptions
 
 
 @pytest.fixture
@@ -68,29 +71,12 @@ async def test_infer_with_onnx_backend(monkeypatch, tmp_path):
 
     dummy_output = np.array([[[2.0, 2.0, 2.0, 2.0, 0.95]]], dtype=np.float32)
 
-    class DummySessionOptions:
-        def __init__(self):
-            self.enable_mem_pattern = True
-            self.graph_optimization_level = None
-
-    class DummySession:
-        def __init__(self, *_args, **_kwargs):
-            self._inputs = [types.SimpleNamespace(name="images")]
-            self._outputs = [types.SimpleNamespace(name="output")]
-
-        def get_inputs(self):
-            return self._inputs
-
-        def get_outputs(self):
-            return self._outputs
-
-        def run(self, _output_names, _feeds):
-            return [dummy_output]
-
     dummy_ort = types.SimpleNamespace(
-        SessionOptions=DummySessionOptions,
+        SessionOptions=lambda: DummySessionOptions(enable_mem_pattern=True),
         GraphOptimizationLevel=types.SimpleNamespace(ORT_ENABLE_ALL="all"),
-        InferenceSession=DummySession,
+        InferenceSession=lambda *_args, **_kwargs: DummySession(
+            dummy_output, input_name="images", output_name="output"
+        ),
         get_available_providers=lambda: ["CPUExecutionProvider"],
     )
 

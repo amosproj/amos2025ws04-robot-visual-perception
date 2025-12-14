@@ -55,7 +55,10 @@ def create_app(
     app = FastAPI(
         title="Analyzer Service",
         version=__version__,
-        description="WebRTC analysis service that receives video, runs YOLO detection, returns annotated stream",
+        description=(
+            "WebRTC analysis service that receives video, runs YOLO detection, "
+            "returns annotated stream. WebSocket protocol documentation available at /asyncapi.yaml"
+        ),
         lifespan=lifespan_context,
     )
 

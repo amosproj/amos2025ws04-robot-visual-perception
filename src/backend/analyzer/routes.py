@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
+from pathlib import Path
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from analyzer.manager import AnalyzerWebSocketManager
 
 
@@ -44,3 +46,10 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 async def on_shutdown() -> None:
     """Cleanup on service shutdown."""
     await websocket_manager.shutdown()
+
+
+@router.get("/asyncapi.yaml", include_in_schema=False)
+async def get_asyncapi_spec() -> FileResponse:
+    """Return AsyncAPI specification for WebSocket endpoint."""
+    spec_path = Path(__file__).parent / "asyncapi.yaml"
+    return FileResponse(spec_path, media_type="text/yaml")
