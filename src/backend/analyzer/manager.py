@@ -303,21 +303,9 @@ class AnalyzerWebSocketManager:
 
         if detections:
             distances = estimator.estimate_distance_m(frame_small, detections)
-            tracked_detections = self._tracking_manager.match_detections_to_tracks(
+            self._tracking_manager.match_detections_to_tracks(
                 detections, distances, state.frame_id, state.last_fps_time
             )
-            detections = [
-                Detection(
-                    x1=int(td.x1),
-                    y1=int(td.y1),
-                    x2=int(td.x2),
-                    y2=int(td.y2),
-                    cls_id=td.cls_id,
-                    confidence=td.confidence,
-                )
-                for td in tracked_detections
-            ]
-            distances = [td.distance for td in tracked_detections]
 
         else:
             interpolated = self._tracking_manager.get_interpolated_detections(

@@ -43,7 +43,7 @@ class TrackingManager:
         distances: list[float],
         frame_id: int,
         timestamp: float,
-    ) -> list[TrackedDetection]:
+    ) -> None:
         """Match new detections to existing tracks or create new tracks.
 
         Args:
@@ -53,9 +53,8 @@ class TrackingManager:
             timestamp: Current timestamp
 
         Returns:
-            List of TrackedDetection objects with track IDs assigned.
+            None
         """
-        matched_detections: list[TrackedDetection] = []
         used_track_ids: set[int] = set()
 
         new_detections = [
@@ -116,9 +115,6 @@ class TrackingManager:
 
             self._tracked_objects[track_id].add_detection(det)
             used_track_ids.add(track_id)
-            matched_detections.append(det)
-
-        return matched_detections
 
     def get_interpolated_detections(
         self,
