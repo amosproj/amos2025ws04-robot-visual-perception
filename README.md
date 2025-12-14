@@ -122,7 +122,7 @@ Optional environment variables:
 - `ONNX_PROVIDERS` – comma separated list such as `CUDAExecutionProvider,CPUExecutionProvider`
 - `DETECTOR_IMAGE_SIZE`, `DETECTOR_CONF_THRESHOLD`, `DETECTOR_IOU_THRESHOLD`, `DETECTOR_MAX_DETECTIONS`, `DETECTOR_NUM_CLASSES`
 - `MODEL_PATH` (default `models/yolo11n.pt`) – default YOLO model path (used when no CLI flag is provided)
-- `VIDEO_FILE_PATH` (default `video.mp4` relative to the `/backend` folder) – default video file path for the file webRTC service
+- `VIDEO_FILE_PATH` (default `video.mp4` relative to the `/backend` folder) – default video file path for the file WebRTC service
 
 > Check `src/backend/common/config.py`.
 

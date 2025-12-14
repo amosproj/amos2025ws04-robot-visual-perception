@@ -50,9 +50,9 @@ def options_offer() -> Response:
 @router.post("/offer/")
 async def offer(sdp: SDPModel) -> dict[str, str]:
     """
-    WebRTC signaling endpoint for webcam stream.
+    WebRTC signaling endpoint for video file stream.
 
-    Provides direct access to raw local camera frames.
+    Provides direct access to raw local video file frames.
     """
     if sdp.type != "offer":
         raise HTTPException(400, "type must be 'offer'")
