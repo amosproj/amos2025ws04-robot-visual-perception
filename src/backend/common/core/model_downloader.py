@@ -1,15 +1,15 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
+"""Model downloader and cache management for ML models."""
 import logging
 import shutil
 from pathlib import Path
 from typing import Optional
 
-from ultralytics import YOLO  # type: ignore[import-untyped]
 import torch
+from ultralytics import YOLO  # type: ignore[import-untyped]
 
-# Configure logging
 logger = logging.getLogger(__name__)
 
 # Constants
@@ -20,68 +20,78 @@ PYTORCH_HUB_CACHE = Path.home() / ".cache" / "torch" / "hub"
 ULTRALYTICS_CACHE = Path.home() / ".ultralytics" / "weights"
 
 
-def _copy_model_file(source: Path, destination: Path) -> None:
-    """Copy a model file from source to destination with error handling."""
+def _copy_file(source: Path, dest: Path) -> None:
+    """Safely copy a file with error handling."""
     try:
-        shutil.copy2(str(source), str(destination))
-        logger.info(f"Model copied from {source} to {destination}")
-    except (IOError, OSError) as e:
-        logger.error(f"Failed to copy model from {source} to {destination}: {e}")
+        shutil.copy2(str(source), str(dest))
+        logger.debug("Copied %s to %s", source, dest)
+    except OSError as e:
+        logger.error("Failed to copy %s to %s: %s", source, dest, e)
         raise
 
 
 def ensure_yolo_model_downloaded(
     model_name: str = "yolo11n.pt",
-    cache_directory: Optional[Path] = None,
+    cache_dir: Optional[Path] = None,
 ) -> Path:
-    """Ensure YOLO model is downloaded and cached locally.
+    """Ensure YOLO model is downloaded and cached.
 
     Args:
-        model_name: Name of the YOLO model to download (e.g., "yolo11n.pt").
-        cache_directory: Directory where models should be cached. If None,
-            uses "models" directory in the current working directory.
+        model_name: Name of the YOLO model file
+        cache_dir: Directory to cache the model
 
     Returns:
-        Path to the cached model file.
-
-    Example:
-        >>> model_path = ensure_yolo_model_downloaded("yolo11n.pt")
-        >>> # Model is now available at model_path
+        Path to the downloaded model file
     """
-    cache_dir = Path(cache_directory) if cache_directory else DEFAULT_MODEL_DIR
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir = cache_dir or DEFAULT_MODEL_DIR
     model_path = cache_dir / model_name
 
     if model_path.exists():
-        logger.debug(f"Using cached YOLO model at {model_path}")
+        logger.debug("Using cached YOLO model at %s", model_path)
         return model_path
 
-    logger.info(f"Downloading YOLO model {model_name} to {model_path}...")
+    logger.info("Downloading YOLO model %s...", model_name)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    
     try:
-        yolo_instance = YOLO(model_name)
-        downloaded_path = getattr(yolo_instance, "ckpt_path", None) or getattr(
-            yolo_instance, "weights", None
-        )
-
-        if downloaded_path and (downloaded_path := Path(downloaded_path)).exists():
-            if downloaded_path != model_path:
-                _copy_model_file(downloaded_path, model_path)
-            return model_path
-
-        # Fallback to default cache location
-        default_cache = ULTRALYTICS_CACHE / model_name
-        if default_cache.exists():
-            _copy_model_file(default_cache, model_path)
-            return model_path
-
-        raise FileNotFoundError(
-            f"Could not locate downloaded YOLO model. "
-            f"Checked: {downloaded_path}, {default_cache}"
-        )
-
+        model = YOLO(f"{model_name.split('.')[0]}.yaml")
+        model = YOLO(model_name)
+        model_path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(model.state_dict(), model_path)
+        return model_path
     except Exception as e:
-        logger.error(f"Failed to download YOLO model: {e}")
-        raise RuntimeError(f"Failed to download YOLO model: {e}") from e
+        logger.error("Failed to download YOLO model: %s", e)
+        raise
+
+
+def get_midas_cache_dir(custom_path: Optional[Path] = None) -> Path:
+    """Get MiDaS model cache directory."""
+    if custom_path:
+        return custom_path.expanduser().resolve()
+    return PYTORCH_HUB_CACHE
+
+
+def ensure_midas_model_available(
+    cache_dir: Optional[Path] = None,
+) -> Path:
+    """Ensure MiDaS model is downloaded and cached.
+
+    Args:
+        cache_dir: Custom cache directory (default: ~/.cache/torch/hub)
+
+    Returns:
+        Path to the model cache directory
+    """
+    cache_dir = get_midas_cache_dir(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    
+    try:
+        torch.hub.set_dir(str(cache_dir))
+        torch.hub.load(DEFAULT_MIDAS_REPO, DEFAULT_MIDAS_MODEL, trust_repo=True)
+        return cache_dir
+    except Exception as e:
+        logger.error("Failed to load MiDaS model: %s", e)
+        raise RuntimeError(f"Failed to download MiDaS model: {e}") from e
 
 
 def get_midas_cache_directory(custom_cache_path: Optional[Path] = None) -> Path:

@@ -59,42 +59,44 @@ make run-analyzer-local
 ```
 The first analyzer start will download `yolo11n.pt` automatically (this will take some time)
 
-**Alternatively, download models explicitly:**
-```
+## Model Management
+
+### Available Models
+
+#### YOLO Model
+- `yolo11n.pt` - YOLO model for object detection
+
+#### MiDaS Model
+- `MiDaS_small` - Lightweight model for depth estimation
+
+### Download Models
+
+```bash
+# Download all models
 make download-models
-```
-This downloads both YOLO (`yolov8n.pt`) and MiDaS models to `src/backend/models/` without starting the server.
 
-To download models in ONNX format:
-```
+# Download and export to ONNX
 make download-models-onnx
-```
-This downloads both YOLO and MiDaS models, then exports them to ONNX format (`yolov8n.onnx` and `midas_small.onnx`).
 
-### Analyzer Service Options
+# Download individual models
+make download-yolo
+make download-midas
 
-The analyzer service supports different modes for model management:
-
-**Development mode (default with `make run-analyzer-local`):**
-- Automatically downloads and caches models if they don't exist
-- Uses `--dev` flag to enable automatic model downloading
-- Models are cached for subsequent runs
-
-**Production mode:**
-- Uses pre-downloaded models from specified paths
-- No network access required at runtime
-- Suitable for containerized deployments
-
-Example development usage:
-```bash
-cd src/backend && uv run python -m analyzer.cli \
-  --dev \
-  --yolo-model-path ./models/yolo11n.pt \
-  --midas-model-path ./models/midas_cache
+# Export models to ONNX
+make export-yolo-onnx
+make export-midas-onnx
 ```
 
-Example production usage:
+### Model Paths
+- YOLO model: `models/yolo11n.pt`
+- YOLO ONNX: `models/yolo11n.onnx`
+- MiDaS cache: `models/midas_cache`
+- MiDaS ONNX: `models/midas_small.onnx`
+
+Example production usage with custom model type:
 ```bash
+# Set model type via environment variable
+MIDAS_MODEL_TYPE=DPT_Hybrid \
 cd src/backend && uv run python -m analyzer.cli \
   --yolo-model-path ./models/yolo11n.pt \
   --midas-model-path ./models/midas_cache

@@ -185,18 +185,49 @@ sbom-check:
 	@echo "Checking if SBOM is up-to-date..."
 	@uv run python scripts/generate_sbom.py --check
 
-export-onnx:
-	@echo "Exporting YOLO model to ONNX (default opset 18)..."
-	cd src/backend && uv run python ../../scripts/export_onnx.py
+# Model management targets
+MODELS_DIR ?= src/backend/models
+MIDAS_CACHE ?= $(MODELS_DIR)/midas_cache
+MIDAS_MODEL ?= MiDaS_small
+
+# Export models to ONNX
+export-onnx: export-yolo-onnx export-midas-onnx
+
+export-yolo-onnx:
+	@echo "Exporting YOLO model to ONNX..."
+	@mkdir -p $(MODELS_DIR)
+	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --yolo-model $(MODELS_DIR)/yolo11n.pt \
+	  --export-onnx \
+	  --output-dir $(MODELS_DIR)
 
 export-midas-onnx:
-	@echo "Exporting MiDaS model to ONNX (default opset 18)..."
-	cd src/backend && uv run python ../../scripts/export_midas_onnx.py
+	@echo "Exporting MiDaS model to ONNX..."
+	@mkdir -p $(MIDAS_CACHE)
+	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --midas-model-type $(MIDAS_MODEL) \
+	  --midas-cache $(MIDAS_CACHE) \
+	  --export-onnx \
+	  --output-dir $(MODELS_DIR)
 
-download-models:
-	@echo "Downloading YOLO and MiDaS models..."
-	cd src/backend && uv run python ../../scripts/download_models.py
+# Download models
+download-models: download-yolo download-midas
 
-download-models-onnx:
-	@echo "Downloading YOLO and MiDaS models (with ONNX export)..."
-	cd src/backend && uv run python ../../scripts/download_models.py --onnx
+download-yolo:
+	@echo "Downloading YOLO model..."
+	@mkdir -p $(MODELS_DIR)
+	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --yolo-model $(MODELS_DIR)/yolo11n.pt \
+	  --output-dir $(MODELS_DIR)
+
+download-midas:
+	@echo "Downloading MiDaS model..."
+	@echo "Available model types: MiDaS_small (default), DPT_Hybrid, DPT_Large"
+	@mkdir -p $(MIDAS_CACHE)
+	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --midas-model-type $(MIDAS_MODEL) \
+	  --midas-cache $(MIDAS_CACHE) \
+	  --output-dir $(MODELS_DIR)
+
+# Combined download and export
+download-models-onnx: download-models export-onnx
