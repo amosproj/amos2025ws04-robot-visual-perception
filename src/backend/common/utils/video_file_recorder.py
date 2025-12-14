@@ -6,6 +6,7 @@ import cv2
 import signal
 import sys
 import time
+from typing import Any
 
 # general settings
 OUTPUT_FILE = "video.mp4"
@@ -16,7 +17,7 @@ WARMUP_FRAMES = 20
 running = True
 
 
-def signal_handler(sig, frame):
+def signal_handler(sig: int, frame: Any) -> None:
     global running
     print("\nStopping recording...")
     running = False
@@ -44,7 +45,7 @@ for _ in range(WARMUP_FRAMES):
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+fourcc = cv2.VideoWriter.fourcc(*"mp4v")  # type: ignore[attr-defined]
 out = cv2.VideoWriter(OUTPUT_FILE, fourcc, FPS, (width, height))
 if not out.isOpened():
     print("Could not open VideoWriter")

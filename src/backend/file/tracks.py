@@ -4,6 +4,7 @@
 
 import asyncio
 import os
+import threading
 from typing import Optional
 import cv2
 import numpy as np
@@ -23,7 +24,7 @@ class VideoFileTrack(VideoStreamTrack):
         super().__init__()
         self.video_path = video_path
         self.cap: Optional[cv2.VideoCapture] = None
-        self._lock = asyncio.Lock()
+        self._lock = threading.Lock()
         self._open_video()
 
     def _open_video(self) -> None:
@@ -59,7 +60,7 @@ class VideoFileTrack(VideoStreamTrack):
 
         # Read frame in executor to avoid blocking
         loop = asyncio.get_running_loop()
-        async with self._lock:
+        with self._lock:
             frame = await loop.run_in_executor(None, self._read_frame)
 
         if frame is None:
@@ -73,7 +74,7 @@ class VideoFileTrack(VideoStreamTrack):
 
         return video_frame
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Clean up video capture on deletion."""
         if self.cap is not None:
             self.cap.release()
