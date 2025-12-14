@@ -174,7 +174,10 @@ class AnalyzerWebSocketManager:
                     if frame_array is None:
                         continue
 
-                    state = self._update_fps_and_scaling(state)
+                    state.frame_id += 1
+                    state.fps_counter += 1
+
+                    state, current_time = self._update_fps_and_scaling(state)
                     frame_small = resize_frame(frame_array, state.target_scale)
 
                     detections, distances = await self._process_detection(
@@ -182,11 +185,8 @@ class AnalyzerWebSocketManager:
                     )
                     if detections:
                         await self._send_frame_metadata(
-                            frame_small, detections, distances, state
+                            frame_small, detections, distances, current_time, state
                         )
-
-                    state.frame_id += 1
-                    state.fps_counter += 1
 
                 except Exception as e:
                     logging.warning(f"Frame processing error: {e}")
@@ -246,11 +246,14 @@ class AnalyzerWebSocketManager:
             logging.warning(f"Received frame without to_ndarray method: {type(frame)}")
             return None
 
-    def _update_fps_and_scaling(self, state: ProcessingState) -> ProcessingState:
+    def _update_fps_and_scaling(
+        self, state: ProcessingState
+    ) -> tuple[ProcessingState, float]:
         """Update FPS calculation and adaptive scaling.
 
         Returns:
             Updated ProcessingState with new FPS and scale values.
+            The current_time is the asyncio event loop time used for FPS calculation.
         """
         current_time = asyncio.get_event_loop().time()
 
@@ -276,7 +279,7 @@ class AnalyzerWebSocketManager:
                 f"FPS={state.current_fps:.1f}"
             )
 
-        return state
+        return state, current_time
 
     async def _process_detection(
         self,
@@ -293,32 +296,30 @@ class AnalyzerWebSocketManager:
         sample_rate = 2 if state.current_fps < self.fps_threshold else 4
         should_detect = state.frame_id % sample_rate == 0
 
-        detections: list[Detection] = []
-        distances: list[float] = []
+        if not self.active_connections or not should_detect:
+            return [], []
 
-        if should_detect and self.active_connections:
-            detections = await detector.infer(frame_small)
+        detections = await detector.infer(frame_small)
 
-            if detections:
-                distances = estimator.estimate_distance_m(frame_small, detections)
-                tracked_detections = self._tracking_manager.match_detections_to_tracks(
-                    detections, distances, state.frame_id, state.last_fps_time
+        if detections:
+            distances = estimator.estimate_distance_m(frame_small, detections)
+            tracked_detections = self._tracking_manager.match_detections_to_tracks(
+                detections, distances, state.frame_id, state.last_fps_time
+            )
+            detections = [
+                Detection(
+                    x1=int(td.x1),
+                    y1=int(td.y1),
+                    x2=int(td.x2),
+                    y2=int(td.y2),
+                    cls_id=td.cls_id,
+                    confidence=td.confidence,
                 )
-                detections = [
-                    Detection(
-                        x1=int(td.x1),
-                        y1=int(td.y1),
-                        x2=int(td.x2),
-                        y2=int(td.y2),
-                        cls_id=td.cls_id,
-                        confidence=td.confidence,
-                    )
-                    for td in tracked_detections
-                ]
-                distances = [td.distance for td in tracked_detections]
+                for td in tracked_detections
+            ]
+            distances = [td.distance for td in tracked_detections]
 
-        # If no detections, use interpolation
-        if not detections:
+        else:
             interpolated = self._tracking_manager.get_interpolated_detections(
                 state.frame_id, state.last_fps_time
             )
@@ -418,6 +419,7 @@ class AnalyzerWebSocketManager:
         frame_small: np.ndarray,
         detections: list[Detection],
         distances: list[float],
+        current_time: float,
         state: ProcessingState,
     ) -> None:
         """Build and send metadata message for current frame."""
@@ -425,7 +427,7 @@ class AnalyzerWebSocketManager:
             frame_rgb=frame_small,
             detections=detections,
             distances=distances,
-            timestamp=state.last_fps_time,
+            timestamp=current_time,
             frame_id=state.frame_id,
             current_fps=state.current_fps,
         )
