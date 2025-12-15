@@ -11,7 +11,7 @@ import uvicorn
 from common.core.model_downloader import (
     ensure_midas_model_available,
     ensure_yolo_model_downloaded,
-    get_midas_cache_directory,
+    get_midas_cache_dir,
 )
 
 from analyzer.main import create_app
@@ -142,14 +142,19 @@ def main() -> None:
                 yolo_model_path.parent.mkdir(parents=True, exist_ok=True)
                 yolo_model_path = ensure_yolo_model_downloaded(
                     model_name=yolo_model_path.name,
-                    cache_directory=yolo_model_path.parent,
+                    cache_dir=yolo_model_path.parent,
                 )
 
         if midas_cache_directory is None:
-            midas_cache_directory = get_midas_cache_directory()
+            midas_cache_directory = get_midas_cache_dir()
 
-        if not ensure_midas_model_available(cache_directory=midas_cache_directory):
-            logger.error("Failed to download or load the MiDaS model.")
+        try:
+            midas_cache_directory = ensure_midas_model_available(
+                cache_dir=midas_cache_directory
+            )
+            logger.info("MiDaS model is ready at %s", midas_cache_directory)
+        except RuntimeError as e:
+            logger.error("Failed to download or load the MiDaS model: %s", e)
             logger.error("Please check your internet connection and try again.")
             sys.exit(1)
 

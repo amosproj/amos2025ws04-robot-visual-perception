@@ -69,24 +69,48 @@ def export_yolo_to_onnx(yolo_path: Path, output_dir: Path) -> Path:
         sys.exit(1)
 
 
-def export_midas_to_onnx(cache_dir: Path, output_dir: Path) -> Path:
+def get_midas_model_config(model_type: str) -> tuple[int, str]:
+    """Get configuration for different MiDaS model types.
+    
+    Args:
+        model_type: Type of MiDaS model (e.g., 'MiDaS_small', 'DPT_Hybrid', 'DPT_Large')
+        
+    Returns:
+        Tuple of (input_size, onnx_filename)
+    """
+    config = {
+        "MiDaS_small": (384, "midas_small.onnx"),
+        "DPT_Hybrid": (384, "dpt_hybrid.onnx"),
+        "DPT_Large": (384, "dpt_large.onnx"),
+    }
+    return config.get(model_type, (384, f"{model_type.lower()}.onnx"))
+
+
+def export_midas_to_onnx(
+    cache_dir: Path,
+    output_dir: Path,
+    model_type: str = "MiDaS_small",
+    model_repo: str = "intel-isl/MiDaS"
+) -> Path:
     """Export MiDaS model to ONNX format.
     
     Args:
         cache_dir: Directory with cached model
         output_dir: Directory to save ONNX model
+        model_type: Type of MiDaS model to export
+        model_repo: Repository for the MiDaS model
         
     Returns:
         Path to the exported ONNX model
     """
-    logger.info("Exporting MiDaS model to ONNX...")
+    logger.info("Exporting %s model to ONNX...", model_type)
     try:
         torch.hub.set_dir(str(cache_dir))
-        model = torch.hub.load("intel-isl/MiDaS", "MiDaS_small", trust_repo=True)
+        model = torch.hub.load(model_repo, model_type, trust_repo=True)
         model.eval()
 
-        input_size = 384  # Standard input size for MiDaS
-        onnx_path = output_dir / "midas_small.onnx"
+        input_size, onnx_filename = get_midas_model_config(model_type)
+        onnx_path = output_dir / onnx_filename
         onnx_path.parent.mkdir(parents=True, exist_ok=True)
         
         dummy_input = torch.randn(1, 3, input_size, input_size)
@@ -106,10 +130,10 @@ def export_midas_to_onnx(cache_dir: Path, output_dir: Path) -> Path:
             },
         )
         
-        logger.info("MiDaS ONNX model ready at: %s", onnx_path)
+        logger.info("%s ONNX model ready at: %s", model_type, onnx_path)
         return onnx_path
     except Exception as e:
-        logger.error("Failed to export MiDaS to ONNX: %s", e)
+        logger.error("Failed to export %s to ONNX: %s", model_type, e)
         sys.exit(1)
 
 
@@ -147,6 +171,21 @@ def parse_args() -> argparse.Namespace:
         help="Directory to cache MiDaS model (default: <output-dir>/midas_cache)",
     )
     
+    # Model options
+    parser.add_argument(
+        "--midas-type",
+        type=str,
+        default="MiDaS_small",
+        choices=["MiDaS_small", "DPT_Hybrid", "DPT_Large"],
+        help="Type of MiDaS model to download (default: MiDaS_small)",
+    )
+    parser.add_argument(
+        "--midas-repo",
+        type=str,
+        default="intel-isl/MiDaS",
+        help="Repository for MiDaS model (default: intel-isl/MiDaS)",
+    )
+    
     # Output options
     parser.add_argument(
         "--output-dir",
@@ -179,8 +218,12 @@ def main() -> None:
         cache_dir=yolo_path.parent,
     )
     
-    logger.info("Downloading MiDaS model...")
-    midas_cache = ensure_midas_model_available(cache_dir=midas_cache)
+    logger.info("Downloading %s model...", args.midas_type)
+    midas_cache = ensure_midas_model_available(
+        model_type=args.midas_type,
+        midas_repo=args.midas_repo,
+        cache_directory=midas_cache
+    )
     
     # Export to ONNX if requested
     yolo_onnx_path = None
@@ -190,8 +233,10 @@ def main() -> None:
         logger.info("Exporting models to ONNX...")
         yolo_onnx_path = export_yolo_to_onnx(yolo_path, args.output_dir)
         midas_onnx_path = export_midas_to_onnx(
-            midas_cache,
-            args.output_dir
+            cache_dir=midas_cache,
+            output_dir=args.output_dir,
+            model_type=args.midas_type,
+            model_repo=args.midas_repo
         )
     
     print_summary(yolo_path, midas_cache, yolo_onnx_path, midas_onnx_path)
