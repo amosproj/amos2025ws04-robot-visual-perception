@@ -68,7 +68,7 @@ class Config:
     ICE_GATHERING_TIMEOUT: float = float(os.getenv("ICE_GATHERING_TIMEOUT", "5.0"))
 
     # Analyzer mode (for analyzer.py)
-    WEBCAM_OFFER_URL: str = os.getenv("WEBCAM_OFFER_URL", "http://localhost:8000/offer")
+    STREAMER_OFFER_URL: str = os.getenv("STREAMER_OFFER_URL", "http://localhost:8000/offer")
 
     # video file path for file service
     VIDEO_FILE_PATH: str = os.getenv("VIDEO_FILE_PATH", "video.mp4")

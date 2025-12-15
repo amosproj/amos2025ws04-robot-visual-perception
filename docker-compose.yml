@@ -5,7 +5,7 @@
 services:
   # Note: Camera device access only works on Linux.
   # On macOS/Windows, run things locally
-  webcam:
+  streamer:
     build:
       context: ./src/backend
       dockerfile: Dockerfile.streamer
@@ -37,14 +37,14 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - WEBCAM_OFFER_URL=http://webcam:8000/offer
+      - STREAMER_OFFER_URL=http://streamer:8000/offer
       - MODEL_PATH=models/yolo11n.pt
       - STUN_SERVER=stun:stun.l.google.com:19302
       - CORS_ORIGINS=*
     volumes:
       - ./src/backend/models:/app/models
     depends_on:
-      - webcam
+      - streamer
     networks:
       - robot-net
 
