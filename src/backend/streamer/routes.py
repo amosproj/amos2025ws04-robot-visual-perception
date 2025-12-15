@@ -72,6 +72,7 @@ async def offer(sdp: SDPModel) -> dict[str, str]:
     ice_ready = asyncio.get_event_loop().create_future()
 
     # Acquire camera
+    local_video: CameraVideoTrack | VideoFileTrack
     try:
         if VIDEO_SOURCE_TYPE == "file":
             local_video = VideoFileTrack(VIDEO_FILE_PATH)
