@@ -13,7 +13,8 @@
 	docker-build docker-build-frontend docker-build-backend \
 	docker-build-analyzer docker-build-analyzer-cuda docker-build-analyzer-rocm \
 	docker-compose-up docker-compose-down \
-	download-models download-models-onnx export-onnx
+	download-models download-models-onnx export-onnx \
+	download-yolo download-midas export-yolo-onnx export-midas-onnx
 
 help:
 	@echo "make"
@@ -200,6 +201,7 @@ export-yolo-onnx:
 	@echo "Exporting YOLO model to ONNX..."
 	@mkdir -p $(MODELS_DIR)
 	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --models yolo \
 	  --yolo-model $(MODELS_DIR)/yolo11n.pt \
 	  --export-onnx \
 	  --output-dir $(MODELS_DIR)
@@ -208,6 +210,7 @@ export-midas-onnx:
 	@echo "Exporting MiDaS model to ONNX..."
 	@mkdir -p $(MIDAS_CACHE)
 	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --models midas \
 	  --midas-model-type $(MIDAS_MODEL) \
 	  --midas-cache $(MIDAS_CACHE) \
 	  --export-onnx \
@@ -220,6 +223,7 @@ download-yolo:
 	@echo "Downloading YOLO model..."
 	@mkdir -p $(MODELS_DIR)
 	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --models yolo \
 	  --yolo-model $(MODELS_DIR)/yolo11n.pt \
 	  --output-dir $(MODELS_DIR)
 
@@ -228,9 +232,11 @@ download-midas:
 	@echo "Available model types: MiDaS_small (default), DPT_Hybrid, DPT_Large"
 	@mkdir -p $(MIDAS_CACHE)
 	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --models midas \
 	  --midas-model-type $(MIDAS_MODEL) \
 	  --midas-cache $(MIDAS_CACHE) \
 	  --output-dir $(MODELS_DIR)
 
 # Combined download and export
-download-models-onnx: download-models export-onnx
+# Export implies download, so we just need export
+download-models-onnx: export-onnx

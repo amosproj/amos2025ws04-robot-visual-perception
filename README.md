@@ -165,14 +165,10 @@ Open the shown URL in your console.
   make export-onnx
   ```
 
-  Or manually with uv (use opset 18+ to avoid `Resize` downgrade failures):
+  Or use the granular make target:
 
   ```bash
-  uv run python - <<'PY'
-from ultralytics import YOLO
-YOLO("models/yolo11n.pt").export(format="onnx", opset=18, imgsz=640, simplify=True)
-PY
-mv yolo11n.onnx models/yolo11n.onnx
+  make export-yolo-onnx
   ```
 
   Then launch the analyzer with GPU providers, e.g.:
