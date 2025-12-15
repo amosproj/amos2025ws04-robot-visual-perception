@@ -50,3 +50,6 @@ sbom-dependencies.csv
 
 # models directory
 src/backend/models
+
+# Model files
+*.pt

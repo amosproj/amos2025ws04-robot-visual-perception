@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 """Model management module for downloading and exporting ML models."""
+
 import logging
 import shutil
 from pathlib import Path
@@ -36,38 +37,38 @@ def ensure_yolo_model_downloaded(
     """
     if cache_dir is None:
         cache_dir = Path.cwd() / "models"
-    
+
     cache_dir = Path(str(cache_dir)).resolve()
     model_path = cache_dir / model_name
-    
+
     # Create parent directories if they don't exist
     model_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     if model_path.exists():
         logger.info("Using cached YOLO model at %s", model_path)
         return model_path
-    
+
     logger.info("Downloading YOLO model %s to %s...", model_name, model_path)
-    
+
     try:
         # Download the model using Ultralytics YOLO
         # We load it, which triggers a download if not found locally or in cwd
         model = YOLO(model_name)
-        
+
         # If the model was downloaded to CWD or some other default location,
         # we need to save it to our target location.
         # Ultralytics usually caches in ./ or ~/.config/Ultralytics/
         # We can force save it to our desired path.
         if hasattr(model, "ckpt_path") and model.ckpt_path:
-             source_path = Path(model.ckpt_path)
-             if source_path != model_path:
-                 shutil.copy2(source_path, model_path)
-                 logger.info("Copied YOLO model to %s", model_path)
+            source_path = Path(model.ckpt_path)
+            if source_path != model_path:
+                shutil.copy2(source_path, model_path)
+                logger.info("Copied YOLO model to %s", model_path)
         else:
             # Fallback: save state dict or use save method
             model.save(str(model_path))
             logger.info("Saved YOLO model to %s", model_path)
-            
+
         return model_path
 
     except Exception as e:
@@ -89,24 +90,24 @@ def export_yolo_to_onnx(
     simplify: bool = True,
 ) -> Path:
     """Export YOLO model to ONNX format.
-    
+
     Args:
         yolo_path: Path to the .pt model file
         output_path: Path where the .onnx model should be saved
         opset: ONNX opset version
         imgsz: Image size
         simplify: Whether to run ONNX simplifier
-        
+
     Returns:
         Path to the exported ONNX model
     """
     logger.info("Exporting YOLO model to ONNX...")
     try:
         if not yolo_path.exists():
-             raise FileNotFoundError(f"YOLO model not found at {yolo_path}")
+            raise FileNotFoundError(f"YOLO model not found at {yolo_path}")
 
         model = YOLO(str(yolo_path))
-        
+
         # Ultralytics export saves to the same directory as the source model by default
         # or we can specify 'project' and 'name' but it creates subdirs.
         # Easiest is to let it export, then move if needed.
@@ -116,9 +117,9 @@ def export_yolo_to_onnx(
             imgsz=imgsz,
             simplify=simplify,
         )
-        
+
         exported_path = Path(exported_filename).resolve()
-        
+
         # Ensure directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -127,9 +128,9 @@ def export_yolo_to_onnx(
             logger.info("Moved exported YOLO model to %s", output_path)
         else:
             logger.info("YOLO ONNX model ready at: %s", output_path)
-            
+
         return output_path
-    
+
     except Exception as e:
         logger.error("Failed to export YOLO to ONNX: %s", e)
         raise RuntimeError(f"YOLO export failed: {e}") from e
@@ -159,15 +160,17 @@ def ensure_midas_model_available(
     """
     cache_dir = get_midas_cache_dir(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    
+
     try:
-        logger.info("Downloading %s model from %s to %s...", model_type, midas_repo, cache_dir)
+        logger.info(
+            "Downloading %s model from %s to %s...", model_type, midas_repo, cache_dir
+        )
         torch.hub.set_dir(str(cache_dir))
-        
+
         # This triggers download if not present
         model = torch.hub.load(midas_repo, model_type, trust_repo=True)
         model.eval()
-        
+
         logger.info("%s model is cached and ready in %s", model_type, cache_dir)
         return cache_dir
     except Exception as e:
@@ -196,7 +199,7 @@ def export_midas_to_onnx(
     input_size: Optional[int] = None,
 ) -> Path:
     """Export MiDaS model to ONNX format.
-    
+
     Args:
         cache_dir: Directory with cached model
         output_path: File path to save ONNX model
@@ -204,7 +207,7 @@ def export_midas_to_onnx(
         model_repo: Repo
         opset: ONNX opset version
         input_size: Optional manual input size override
-        
+
     Returns:
         Path to the exported ONNX model
     """
@@ -216,14 +219,14 @@ def export_midas_to_onnx(
 
         default_size, _ = get_midas_onnx_config(model_type)
         size = input_size if input_size else default_size
-        
+
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         dummy_input = torch.randn(1, 3, size, size)
-        
+
         torch.onnx.export(
             model,
-            dummy_input,
+            (dummy_input,),
             str(output_path),
             export_params=True,
             opset_version=opset,
@@ -231,7 +234,7 @@ def export_midas_to_onnx(
             input_names=["input"],
             output_names=["output"],
         )
-        
+
         logger.info("%s ONNX model ready at: %s", model_type, output_path)
         return output_path
     except Exception as e:

@@ -13,6 +13,7 @@ from common.config import config
 from common.core.contracts import DepthEstimator
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 try:  # pragma: no cover - optional dependency import
@@ -111,7 +112,9 @@ class _BaseMiDasDepthEstimator(DepthEstimator):
         self.last_depths: list[float] = []
         self.model_type = model_type
         self.midas_model = midas_model
-        self.midas_cache_directory = midas_cache_directory or Path.home() / ".cache" / "torch" / "hub"
+        self.midas_cache_directory = (
+            midas_cache_directory or Path.home() / ".cache" / "torch" / "hub"
+        )
         torch.hub.set_dir(str(self.midas_cache_directory))
         logger.info("Using MiDaS cache directory: %s", self.midas_cache_directory)
 
