@@ -8,17 +8,21 @@ services:
   webcam:
     build:
       context: ./src/backend
-      dockerfile: Dockerfile.webcam
-    image: robot-webcam:latest
-    container_name: robot-webcam
+      dockerfile: Dockerfile.streamer
+    image: robot-streamer:latest
+    container_name: robot-streamer
     ports:
       - "8000:8000"
     environment:
+      - VIDEO_SOURCE_TYPE=${VIDEO_SOURCE_TYPE:-webcam}  # "webcam" or "file"
+      - VIDEO_FILE_PATH=${VIDEO_FILE_PATH:-video.mp4}   # Used when VIDEO_SOURCE_TYPE=file
       - CAMERA_INDEX=0
       - STUN_SERVER=stun:stun.l.google.com:19302
       - CORS_ORIGINS=*
     devices:
-      - /dev/video0:/dev/video0  # Only works on Linux
+      - /dev/video0:/dev/video0  # Only works on Linux (ignored for file mode)
+    volumes:
+      - ./videos:/app/videos  # Mount videos directory for file mode
     networks:
       - robot-net
 

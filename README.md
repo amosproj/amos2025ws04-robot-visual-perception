@@ -51,11 +51,11 @@ make dev
 
 2) Start the webcam service
 ```
-make run-webcam-local
+make run-streamer-webcam
 ```
 Or alternatively, if you provide a .mp4 file in the `/backend` folder per default, you can start the file service instead
 ```
-make run-file-local
+make run-streamer-file
 ```
 3) Start the analyzer service (separate terminal)
 ```

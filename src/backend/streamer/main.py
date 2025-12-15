@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-
 from contextlib import asynccontextmanager, suppress
 from collections.abc import AsyncIterator
 
@@ -10,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from common import __version__
 from common.config import config
-from file.routes import router, on_shutdown
+from streamer.routes import router, on_shutdown
 
 
 @asynccontextmanager
@@ -23,9 +22,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     """App factory to avoid import-time side effects in tests."""
     app = FastAPI(
-        title="File Mock Service",
+        title="Streamer Mock Service",
         version=__version__,
-        description="File service for development that streams local files over WebRTC",
+        description="Streamer service for development that streams local video over WebRTC",
         lifespan=lifespan,
     )
 

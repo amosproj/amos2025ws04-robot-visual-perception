@@ -72,6 +72,7 @@ class Config:
 
     # video file path for file service
     VIDEO_FILE_PATH: str = os.getenv("VIDEO_FILE_PATH", "video.mp4")
+    VIDEO_SOURCE_TYPE: str = os.getenv("VIDEO_SOURCE_TYPE", "webcam").lower()
 
     # CORS settings
     CORS_ORIGINS: list[str] = os.getenv("CORS_ORIGINS", "*").split(",")

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 import asyncio
 import contextlib
-from typing import Dict, List
+from typing import List
 
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
@@ -12,19 +12,21 @@ from aiortc import (
     RTCSessionDescription,
     RTCConfiguration,
     RTCIceServer,
-    RTCDataChannel,
 )
 from aiortc.rtcrtpsender import RTCRtpSender
 
 from common.core.camera import _shared_cam
 from common.config import config
-from webcam.tracks import CameraVideoTrack
+from streamer.tracks import CameraVideoTrack, VideoFileTrack
 
 router = APIRouter()
 
 # Global state for this service
 pcs: List[RTCPeerConnection] = []
-_datachannels: Dict[int, RTCDataChannel] = {}
+
+# config variables
+VIDEO_SOURCE_TYPE = config.VIDEO_SOURCE_TYPE
+VIDEO_FILE_PATH = config.VIDEO_FILE_PATH
 
 
 class SDPModel(BaseModel):
@@ -37,7 +39,12 @@ class SDPModel(BaseModel):
 @router.get("/health")
 def health() -> dict[str, str]:
     """Health check endpoint."""
-    return {"status": "ok", "service": "webcam"}
+    return {
+        "status": "ok",
+        "service": "streamer",
+        "source_type": VIDEO_SOURCE_TYPE,
+        "file_path": VIDEO_FILE_PATH if VIDEO_SOURCE_TYPE == "file" else "N/A",
+    }
 
 
 @router.options("/offer")
@@ -66,15 +73,16 @@ async def offer(sdp: SDPModel) -> dict[str, str]:
 
     # Acquire camera
     try:
-        await _shared_cam.acquire()
+        if VIDEO_SOURCE_TYPE == "file":
+            local_video = VideoFileTrack(VIDEO_FILE_PATH)
+        else:
+            await _shared_cam.acquire()
+            local_video = CameraVideoTrack()
+        pc.addTrack(local_video)
     except Exception as e:
         await pc.close()
         pcs.remove(pc)
-        raise HTTPException(500, f"Camera error: {e}")
-
-    # Add raw video track
-    local_video = CameraVideoTrack()
-    pc.addTrack(local_video)
+        raise HTTPException(500, f"Video source error: {e}")
 
     # Prefer H.264 for better compatibility
     try:
@@ -123,8 +131,6 @@ async def _cleanup_pc(pc: RTCPeerConnection) -> None:
         pcs.remove(pc)
     with contextlib.suppress(Exception):
         await pc.close()
-    if not pcs:
+    if not pcs and VIDEO_SOURCE_TYPE == "webcam":
         with contextlib.suppress(Exception):
             await _shared_cam.release()
-    with contextlib.suppress(KeyError):
-        _datachannels.pop(id(pc))

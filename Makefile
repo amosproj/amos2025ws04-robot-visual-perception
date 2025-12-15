@@ -9,8 +9,8 @@
 	format-check format-check-frontend format-check-backend \
 	test test-frontend test-backend \
 	sbom sbom-check \
-	run-backend-local run-frontend-local \
-	docker-build docker-build-frontend docker-build-backend \
+	run-backend-local run-frontend-local run-streamer-webcam run-streamer-file run-analyzer-local \
+	docker-build docker-build-frontend docker-build-backend docker-build-streamer \
 	docker-build-analyzer docker-build-analyzer-cuda docker-build-analyzer-rocm \
 	docker-compose-up docker-compose-down
 
@@ -63,7 +63,9 @@ help:
 	@echo "  docker-build-frontend"
 	@echo "      builds frontend Docker image"
 	@echo "  docker-build-backend"
-	@echo "      builds backend Docker images (webcam + analyzer with CPU runtime)"
+	@echo "      builds backend Docker images (streamer + analyzer with CPU runtime)"
+	@echo "  docker-build-streamer"
+	@echo "      builds video source image (supports both webcam and file via VIDEO_SOURCE_TYPE)"
 	@echo "  docker-build-analyzer"
 	@echo "      builds analyzer image with ONNX CPU runtime (default)"
 	@echo "  docker-build-analyzer-cuda"
@@ -129,20 +131,22 @@ test-frontend:
 test-backend:
 	cd src/backend && uv run pytest -s
 
-run-webcam-local:
-	@echo "Starting webcam service on port 8000..."
-	cd src/backend && uv run uvicorn webcam.main:app --host 0.0.0.0 --port 8000 --reload
+run-streamer-webcam:
+	@echo "Starting video source service (webcam) on port 8000..."
+	cd src/backend && VIDEO_SOURCE_TYPE=webcam uv run uvicorn streamer.main:app --host 0.0.0.0 --port 8000 --reload
 
-run-file-local:
-	@echo "Starting file service on port 8000..."
-	cd src/backend && uv run uvicorn file.main:app --host 0.0.0.0 --port 8000 --reload
+run-streamer-file:
+	@echo "Starting video source service (file) on port 8000..."
+	@echo "Set VIDEO_FILE_PATH env var to specify file (default: video.mp4)"
+	cd src/backend && VIDEO_SOURCE_TYPE=file uv run uvicorn streamer.main:app --host 0.0.0.0 --port 8000 --reload
 
 run-analyzer-local:
 	@echo "Starting analyzer service on port 8001..."
 	cd src/backend && uv run uvicorn analyzer.main:app --host 0.0.0.0 --port 8001 --reload
 
-run-backend-local: run-webcam-local
+run-backend-local: run-streamer-webcam
 	@echo "Note: To run analyzer, use 'make run-analyzer-local' in another terminal"
+	@echo "Note: To use file source instead, run 'make run-streamer-file'"
 
 run-frontend-local:
 	cd src/frontend && VITE_BACKEND_URL=http://localhost:8001 npm run dev
@@ -154,13 +158,10 @@ docker-build-frontend:
 		--build-arg VITE_BACKEND_URL=http://localhost:8001 \
 		-t robot-frontend:latest src/frontend
 
-docker-build-backend: docker-build-webcam docker-build-analyzer
+docker-build-backend: docker-build-streamer docker-build-analyzer
 
-docker-build-webcam:
-	docker build -f src/backend/Dockerfile.webcam -t robot-webcam:latest src/backend
-
-docker-build-file:
-	docker build -f src/backend/Dockerfile.file -t robot-file:latest src/backend
+docker-build-streamer:
+	docker build -f src/backend/Dockerfile.streamer -t robot-streamer:latest src/backend
 
 docker-build-analyzer:
 	docker build -f src/backend/Dockerfile.analyzer --build-arg ONNX_RUNTIME=onnx-cpu -t robot-analyzer:latest src/backend
