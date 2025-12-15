@@ -162,22 +162,25 @@ def parse_args() -> argparse.Namespace:
     # Model paths
     parser.add_argument(
         "--yolo-model",
-        type=Path,
+        type=str,
         help="Path to save YOLO model (default: <output-dir>/yolo11n.pt)",
     )
-    parser.add_argument(
+    midas_group = parser.add_argument_group('MiDaS options')
+    midas_group.add_argument(
         "--midas-cache",
         type=Path,
-        help="Directory to cache MiDaS model (default: <output-dir>/midas_cache)",
+        default=None,
+        help="Directory to cache MiDaS model files (default: ~/.cache/torch/hub)",
     )
-    
-    # Model options
-    parser.add_argument(
+    # Support both --midas-type and --midas-model-type for backward compatibility
+    midas_group.add_argument(
         "--midas-type",
+        "--midas-model-type",
+        dest="midas_type",
         type=str,
         default="MiDaS_small",
         choices=["MiDaS_small", "DPT_Hybrid", "DPT_Large"],
-        help="Type of MiDaS model to download (default: MiDaS_small)",
+        help="Type of MiDaS model to use (default: MiDaS_small)",
     )
     parser.add_argument(
         "--midas-repo",
@@ -189,9 +192,9 @@ def parse_args() -> argparse.Namespace:
     # Output options
     parser.add_argument(
         "--output-dir",
-        type=Path,
-        default=DEFAULT_MODEL_DIR,
-        help="Base directory for model outputs (default: ./models)",
+        type=str,
+        default=str(Path.cwd() / "models"),
+        help="Directory to save downloaded models (default: ./models)",
     )
     parser.add_argument(
         "--export-onnx",
@@ -206,13 +209,27 @@ def main() -> None:
     """Main entry point for model management."""
     args = parse_args()
     
-    # Setup paths
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    yolo_path = args.yolo_model or args.output_dir / "yolo11n.pt"
-    midas_cache = args.midas_cache or args.output_dir / "midas_cache"
+    # Resolve output directory to absolute path
+    output_dir = Path(args.output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Resolve YOLO model path
+    if args.yolo_model:
+        yolo_path = Path(args.yolo_model).resolve()
+    else:
+        yolo_path = output_dir / "yolo11n.pt"
+    
+    # Ensure parent directory exists
+    yolo_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Resolve MiDaS cache path
+    if args.midas_cache:
+        midas_cache = Path(str(args.midas_cache)).resolve()
+    else:
+        midas_cache = output_dir / "midas_cache"
     
     # Download models
-    logger.info("Downloading YOLO model...")
+    logger.info("Downloading YOLO model to %s...", yolo_path)
     yolo_path = ensure_yolo_model_downloaded(
         model_name=yolo_path.name,
         cache_dir=yolo_path.parent,
@@ -222,7 +239,7 @@ def main() -> None:
     midas_cache = ensure_midas_model_available(
         model_type=args.midas_type,
         midas_repo=args.midas_repo,
-        cache_directory=midas_cache
+        cache_dir=midas_cache
     )
     
     # Export to ONNX if requested

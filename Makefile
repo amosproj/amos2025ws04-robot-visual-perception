@@ -186,9 +186,12 @@ sbom-check:
 	@uv run python scripts/generate_sbom.py --check
 
 # Model management targets
-MODELS_DIR ?= src/backend/models
-MIDAS_CACHE ?= $(MODELS_DIR)/midas_cache
-MIDAS_MODEL ?= MiDaS_small
+MODELS_DIR = models
+MIDAS_CACHE = $(MODELS_DIR)/midas_cache
+MIDAS_MODEL = MiDaS_small
+
+# Get the absolute path to the project root
+PROJECT_ROOT := $(shell pwd)
 
 # Export models to ONNX
 export-onnx: export-yolo-onnx export-midas-onnx

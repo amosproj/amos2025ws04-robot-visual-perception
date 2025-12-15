@@ -44,8 +44,8 @@ def ensure_yolo_model_downloaded(
     """Ensure YOLO model is downloaded and cached.
 
     Args:
-        model_name: Name of the YOLO model file
-        cache_dir: Directory to cache the model
+        model_name: Name of the YOLO model file (e.g., 'yolo11n.pt')
+        cache_dir: Directory to save the model to
 
     Returns:
         Path to the downloaded model file
@@ -53,24 +53,54 @@ def ensure_yolo_model_downloaded(
     Raises:
         RuntimeError: If model download fails
     """
-    cache_dir = cache_dir or DEFAULT_MODEL_DIR
+    # Resolve the full path where we want to save the model
+    if cache_dir is None:
+        cache_dir = Path.cwd() / "models"
+    
+    # Ensure cache_dir is a Path object and resolve to absolute path
+    cache_dir = Path(str(cache_dir)).resolve()
     model_path = cache_dir / model_name
-
+    
+    # Create parent directories if they don't exist
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    
     if model_path.exists():
         logger.debug("Using cached YOLO model at %s", model_path)
         return model_path
-
-    logger.info("Downloading YOLO model %s...", model_name)
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    
+    logger.info("Downloading YOLO model %s to %s...", model_name, model_path)
     
     try:
-        model = YOLO(model_name)
-        model_path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save(model.state_dict(), model_path)
-        return model_path
+        # Download the model using Ultralytics YOLO
+        model = YOLO(f"{model_name}")
+        
+        # Save the model to the specified path
+        model.export(format="torchscript")  # This will save to current working directory
+        
+        # The exported file will be named 'yolov8n.torchscript' or similar
+        # We need to find and rename it to the requested path
+        model_base = model_name.split('.')[0]
+        exported_file = Path(f"{model_base}.torchscript")
+        
+        if exported_file.exists():
+            # Move the file to the requested location
+            exported_file.rename(model_path)
+            logger.info("Successfully downloaded and saved YOLO model to %s", model_path)
+            return model_path
+        else:
+            # Fallback to saving the model directly
+            torch.save(model.model.state_dict(), model_path)
+            logger.info("Successfully saved YOLO model to %s", model_path)
+            return model_path
+            
     except Exception as e:
         error_msg = f"Failed to download YOLO model {model_name}: {e}"
         logger.error(error_msg)
+        if model_path.exists():
+            try:
+                model_path.unlink()
+            except OSError:
+                pass
         raise RuntimeError(error_msg) from e
 
 

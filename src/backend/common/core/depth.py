@@ -12,6 +12,9 @@ import torch
 from common.config import config
 from common.core.contracts import DepthEstimator
 
+import logging
+logger = logging.getLogger(__name__)
+
 try:  # pragma: no cover - optional dependency import
     import onnxruntime as ort  # type: ignore[import-not-found,import-untyped]
 except Exception:  # pragma: no cover - handled during backend selection
@@ -108,10 +111,9 @@ class _BaseMiDasDepthEstimator(DepthEstimator):
         self.last_depths: list[float] = []
         self.model_type = model_type
         self.midas_model = midas_model
-        self.midas_cache_directory = midas_cache_directory
-
-        if midas_cache_directory is not None:
-            torch.hub.set_dir(str(midas_cache_directory))
+        self.midas_cache_directory = midas_cache_directory or Path.home() / ".cache" / "torch" / "hub"
+        torch.hub.set_dir(str(self.midas_cache_directory))
+        logger.info("Using MiDaS cache directory: %s", self.midas_cache_directory)
 
         self.transform = self._load_transform()
 
@@ -132,6 +134,7 @@ class _BaseMiDasDepthEstimator(DepthEstimator):
         return distances
 
     def _load_transform(self) -> Callable[[np.ndarray], torch.Tensor]:
+        torch.hub.set_dir(str(self.midas_cache_directory))
         midas_transforms = torch.hub.load(
             self.midas_model, "transforms", trust_repo=True
         )
