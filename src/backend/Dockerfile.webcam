@@ -16,10 +16,9 @@ RUN apt-get update && apt-get install -y \
 COPY pyproject.toml uv.lock ./
 # only core
 RUN uv sync --frozen --no-dev
-    
+
 COPY common/ ./common/
 COPY webcam/ ./webcam/
-COPY models/ ./models/
 
 EXPOSE 8000
 

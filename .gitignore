@@ -46,10 +46,12 @@ bin/
 venv/
 
 sbom.json
+
 sbom-dependencies.csv
 
 # models directory
-src/backend/models
-
-# Model files
-*.pt
+src/backend/models/*
+!src/backend/models/.gitkeep
+src/backend/models/*.pt
+src/backend/models/*.onnx
+src/backend/models/midas_cache/
