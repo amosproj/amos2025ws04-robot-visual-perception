@@ -38,6 +38,7 @@ sys.path.insert(0, str(backend_path))
 try:
     from common.config import config
     from common.core.model_downloader import (
+        ensure_depth_anything_model_available,
         ensure_midas_model_available,
         ensure_yolo_model_downloaded,
         export_midas_to_onnx,
@@ -201,9 +202,7 @@ def main() -> None:
     # --- Depth Anything Processing ---
     if "depth-anything" in models_to_process:
         logger.info("\n--- Processing Depth Anything V2 ---")
-        from common.core.model_downloader import ensure_depth_anything_model_available
         
-        # Use config default for model name if possible, else hardcoded default
         da_model = "depth-anything/Depth-Anything-V2-Small-hf"
         da_cache = None
         try:

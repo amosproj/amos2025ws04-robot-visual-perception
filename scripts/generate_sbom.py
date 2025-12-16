@@ -21,6 +21,7 @@ import tomllib
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote, urlparse
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 
@@ -159,8 +160,6 @@ def get_python_first_order_deps_from_pyproject(pyproject_path: Path) -> List[Dic
 
 def fetch_license_from_npm(name: str, version: str) -> str:
     """Fetch license from npm registry."""
-    from urllib.parse import quote
-
     encoded_name = quote(name, safe="@/")
     url = f"https://registry.npmjs.org/{encoded_name}"
 
@@ -191,8 +190,6 @@ def fetch_license_from_npm(name: str, version: str) -> str:
 
 def fetch_license_from_github(repo_url: str) -> str:
     """Try to fetch license from GitHub repository."""
-    from urllib.parse import urlparse
-    import re
 
     try:
         # Extract owner/repo from GitHub URL
@@ -224,8 +221,6 @@ def fetch_license_from_github(repo_url: str) -> str:
 
 def fetch_license_from_pypi(name: str, version: str) -> str:
     """Fetch license from PyPI."""
-    from urllib.parse import quote
-
     encoded_name = quote(name)
     url = f"https://pypi.org/pypi/{encoded_name}/{version}/json"
 
