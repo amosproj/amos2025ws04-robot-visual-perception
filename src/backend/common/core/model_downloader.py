@@ -11,6 +11,15 @@ from typing import Optional
 import torch
 from ultralytics import YOLO  # type: ignore[import-untyped]
 
+try:
+    from transformers import (  # type: ignore[import-untyped]
+        AutoImageProcessor,
+        AutoModelForDepthEstimation,
+    )
+except ImportError:
+    AutoImageProcessor = None  # type: ignore
+    AutoModelForDepthEstimation = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 # Constants
@@ -240,3 +249,44 @@ def export_midas_to_onnx(
     except Exception as e:
         logger.error("Failed to export %s to ONNX: %s", model_type, e)
         raise RuntimeError(f"MiDaS export failed: {e}") from e
+
+
+def ensure_depth_anything_model_available(
+    model_name: str,
+    cache_dir: Optional[Path] = None,
+) -> Path:
+    """Ensure Depth Anything V2 model is downloaded and cached.
+
+    Args:
+        model_name: Hugging Face model identifier
+        cache_dir: custom cache directory
+
+    Returns:
+        Path to the model cache directory
+    """
+    if cache_dir is None:
+        # Default HF cache is usually ~/.cache/huggingface, but we can respect our config default if passed
+        cache_dir = Path.home() / ".cache" / "huggingface"
+
+    cache_dir = Path(str(cache_dir)).resolve()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.info("Downloading/Verifying Depth Anything model %s...", model_name)
+    logger.info("Cache dir: %s", cache_dir)
+
+    try:
+        if AutoImageProcessor is None or AutoModelForDepthEstimation is None:
+            raise ImportError(
+                "transformers not installed. "
+                "Please run `uv sync --extra inference` or install `transformers`."
+            )
+        # These calls trigger download or load from cache
+        AutoImageProcessor.from_pretrained(model_name, cache_dir=cache_dir)
+        AutoModelForDepthEstimation.from_pretrained(model_name, cache_dir=cache_dir)
+        
+        logger.info("Depth Anything model is ready.")
+        return cache_dir
+    except Exception as e:
+        error_msg = f"Failed to load Depth Anything model {model_name}: {e}"
+        logger.error(error_msg)
+        raise RuntimeError(error_msg) from e

@@ -11,6 +11,14 @@ import torch
 
 from common.config import config
 from common.core.contracts import DepthEstimator
+from common.core.depth_utils import calculate_distances, resize_to_frame
+try:
+    from common.core.depth_anything import DepthAnythingV2Estimator
+except ImportError:
+    # This might happen if transformers is missing, but depth_anything.py will handle it
+    # OR we can just import it safely if we fix depth_anything.py
+    # We will fix depth_anything.py to not raise ImportError on module load
+    DepthAnythingV2Estimator = None  # type: ignore
 
 import logging
 
@@ -75,24 +83,6 @@ def get_depth_estimator(midas_cache_directory: Optional[Path] = None) -> DepthEs
     return _depth_estimator
 
 
-def resize_to_frame(
-    prediction: torch.Tensor | np.ndarray, output_shape: tuple[int, int]
-) -> np.ndarray:
-    """Resize a depth map tensor/array to the target frame size."""
-    tensor = (
-        prediction
-        if isinstance(prediction, torch.Tensor)
-        else torch.as_tensor(prediction)
-    )
-    if tensor.dim() == 3:
-        tensor = tensor.unsqueeze(1)
-    resized = torch.nn.functional.interpolate(
-        tensor,
-        size=output_shape,
-        mode="bicubic",
-        align_corners=False,
-    ).squeeze()
-    return resized.cpu().numpy()
 
 
 class _BaseMiDasDepthEstimator(DepthEstimator):
@@ -156,21 +146,9 @@ class _BaseMiDasDepthEstimator(DepthEstimator):
         depth_map: np.ndarray,
         dets: list[tuple[int, int, int, int, int, float]],
     ) -> list[float]:
-        h, w = depth_map.shape
-        distances: list[float] = []
-        for x1, y1, x2, y2, _cls_id, _conf in dets:
-            cx = int((x1 + x2) / 2)
-            cy = int((y1 + y2) / 2)
-            half_size = self.region_size // 2
-            x_start = max(cx - half_size, 0)
-            x_end = min(cx + half_size + 1, w)
-            y_start = max(cy - half_size, 0)
-            y_end = min(cy + half_size + 1, h)
-
-            region = depth_map[y_start:y_end, x_start:x_end]
-            depth_value = max(np.mean(region), 1e-6)
-            distances.append(float(self.scale_factor / depth_value))
-        return distances
+        return calculate_distances(
+            depth_map, dets, self.region_size, self.scale_factor
+        )
 
 
 class MiDasDepthEstimator(_BaseMiDasDepthEstimator):
@@ -240,7 +218,7 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
         sess_options.graph_optimization_level = (
             ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         )
-        sess_options.log_severity_level = 3  # Suppress warnings
+        sess_options.log_severity_level = 3 
         self._session = ort.InferenceSession(
             str(self.onnx_model_path),
             providers=self.providers or None,
@@ -291,3 +269,13 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
 # Register built-in backends
 register_depth_backend("torch", MiDasDepthEstimator)
 register_depth_backend("onnx", OnnxMiDasDepthEstimator)
+
+
+def _create_depth_anything(
+    cache_directory: Optional[Path] = None,
+) -> DepthEstimator:
+    # transformers availability is checked inside DepthAnythingV2Estimator
+    return DepthAnythingV2Estimator(cache_directory)
+
+
+register_depth_backend("depth_anything_v2", _create_depth_anything)

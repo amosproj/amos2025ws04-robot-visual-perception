@@ -11,14 +11,16 @@ from typing import Optional, Callable
 import numpy as np
 import torch
 from ultralytics import YOLO  # type: ignore[import-untyped]
-import logging
-logger = logging.getLogger(__name__)
 
 from common.core.contracts import Detection, ObjectDetectionBackend, ObjectDetector
 from common.config import config
 from common.utils.geometry import get_detections
 from common.utils.image import letterbox, scale_boxes
 from common.utils.math import non_maximum_supression, xywh_to_xyxy
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:  # pragma: no cover - optional dependency import
     import onnxruntime as ort  # type: ignore[import-not-found,import-untyped]
@@ -209,8 +211,8 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         sess_options.graph_optimization_level = (
             ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         )
-        # Suppress warnings (like CoreML noise) 
-        sess_options.log_severity_level = 3  
+        # Suppress warnings (like CoreML noise)
+        sess_options.log_severity_level = 3
 
         self._session = ort.InferenceSession(
             str(model_path),

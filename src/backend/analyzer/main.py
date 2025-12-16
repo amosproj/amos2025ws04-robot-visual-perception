@@ -7,11 +7,6 @@ from pathlib import Path
 from typing import AsyncContextManager, Optional
 import logging
 
-# Configure logging for uvicorn execution
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -20,6 +15,11 @@ from common.config import config
 from common.core.detector import get_detector
 from common.core.depth import get_depth_estimator
 from analyzer.routes import router, on_shutdown
+
+# Configure logging for uvicorn execution
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 def create_lifespan(
