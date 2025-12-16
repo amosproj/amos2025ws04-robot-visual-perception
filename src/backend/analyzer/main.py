@@ -5,6 +5,12 @@ from contextlib import asynccontextmanager, suppress
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import AsyncContextManager, Optional
+import logging
+
+# Configure logging for uvicorn execution
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

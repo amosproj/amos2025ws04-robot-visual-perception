@@ -45,6 +45,7 @@ def _default_depth_estimator_factory(
     midas_cache_directory: Optional[Path] = None,
 ) -> DepthEstimator:
     backend_name = config.DEPTH_BACKEND
+    logger.info(f"Initializing Depth Estimator with backend: {backend_name}")
     try:
         factory = _backend_registry[backend_name]
     except KeyError:
@@ -239,6 +240,7 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
         sess_options.graph_optimization_level = (
             ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         )
+        sess_options.log_severity_level = 3  # Suppress warnings
         self._session = ort.InferenceSession(
             str(self.onnx_model_path),
             providers=self.providers or None,

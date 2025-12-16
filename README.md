@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # OptiBot
 
-Minimal real-time object and distance detection via YOLO on a WebRTC video stream.
+Real-time visual perception system for robots combining object detection (YOLO) and monocular depth estimation (MiDaS) over low-latency WebRTC streams.
 
 ## Quick Start (Windows)
 
@@ -48,7 +48,6 @@ Prereqs: Python 3.11
 ```
 make dev
 ```
-
 2) Start the webcam service
 ```
 make run-webcam-local
@@ -57,20 +56,13 @@ make run-webcam-local
 ```
 make run-analyzer-local
 ```
-The first analyzer start will download `yolo11n.pt` automatically (this will take some time)
+4) Start the frontend service (separate terminal)
+```
+  make run-frontend-local
+```
+Open the shown URL in your console.
 
 ## Model Management
-
-### Available Models
-
-#### YOLO Model
-- `yolo11n.pt` - YOLO model for object detection
-
-#### MiDaS Model
-- `MiDaS_small` - Lightweight model for depth estimation
-
-### Download Models
-
 ```bash
 # Download all models
 make download-models
@@ -87,11 +79,10 @@ make export-yolo-onnx
 make export-midas-onnx
 ```
 
-### Model Paths
-- YOLO model: `models/yolo11n.pt`
-- YOLO ONNX: `models/yolo11n.onnx`
-- MiDaS cache: `models/midas_cache`
-- MiDaS ONNX: `models/midas_small.onnx`
+To start the analyzer service with ONNX backend:
+```
+DETECTOR_BACKEND=onnx DEPTH_BACKEND=onnx make run-analyzer-local
+```
 
 Example production usage with custom model type:
 ```bash
@@ -135,58 +126,11 @@ Optional environment variables:
 
 > Check `src/backend/common/config.py`.
 
-## Run frontend
-Prereqs: Node 20.
-
-1) Install deps
-```
-make dev
-```
-> `make dev` installs both frontend and backend.
-
-2) Start dev server
-```
-  make run-frontend-local
-```
-Open the shown URL in your console.
 
 ### Calibrate depth and XYZ
 - Set camera intrinsics: if you have calibrated values, export them to env vars (pixels): `CAMERA_FX`, `CAMERA_FY`, `CAMERA_CX`, `CAMERA_CY`. If not, set approximate FOVs: `CAMERA_FOV_X_DEG=78 CAMERA_FOV_Y_DEG=65` (defaults). Intrinsics are derived from the first frame size plus these values.
 - Calibrate scale for MiDaS: place a target at a known distance `D_true` straight ahead, read the reported distance `D_est`. Update `SCALE_FACTOR` using `SCALE_FACTOR_new = SCALE_FACTOR_old * (D_true / D_est)`, then restart the analyzer. Repeat once or twice until Z is correct; X/Y will align automatically.
 - Optional: to log the intrinsics resolved at runtime, set `LOG_INTRINSICS=true` on the analyzer process.
 
-## Notes
-- The webcam service mirrors and streams raw frames only; the analyzer handles YOLO inference and overlays.
-- Analyzer inference is throttled to ~10 Hz to keep latency low.
-- Set `TORCH_DEVICE=cuda:0` (or `TORCH_DEVICE=cpu`) before `make run-analyzer-local` to pin PyTorch to a device. When CUDA/ROCm drivers are installed this unlocks GPU acceleration without dropping frames.
-- Switch to ONNX Runtime (`DETECTOR_BACKEND=onnx`) for production-style inference. Export a model once via:
-
-  ```bash
-  make export-onnx
-  ```
-
-  Or use the granular make target:
-
-  ```bash
-  make export-yolo-onnx
-  ```
-
-  Then launch the analyzer with GPU providers, e.g.:
-
-  ```bash
-  ONNX_PROVIDERS=CUDAExecutionProvider,CPUExecutionProvider \
-  DETECTOR_BACKEND=onnx \
-  make run-analyzer-local
-  ```
-
-  For ROCm replace the providers with `ROCMExecutionProvider,CPUExecutionProvider` and install the matching `onnxruntime-rocm` wheel. When no provider is specified the service auto-selects the best option reported by ONNX Runtime.
-
-  MiDaS depth can also run on ONNX Runtime. Export once via:
-
-  ```bash
-  make export-midas-onnx
-  ```
-
-  Then set `DEPTH_BACKEND=onnx` (optionally `MIDAS_ONNX_PROVIDERS=CUDAExecutionProvider,CPUExecutionProvider`) when starting the analyzer.
 
 > IMPORTANT: Please read the `CONTRIBUTING.md`.

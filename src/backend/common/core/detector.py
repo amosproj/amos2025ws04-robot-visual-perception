@@ -11,6 +11,8 @@ from typing import Optional, Callable
 import numpy as np
 import torch
 from ultralytics import YOLO  # type: ignore[import-untyped]
+import logging
+logger = logging.getLogger(__name__)
 
 from common.core.contracts import Detection, ObjectDetectionBackend, ObjectDetector
 from common.config import config
@@ -43,6 +45,8 @@ def _build_engine(
     model_path: Optional[Path], backend: Optional[str]
 ) -> ObjectDetectionBackend:
     backend_name = (backend or config.DETECTOR_BACKEND).lower()
+
+    logger.info(f"Initializing Object Detector with backend: {backend_name}")
     try:
         factory = _backend_registry[backend_name]
     except KeyError:
@@ -205,6 +209,9 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         sess_options.graph_optimization_level = (
             ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         )
+        # Suppress warnings (like CoreML noise) 
+        sess_options.log_severity_level = 3  
+
         self._session = ort.InferenceSession(
             str(model_path),
             providers=providers or None,
