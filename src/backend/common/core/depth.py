@@ -12,6 +12,7 @@ import torch
 from common.config import config
 from common.core.contracts import DepthEstimator
 from common.core.depth_utils import calculate_distances, resize_to_frame
+
 try:
     from common.core.depth_anything import DepthAnythingV2Estimator
 except ImportError:
@@ -83,8 +84,6 @@ def get_depth_estimator(midas_cache_directory: Optional[Path] = None) -> DepthEs
     return _depth_estimator
 
 
-
-
 class _BaseMiDasDepthEstimator(DepthEstimator):
     """Shared logic for MiDaS-backed depth estimators."""
 
@@ -146,9 +145,7 @@ class _BaseMiDasDepthEstimator(DepthEstimator):
         depth_map: np.ndarray,
         dets: list[tuple[int, int, int, int, int, float]],
     ) -> list[float]:
-        return calculate_distances(
-            depth_map, dets, self.region_size, self.scale_factor
-        )
+        return calculate_distances(depth_map, dets, self.region_size, self.scale_factor)
 
 
 class MiDasDepthEstimator(_BaseMiDasDepthEstimator):
@@ -218,7 +215,7 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
         sess_options.graph_optimization_level = (
             ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         )
-        sess_options.log_severity_level = 3 
+        sess_options.log_severity_level = 3
         self._session = ort.InferenceSession(
             str(self.onnx_model_path),
             providers=self.providers or None,

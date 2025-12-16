@@ -283,7 +283,7 @@ def ensure_depth_anything_model_available(
         # These calls trigger download or load from cache
         AutoImageProcessor.from_pretrained(model_name, cache_dir=cache_dir)
         AutoModelForDepthEstimation.from_pretrained(model_name, cache_dir=cache_dir)
-        
+
         logger.info("Depth Anything model is ready.")
         return cache_dir
     except Exception as e:

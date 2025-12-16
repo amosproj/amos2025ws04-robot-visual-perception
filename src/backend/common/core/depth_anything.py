@@ -36,7 +36,7 @@ class DepthAnythingV2Estimator(DepthEstimator):
         model_name: str = config.DEPTH_ANYTHING_MODEL,
     ) -> None:
         if AutoImageProcessor is None or AutoModelForDepthEstimation is None:
-             raise ImportError(
+            raise ImportError(
                 "transformers not installed. "
                 "Please run `uv sync --extra inference` or install `transformers`."
             )
@@ -48,11 +48,9 @@ class DepthAnythingV2Estimator(DepthEstimator):
         self.update_id = -1
         self.last_depths: list[float] = []
 
-        self.cache_directory = (
-            cache_directory or config.DEPTH_ANYTHING_CACHE_DIR
-        )
+        self.cache_directory = cache_directory or config.DEPTH_ANYTHING_CACHE_DIR
         self.model_name = model_name
-        
+
         logger.info(f"Loading Depth Anything V2 model: {model_name}")
         logger.info(f"Cache directory: {self.cache_directory}")
 
@@ -65,10 +63,14 @@ class DepthAnythingV2Estimator(DepthEstimator):
             model_name,
             cache_dir=self.cache_directory,
         )
-        self.model = AutoModelForDepthEstimation.from_pretrained(
-            model_name,
-            cache_dir=self.cache_directory,
-        ).to(self.device).eval()
+        self.model = (
+            AutoModelForDepthEstimation.from_pretrained(
+                model_name,
+                cache_dir=self.cache_directory,
+            )
+            .to(self.device)
+            .eval()
+        )
 
     def estimate_distance_m(
         self, frame_rgb: np.ndarray, dets: list[tuple[int, int, int, int, int, float]]
@@ -91,10 +93,10 @@ class DepthAnythingV2Estimator(DepthEstimator):
     ) -> np.ndarray:
         # Convert numpy array to PIL Image
         image = Image.fromarray(frame_rgb)
-        
+
         # Prepare inputs
         inputs = self.processor(images=image, return_tensors="pt").to(self.device)
-        
+
         with torch.no_grad():
             outputs = self.model(**inputs)
             predicted_depth = outputs.predicted_depth
@@ -107,6 +109,4 @@ class DepthAnythingV2Estimator(DepthEstimator):
         depth_map: np.ndarray,
         dets: list[tuple[int, int, int, int, int, float]],
     ) -> list[float]:
-        return calculate_distances(
-            depth_map, dets, self.region_size, self.scale_factor
-        )
+        return calculate_distances(depth_map, dets, self.region_size, self.scale_factor)
