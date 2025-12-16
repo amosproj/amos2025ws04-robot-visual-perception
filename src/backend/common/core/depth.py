@@ -274,6 +274,9 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
         self, frame_rgb: np.ndarray, output_shape: tuple[int, int]
     ) -> np.ndarray:
         input_batch = self.transform(frame_rgb)
+        _, _, h, w = input_batch.shape
+        size = max(w, h)
+        input_batch = torch.nn.functional.pad(input_batch, (0, size - w, 0, size - h))
         input_array = input_batch.detach().cpu().numpy().astype(np.float32)
         ort_inputs = {self._input_name: input_array}
         output = self._session.run([self._output_name], ort_inputs)[0]
