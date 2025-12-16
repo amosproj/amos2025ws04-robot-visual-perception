@@ -1,138 +1,242 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
+"""Model management module for downloading and exporting ML models."""
+
+import logging
+import shutil
 from pathlib import Path
 from typing import Optional
 
+import torch
 from ultralytics import YOLO  # type: ignore[import-untyped]
+
+logger = logging.getLogger(__name__)
+
+# Constants
+DEFAULT_MIDAS_MODEL = "MiDaS_small"
+DEFAULT_MIDAS_REPO = "intel-isl/MiDaS"
+PYTORCH_HUB_CACHE = Path.home() / ".cache" / "torch" / "hub"
 
 
 def ensure_yolo_model_downloaded(
     model_name: str = "yolo11n.pt",
-    cache_directory: Optional[Path] = None,
+    cache_dir: Optional[Path] = None,
 ) -> Path:
-    """Ensure YOLO model is downloaded and cached locally.
-
-    Checks if the model exists in the cache directory. If not, downloads it
-    using YOLO's built-in download mechanism. YOLO automatically downloads
-    models when you instantiate YOLO(model_name), so we trigger that and
-    then copy or reference the downloaded model.
+    """Ensure YOLO model is downloaded and cached.
 
     Args:
-        model_name: Name of the YOLO model to download (e.g., "yolo11n.pt").
-        cache_directory: Directory where models should be cached. If None,
-            uses "models" directory in the current working directory.
+        model_name: Name of the YOLO model file (e.g., 'yolo11n.pt')
+        cache_dir: Directory to save the model to
 
     Returns:
-        Path to the cached model file.
+        Path to the downloaded model file
 
-    Example:
-        >>> model_path = ensure_yolo_model_downloaded("yolo11n.pt")
-        >>> # Model is now available at model_path
+    Raises:
+        RuntimeError: If model download fails
     """
-    if cache_directory is None:
-        cache_directory = Path("models")
-    else:
-        cache_directory = Path(cache_directory)
+    if cache_dir is None:
+        cache_dir = Path.cwd() / "models"
 
-    cache_directory.mkdir(parents=True, exist_ok=True)
-    model_path = cache_directory / model_name
+    cache_dir = Path(str(cache_dir)).resolve()
+    model_path = cache_dir / model_name
 
-    if not model_path.exists():
-        print(f"Downloading YOLO model {model_name} to {model_path}...")
-        yolo_instance = YOLO(model_name)
+    # Create parent directories if they don't exist
+    model_path.parent.mkdir(parents=True, exist_ok=True)
 
-        downloaded_path = None
-        if hasattr(yolo_instance, "ckpt_path") and yolo_instance.ckpt_path:
-            downloaded_path = Path(yolo_instance.ckpt_path)
-        elif hasattr(yolo_instance, "weights") and yolo_instance.weights:
-            downloaded_path = Path(yolo_instance.weights)
+    if model_path.exists():
+        logger.info("Using cached YOLO model at %s", model_path)
+        return model_path
 
-        if (
-            downloaded_path
-            and downloaded_path.exists()
-            and downloaded_path != model_path
-        ):
-            import shutil
+    logger.info("Downloading YOLO model %s to %s...", model_name, model_path)
 
-            shutil.copy2(str(downloaded_path), str(model_path))
+    try:
+        # Download the model using Ultralytics YOLO
+        # We load it, which triggers a download if not found locally or in cwd
+        model = YOLO(model_name)
+
+        # If the model was downloaded to CWD or some other default location,
+        # we need to save it to our target location.
+        # Ultralytics usually caches in ./ or ~/.config/Ultralytics/
+        # We can force save it to our desired path.
+        if hasattr(model, "ckpt_path") and model.ckpt_path:
+            source_path = Path(model.ckpt_path)
+            if source_path != model_path:
+                shutil.copy2(source_path, model_path)
+                logger.info("Copied YOLO model to %s", model_path)
         else:
-            import shutil
+            # Fallback: save state dict or use save method
+            model.save(str(model_path))
+            logger.info("Saved YOLO model to %s", model_path)
 
-            default_cache = Path.home() / ".ultralytics" / "weights" / model_name
-            if default_cache.exists():
-                shutil.copy2(str(default_cache), str(model_path))
-            else:
-                raise RuntimeError(
-                    f"Could not locate downloaded YOLO model. "
-                    f"Expected at {downloaded_path or 'unknown location'}. "
-                    f"Please check your network connection and try again."
-                )
-        print(f"Model downloaded successfully to {model_path}")
-    else:
-        print(f"Using cached YOLO model at {model_path}")
+        return model_path
 
-    return model_path
+    except Exception as e:
+        error_msg = f"Failed to download YOLO model {model_name}: {e}"
+        logger.error(error_msg)
+        if model_path.exists():
+            try:
+                model_path.unlink()
+            except OSError:
+                pass
+        raise RuntimeError(error_msg) from e
 
 
-def get_midas_cache_directory(custom_cache_path: Optional[Path] = None) -> Path:
-    """Get the directory where MiDaS models are cached.
-
-    PyTorch Hub caches models in ~/.cache/torch/hub by default. This function
-    returns either the custom path or the default PyTorch cache location.
+def export_yolo_to_onnx(
+    yolo_path: Path,
+    output_path: Path,
+    opset: int = 18,
+    imgsz: int = 640,
+    simplify: bool = True,
+) -> Path:
+    """Export YOLO model to ONNX format.
 
     Args:
-        custom_cache_path: Custom directory for MiDaS model cache. If None,
-            uses the default PyTorch Hub cache location.
+        yolo_path: Path to the .pt model file
+        output_path: Path where the .onnx model should be saved
+        opset: ONNX opset version
+        imgsz: Image size
+        simplify: Whether to run ONNX simplifier
 
     Returns:
-        Path to the MiDaS model cache directory.
-
-    Note:
-        PyTorch Hub handles downloading and caching automatically when you call
-        torch.hub.load(). This function just returns the cache location for
-        reference or when you want to use a custom cache directory.
+        Path to the exported ONNX model
     """
-    if custom_cache_path is not None:
-        cache_path = Path(custom_cache_path)
-        cache_path.mkdir(parents=True, exist_ok=True)
-        return cache_path
+    logger.info("Exporting YOLO model to ONNX...")
+    try:
+        if not yolo_path.exists():
+            raise FileNotFoundError(f"YOLO model not found at {yolo_path}")
 
-    default_cache = Path.home() / ".cache" / "torch" / "hub"
-    return default_cache
+        model = YOLO(str(yolo_path))
+
+        # Ultralytics export saves to the same directory as the source model by default
+        # or we can specify 'project' and 'name' but it creates subdirs.
+        # Easiest is to let it export, then move if needed.
+        exported_filename = model.export(
+            format="onnx",
+            opset=opset,
+            imgsz=imgsz,
+            simplify=simplify,
+        )
+
+        exported_path = Path(exported_filename).resolve()
+
+        # Ensure directory exists
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if exported_path != output_path:
+            shutil.move(str(exported_path), str(output_path))
+            logger.info("Moved exported YOLO model to %s", output_path)
+        else:
+            logger.info("YOLO ONNX model ready at: %s", output_path)
+
+        return output_path
+
+    except Exception as e:
+        logger.error("Failed to export YOLO to ONNX: %s", e)
+        raise RuntimeError(f"YOLO export failed: {e}") from e
+
+
+def get_midas_cache_dir(custom_path: Optional[Path] = None) -> Path:
+    """Get the directory where MiDaS models are cached."""
+    if custom_path:
+        return custom_path.expanduser().resolve()
+    return PYTORCH_HUB_CACHE
 
 
 def ensure_midas_model_available(
-    model_type: str = "MiDaS_small",
-    midas_repo: str = "intel-isl/MiDaS",
-    cache_directory: Optional[Path] = None,
-) -> None:
+    model_type: str = DEFAULT_MIDAS_MODEL,
+    midas_repo: str = DEFAULT_MIDAS_REPO,
+    cache_dir: Optional[Path] = None,
+) -> Path:
     """Ensure MiDaS model is downloaded and cached.
 
-    PyTorch Hub automatically caches models, but this function explicitly
-    triggers the download if needed. The model will be cached in the
-    PyTorch Hub cache directory.
+    Args:
+        model_type: Type of MiDaS model ("MiDaS_small", "DPT_Hybrid", "DPT_Large")
+        midas_repo: Repository identifier for the MiDaS model
+        cache_dir: Custom cache directory
+
+    Returns:
+        Path to the model cache directory
+    """
+    cache_dir = get_midas_cache_dir(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        logger.info(
+            "Downloading %s model from %s to %s...", model_type, midas_repo, cache_dir
+        )
+        torch.hub.set_dir(str(cache_dir))
+
+        # This triggers download if not present
+        model = torch.hub.load(midas_repo, model_type, trust_repo=True)
+        model.eval()
+
+        logger.info("%s model is cached and ready in %s", model_type, cache_dir)
+        return cache_dir
+    except Exception as e:
+        error_msg = f"Failed to load {model_type} model from {midas_repo}: {e}"
+        logger.error(error_msg)
+        raise RuntimeError(error_msg) from e
+
+
+def get_midas_onnx_config(model_type: str) -> tuple[int, str]:
+    """Get input size and default filename for MiDaS models."""
+    config_map = {
+        "MiDaS_small": (256, "midas_small.onnx"),
+        "DPT_Hybrid": (384, "dpt_hybrid.onnx"),
+        "DPT_Large": (384, "dpt_large.onnx"),
+    }
+    # Default to 256 for basic midas if unknown, preserving old behavior or just 384
+    return config_map.get(model_type, (384, f"{model_type.lower()}.onnx"))
+
+
+def export_midas_to_onnx(
+    cache_dir: Path,
+    output_path: Path,
+    model_type: str = "MiDaS_small",
+    model_repo: str = "intel-isl/MiDaS",
+    opset: int = 18,
+    input_size: Optional[int] = None,
+) -> Path:
+    """Export MiDaS model to ONNX format.
 
     Args:
-        model_type: Type of MiDaS model ("MiDaS_small", "DPT_Hybrid", "DPT_Large").
-        midas_repo: Repository identifier for the MiDaS model.
-        cache_directory: Custom cache directory. If None, uses PyTorch Hub's
-            default cache location.
+        cache_dir: Directory with cached model
+        output_path: File path to save ONNX model
+        model_type: Type of MiDaS model
+        model_repo: Repo
+        opset: ONNX opset version
+        input_size: Optional manual input size override
 
-    Note:
-        This function loads the model to trigger download, but doesn't return it.
-        The actual model loading should be done in DistanceEstimator to avoid
-        loading models twice.
+    Returns:
+        Path to the exported ONNX model
     """
-    import torch
-
-    if cache_directory is not None:
-        torch.hub.set_dir(str(cache_directory))
-
-    print(f"Ensuring MiDaS model {model_type} is available...")
+    logger.info("Exporting %s model to ONNX...", model_type)
     try:
-        torch.hub.load(midas_repo, model_type, trust_repo=True)
-        print(f"MiDaS model {model_type} is cached and ready")
+        torch.hub.set_dir(str(cache_dir))
+        model = torch.hub.load(model_repo, model_type, trust_repo=True)
+        model.eval()
+
+        default_size, _ = get_midas_onnx_config(model_type)
+        size = input_size if input_size else default_size
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        dummy_input = torch.randn(1, 3, size, size)
+
+        torch.onnx.export(
+            model,
+            (dummy_input,),
+            str(output_path),
+            export_params=True,
+            opset_version=opset,
+            do_constant_folding=True,
+            input_names=["input"],
+            output_names=["output"],
+        )
+
+        logger.info("%s ONNX model ready at: %s", model_type, output_path)
+        return output_path
     except Exception as e:
-        print(f"Warning: Could not pre-load MiDaS model: {e}")
-        print("Model will be downloaded on first use")
+        logger.error("Failed to export %s to ONNX: %s", model_type, e)
+        raise RuntimeError(f"MiDaS export failed: {e}") from e

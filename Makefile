@@ -12,7 +12,9 @@
 	run-backend-local run-frontend-local \
 	docker-build docker-build-frontend docker-build-backend \
 	docker-build-analyzer docker-build-analyzer-cuda docker-build-analyzer-rocm \
-	docker-compose-up docker-compose-down
+	docker-compose-up docker-compose-down \
+	download-models download-models-onnx export-onnx \
+	download-yolo download-midas export-yolo-onnx export-midas-onnx
 
 help:
 	@echo "make"
@@ -78,6 +80,10 @@ help:
 	@echo "      exports YOLO to ONNX (default opset 18; honors MODEL_PATH/ONNX_MODEL_PATH)"
 	@echo "  export-midas-onnx"
 	@echo "      exports MiDaS to ONNX (default opset 18; honors MIDAS_* env vars)"
+	@echo "  download-models"
+	@echo "      downloads YOLO and MiDaS models to src/backend/models/"
+	@echo "  download-models-onnx"
+	@echo "      downloads YOLO and MiDaS models, exports both to ONNX format"
 
 dev: install
 
@@ -180,10 +186,57 @@ sbom-check:
 	@echo "Checking if SBOM is up-to-date..."
 	@uv run python scripts/generate_sbom.py --check
 
-export-onnx:
-	@echo "Exporting YOLO model to ONNX (default opset 18)..."
-	cd src/backend && uv run python ../../scripts/export_onnx.py
+# Model management targets
+MODELS_DIR = models
+MIDAS_CACHE = $(MODELS_DIR)/midas_cache
+MIDAS_MODEL = MiDaS_small
+
+# Get the absolute path to the project root
+PROJECT_ROOT := $(shell pwd)
+
+# Export models to ONNX
+export-onnx: export-yolo-onnx export-midas-onnx
+
+export-yolo-onnx:
+	@echo "Exporting YOLO model to ONNX..."
+	@mkdir -p $(MODELS_DIR)
+	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --models yolo \
+	  --yolo-model $(MODELS_DIR)/yolo11n.pt \
+	  --export-onnx \
+	  --output-dir $(MODELS_DIR)
 
 export-midas-onnx:
-	@echo "Exporting MiDaS model to ONNX (default opset 18)..."
-	cd src/backend && uv run python ../../scripts/export_midas_onnx.py
+	@echo "Exporting MiDaS model to ONNX..."
+	@mkdir -p $(MIDAS_CACHE)
+	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --models midas \
+	  --midas-model-type $(MIDAS_MODEL) \
+	  --midas-cache $(MIDAS_CACHE) \
+	  --export-onnx \
+	  --output-dir $(MODELS_DIR)
+
+# Download models
+download-models: download-yolo download-midas
+
+download-yolo:
+	@echo "Downloading YOLO model..."
+	@mkdir -p $(MODELS_DIR)
+	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --models yolo \
+	  --yolo-model $(MODELS_DIR)/yolo11n.pt \
+	  --output-dir $(MODELS_DIR)
+
+download-midas:
+	@echo "Downloading MiDaS model..."
+	@echo "Available model types: MiDaS_small (default), DPT_Hybrid, DPT_Large"
+	@mkdir -p $(MIDAS_CACHE)
+	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --models midas \
+	  --midas-model-type $(MIDAS_MODEL) \
+	  --midas-cache $(MIDAS_CACHE) \
+	  --output-dir $(MODELS_DIR)
+
+# Combined download and export
+# Export implies download, so we just need export
+download-models-onnx: export-onnx
