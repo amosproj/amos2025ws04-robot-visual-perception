@@ -26,7 +26,7 @@ function App() {
   );
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.3);
   const prevAnalyzerConnectedRef = useRef(false);
-  const hasAutoSelectedRef = useRef(false);
+  const autoSelectedClassesRef = useRef<Set<number>>(new Set());
 
   // WebRTC connection to webcam service (for raw video)
   const {
@@ -109,6 +109,7 @@ function App() {
   useEffect(() => {
     if (isPaused && videoPlayerRef.current) {
       setSelectedClasses(new Set());
+      autoSelectedClassesRef.current = new Set();
     }
   }, [isPaused]);
 
@@ -120,42 +121,42 @@ function App() {
         setSelectedClasses(new Set());
       }
       setSelectedClasses(new Set());
-      hasAutoSelectedRef.current = false; // Reset for next connection
+      autoSelectedClassesRef.current = new Set(); // Reset for next connection
     }
     prevAnalyzerConnectedRef.current = analyzerConnected;
   }, [analyzerConnected]);
 
-  // Auto-select all detected classes when first metadata arrives after analyzer connects
+  // Auto-select any newly detected classes (default "select all" behavior)
   useEffect(() => {
     if (
       analyzerConnected &&
       thresholdedDetections &&
       videoState === 'connected' &&
-      !hasAutoSelectedRef.current &&
-      selectedClasses.size === 0 &&
       thresholdedDetections.length > 0
     ) {
-      // Auto-select all classes from the first frame (only once per connection)
-      const allClasses = new Set(
-        thresholdedDetections
-          .map((d) => {
-            const classId =
-              typeof d.label === 'string' ? parseInt(d.label, 10) : d.label;
-            return classId;
-          })
-          .filter((id) => !isNaN(id))
-      );
-      if (allClasses.size > 0) {
-        setSelectedClasses(allClasses);
-        hasAutoSelectedRef.current = true; // Mark as completed
+      const newClassIds: number[] = [];
+
+      thresholdedDetections.forEach((detection) => {
+        const classId =
+          typeof detection.label === 'string'
+            ? parseInt(detection.label, 10)
+            : detection.label;
+
+        if (!isNaN(classId) && !autoSelectedClassesRef.current.has(classId)) {
+          autoSelectedClassesRef.current.add(classId);
+          newClassIds.push(classId);
+        }
+      });
+
+      if (newClassIds.length > 0) {
+        setSelectedClasses((prev) => {
+          const updated = new Set(prev);
+          newClassIds.forEach((id) => updated.add(id));
+          return updated;
+        });
       }
     }
-  }, [
-    analyzerConnected,
-    thresholdedDetections,
-    videoState,
-    selectedClasses.size,
-  ]);
+  }, [analyzerConnected, thresholdedDetections, videoState]);
 
   // Clear overlay when video disconnects, but keep user selections
   useEffect(() => {
@@ -163,8 +164,8 @@ function App() {
       if (videoPlayerRef.current) {
         videoPlayerRef.current.updateOverlay(null as any);
       }
-      // Allow auto-select to run again on reconnect if nothing is selected
-      hasAutoSelectedRef.current = false;
+      // Allow auto-select to run again on reconnect
+      autoSelectedClassesRef.current = new Set();
     }
   }, [videoState]);
 
