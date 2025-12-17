@@ -13,14 +13,6 @@ from common.config import config
 from common.core.contracts import DepthEstimator
 from common.core.depth_utils import calculate_distances, resize_to_frame
 
-try:
-    from common.core.depth_anything import DepthAnythingV2Estimator
-except ImportError:
-    # This might happen if transformers is missing, but depth_anything.py will handle it
-    # OR we can just import it safely if we fix depth_anything.py
-    # We will fix depth_anything.py to not raise ImportError on module load
-    DepthAnythingV2Estimator = None  # type: ignore
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -267,12 +259,10 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
 register_depth_backend("torch", MiDasDepthEstimator)
 register_depth_backend("onnx", OnnxMiDasDepthEstimator)
 
+try:
+    from common.core.depth_anything import DepthAnythingV2Estimator
+    register_depth_backend("depth_anything_v2", DepthAnythingV2Estimator)
+except ImportError:
+    pass
 
-def _create_depth_anything(
-    cache_directory: Optional[Path] = None,
-) -> DepthEstimator:
-    # transformers availability is checked inside DepthAnythingV2Estimator
-    return DepthAnythingV2Estimator(cache_directory)
 
-
-register_depth_backend("depth_anything_v2", _create_depth_anything)
