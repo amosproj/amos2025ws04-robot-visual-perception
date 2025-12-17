@@ -79,7 +79,7 @@ class VideoFileTrack(VideoStreamTrack):
         self.cap = cv2.VideoCapture(self.video_path)
         if not self.cap.isOpened():
             raise RuntimeError(f"Failed to open video file: {self.video_path}")
-        
+
         # Get the video's native FPS
         fps = self.cap.get(cv2.CAP_PROP_FPS)
         if fps > 0:
@@ -108,7 +108,7 @@ class VideoFileTrack(VideoStreamTrack):
         # Calculate delay to match video's native FPS
         frame_duration = 1.0 / self._video_fps
         await asyncio.sleep(frame_duration)
-        
+
         # Get next WebRTC timestamp with proper time_base for the video FPS
         pts, time_base = await self.next_timestamp()
 
