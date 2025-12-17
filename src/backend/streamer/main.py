@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from common import __version__
 from common.config import config
-from webcam.routes import router, on_shutdown
+from streamer.routes import router, on_shutdown
 
 
 @asynccontextmanager
@@ -22,9 +22,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     """App factory to avoid import-time side effects in tests."""
     app = FastAPI(
-        title="Webcam Mock Service",
+        title="Streamer Mock Service",
         version=__version__,
-        description="Webcam service for development that streams local webcam over WebRTC",
+        description="Streamer service for development that streams local video over WebRTC",
         lifespan=lifespan,
     )
 
