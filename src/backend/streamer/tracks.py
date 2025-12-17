@@ -68,16 +68,22 @@ class VideoFileTrack(VideoStreamTrack):
         self.video_path = video_path
         self.cap: cv2.VideoCapture | None = None
         self._lock = threading.Lock()
+        self._video_fps: float = 30.0  # Default FPS
         self._open_video()
 
     def _open_video(self) -> None:
-        """Open the video file."""
+        """Open the video file and extract FPS."""
         if not os.path.exists(self.video_path):
             raise FileNotFoundError(f"Video file not found: {self.video_path}")
 
         self.cap = cv2.VideoCapture(self.video_path)
         if not self.cap.isOpened():
             raise RuntimeError(f"Failed to open video file: {self.video_path}")
+        
+        # Get the video's native FPS
+        fps = self.cap.get(cv2.CAP_PROP_FPS)
+        if fps > 0:
+            self._video_fps = fps
 
     def _read_frame(self) -> np.ndarray | None:
         """Read a frame from the video file, loop if at end."""
@@ -99,7 +105,11 @@ class VideoFileTrack(VideoStreamTrack):
 
     async def recv(self) -> VideoFrame:
         """Return the next video frame as WebRTC VideoFrame."""
-        # get next WebRTC timestamp
+        # Calculate delay to match video's native FPS
+        frame_duration = 1.0 / self._video_fps
+        await asyncio.sleep(frame_duration)
+        
+        # Get next WebRTC timestamp with proper time_base for the video FPS
         pts, time_base = await self.next_timestamp()
 
         # Read frame in executor to avoid blocking
