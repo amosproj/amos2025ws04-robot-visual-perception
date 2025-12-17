@@ -21,6 +21,8 @@ from common.utils.geometry import (
     unproject_bbox_center_to_camera,
 )
 
+logger = logging.getLogger("analyzer")
+
 
 class MetadataMessage(BaseModel):
     """Metadata message model."""
@@ -94,7 +96,7 @@ class AnalyzerWebSocketManager:
             )
 
         except Exception as e:
-            logging.error(f"Error starting processing: {e}")
+            logger.error("Error starting processing", extra={"error": str(e)})
             await self._stop_processing()
 
     async def _stop_processing(self) -> None:
@@ -132,17 +134,18 @@ class AnalyzerWebSocketManager:
                         frame = await asyncio.wait_for(source_track.recv(), timeout=5.0)
                         consecutive_errors = 0  # Reset error counter on success
                     except asyncio.TimeoutError:
-                        logging.warning("Frame receive timeout, skipping...")
+                        logger.warning("Frame receive timeout, skipping")
                         consecutive_errors += 1
 
                         if consecutive_errors >= self.max_consecutive_errors:
-                            logging.error(
-                                "Too many consecutive timeouts, reconnecting..."
+                            logger.error(
+                                "Too many consecutive timeouts, reconnecting",
+                                extra={"consecutive_errors": consecutive_errors},
                             )
                             raise Exception("WebRTC connection appears unstable")
                         continue
                     except Exception:
-                        logging.warning(
+                        logger.warning(
                             "source_track broke / ended, attempting reconnect..."
                         )
                         consecutive_errors += 1
@@ -153,14 +156,19 @@ class AnalyzerWebSocketManager:
                                 await self._webcam_session.close()
                             await asyncio.sleep(1.0)
                             try:
-                                logging.info("Reconnecting webcam session...")
+                                logger.info(
+                                    "Reconnecting webcam session",
+                                    extra={"attempt": consecutive_errors},
+                                )
                                 if self._webcam_session is not None:
                                     new_track = await self._webcam_session.connect()
                                     source_track = new_track
                                     consecutive_errors = 0
                                     continue
                             except Exception as conn_err:
-                                logging.error("Reconnect failed:", conn_err)
+                                logger.exception(
+                                    "Reconnect failed", extra={"error": str(conn_err)}
+                                )
                                 raise  # let the outer loop terminate
                         await asyncio.sleep(0.1)
                         continue
@@ -169,8 +177,9 @@ class AnalyzerWebSocketManager:
                     try:
                         frame_array = frame.to_ndarray(format="bgr24")  # type: ignore[union-attr]
                     except AttributeError:
-                        logging.warning(
-                            f"Received frame without to_ndarray method: {type(frame)}"
+                        logger.warning(
+                            "Received frame without to_ndarray method",
+                            extra={"frame_type": str(type(frame))},
                         )
                         continue
 
@@ -194,8 +203,12 @@ class AnalyzerWebSocketManager:
                         target_scale = max(
                             self.min_scale, min(self.max_scale, target_scale)
                         )
-                        print(
-                            f"[Adaptive Res] Scale={target_scale:.2f} | FPS={current_fps:.1f}"
+                        logger.info(
+                            "adaptive_resolution_update",
+                            extra={
+                                "scale": round(target_scale, 2),
+                                "fps": round(current_fps, 1),
+                            },
                         )
 
                     # Resize frame for processing
@@ -237,13 +250,13 @@ class AnalyzerWebSocketManager:
                     # await asyncio.sleep(0.033)  # ~30 FPS processing
 
                 except Exception as e:
-                    logging.warning(f"Frame processing error: {e}")
+                    logger.warning("Frame processing error", extra={"error": str(e)})
                     await asyncio.sleep(0.1)
 
         except asyncio.CancelledError:
-            logging.warning("Frame processing cancelled")
+            logger.warning("Frame processing cancelled")
         except Exception as e:
-            logging.warning(f"Processing task error: {e}")
+            logger.warning("Processing task error", extra={"error": str(e)})
 
     async def _send_metadata(self, metadata: MetadataMessage) -> None:
         """Send metadata to all active WebSocket clients."""
@@ -274,8 +287,16 @@ class AnalyzerWebSocketManager:
         fx, fy, cx, cy = compute_camera_intrinsics(w, h)
 
         if not self._intrinsics_logged and getattr(config, "LOG_INTRINSICS", False):
-            logging.info(
-                f"intrinsics fx={fx:.2f} fy={fy:.2f} cx={cx:.2f} cy={cy:.2f} (frame {w}x{h})"
+            logger.info(
+                "camera_intrinsics",
+                extra={
+                    "fx": round(fx, 2),
+                    "fy": round(fy, 2),
+                    "cx": round(cx, 2),
+                    "cy": round(cy, 2),
+                    "frame_width": w,
+                    "frame_height": h,
+                },
             )
             self._intrinsics_logged = True
 
