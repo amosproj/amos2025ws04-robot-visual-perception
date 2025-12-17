@@ -318,7 +318,7 @@ class AnalyzerWebSocketManager:
             # Check sample rate (skip frames to save compute if FPS is low)
             sample_rate = 2 if state.current_fps < self.fps_threshold else 4
             should_detect = state.frame_id % sample_rate == 0
-            
+
             if not should_detect:
                 return
 
