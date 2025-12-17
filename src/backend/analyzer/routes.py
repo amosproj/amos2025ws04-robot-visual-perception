@@ -18,6 +18,7 @@ from common.utils.geometry import (
     compute_camera_intrinsics,
     unproject_bbox_center_to_camera,
 )
+from typing import Any
 
 
 class MetadataMessage(BaseModel):
@@ -114,7 +115,11 @@ class AnalyzerWebSocketManager:
         detector = get_detector()
         estimator = get_depth_estimator()
 
+        # Shared state between frame receiver and processor
         frame_id = 0
+        latest_frame: tuple[int, Any] | None = None  # (frame_id, frame_array)
+        frame_lock = asyncio.Lock()
+        
         last_fps_time = asyncio.get_event_loop().time()
         fps_counter = 0
         current_fps = 30.0
@@ -122,56 +127,69 @@ class AnalyzerWebSocketManager:
 
         target_scale = self.target_scale_init
 
-        try:
+        # Separate task for continuously receiving frames
+        async def frame_receiver():
+            nonlocal frame_id, latest_frame, consecutive_errors, source_track
+            
             while self.active_connections:
                 try:
-                    # Get frame from webcam
-                    try:
-                        frame = await asyncio.wait_for(source_track.recv(), timeout=5.0)
-                        frame_id += 1
-                        consecutive_errors = 0  # Reset error counter on success
-                    except asyncio.TimeoutError:
-                        logging.warning("Frame receive timeout, skipping...")
-                        consecutive_errors += 1
-
-                        if consecutive_errors >= self.max_consecutive_errors:
-                            logging.error(
-                                "Too many consecutive timeouts, reconnecting..."
-                            )
-                            raise Exception("WebRTC connection appears unstable")
-                        continue
-                    except Exception:
-                        logging.warning(
-                            "source_track broke / ended, attempting reconnect..."
-                        )
-                        consecutive_errors += 1
-
-                        if consecutive_errors >= self.max_consecutive_errors:
-                            # full reconnect
-                            if self._webcam_session is not None:
-                                await self._webcam_session.close()
-                            await asyncio.sleep(1.0)
-                            try:
-                                logging.info("Reconnecting webcam session...")
-                                if self._webcam_session is not None:
-                                    new_track = await self._webcam_session.connect()
-                                    source_track = new_track
-                                    consecutive_errors = 0
-                                    continue
-                            except Exception as conn_err:
-                                logging.error("Reconnect failed:", conn_err)
-                                raise  # let the outer loop terminate
-                        await asyncio.sleep(0.1)
-                        continue
-
-                    # Convert frame to numpy array - frame should be VideoFrame from aiortc
+                    # Always receive frames to keep frame_id in sync with video stream
+                    frame = await asyncio.wait_for(source_track.recv(), timeout=5.0)
+                    frame_id += 1
+                    consecutive_errors = 0
+                    
+                    # Convert to numpy array
                     try:
                         frame_array = frame.to_ndarray(format="bgr24")  # type: ignore[union-attr]
                     except AttributeError:
-                        logging.warning(
-                            f"Received frame without to_ndarray method: {type(frame)}"
-                        )
+                        logging.warning(f"Received frame without to_ndarray method: {type(frame)}")
                         continue
+                    
+                    # Store latest frame with its frame_id
+                    async with frame_lock:
+                        latest_frame = (frame_id, frame_array)
+                    
+                except asyncio.TimeoutError:
+                    logging.warning("Frame receive timeout, skipping...")
+                    consecutive_errors += 1
+                    if consecutive_errors >= self.max_consecutive_errors:
+                        logging.error("Too many consecutive timeouts, reconnecting...")
+                        raise Exception("WebRTC connection appears unstable")
+                    continue
+                except Exception as e:
+                    logging.warning(f"Frame receiver error: {e}")
+                    consecutive_errors += 1
+                    if consecutive_errors >= self.max_consecutive_errors:
+                        # full reconnect
+                        if self._webcam_session is not None:
+                            await self._webcam_session.close()
+                        await asyncio.sleep(1.0)
+                        try:
+                            logging.info("Reconnecting webcam session...")
+                            if self._webcam_session is not None:
+                                new_track = await self._webcam_session.connect()
+                                source_track = new_track
+                                consecutive_errors = 0
+                                continue
+                        except Exception as conn_err:
+                            logging.error(f"Reconnect failed: {conn_err}")
+                            raise
+                    await asyncio.sleep(0.1)
+                    continue
+
+        # Start frame receiver task
+        receiver_task = asyncio.create_task(frame_receiver())
+
+        try:
+            while self.active_connections:
+                try:
+                    # Get latest frame from receiver
+                    async with frame_lock:
+                        if latest_frame is None:
+                            await asyncio.sleep(0.01)
+                            continue
+                        current_frame_id, frame_array = latest_frame
+                        latest_frame = None  # Mark as consumed
 
                     fps_counter += 1
 
@@ -206,8 +224,8 @@ class AnalyzerWebSocketManager:
 
                     sample_rate = 2 if current_fps < self.fps_threshold else 4
 
-                    # Run ML inference every 3rd frame and collect detections
-                    if not self.active_connections or frame_id % sample_rate != 0:
+                    # Run ML inference with adaptive frame dropping
+                    if not self.active_connections or current_frame_id % sample_rate != 0:
                         continue
 
                     # YOLO detection
@@ -224,12 +242,13 @@ class AnalyzerWebSocketManager:
                         detections=detections,
                         distances=distances,
                         timestamp=current_time,
-                        frame_id=frame_id + 1,  # type: ignore[union-attr]
+                        frame_id=current_frame_id,
                         current_fps=current_fps,
                     )
 
                     # Create and send metadata message
                     await self._send_metadata(metadata)
+                    print(f"Sent metadata for frame {current_frame_id}, {len(detections)} detections")
 
                     # Small delay to prevent overwhelming
                     # await asyncio.sleep(0.033)  # ~30 FPS processing
@@ -242,6 +261,13 @@ class AnalyzerWebSocketManager:
             logging.warning("Frame processing cancelled")
         except Exception as e:
             logging.warning(f"Processing task error: {e}")
+        finally:
+            # Cancel frame receiver task
+            receiver_task.cancel()
+            try:
+                await receiver_task
+            except asyncio.CancelledError:
+                pass
 
     async def _send_metadata(self, metadata: MetadataMessage) -> None:
         """Send metadata to all active WebSocket clients."""
