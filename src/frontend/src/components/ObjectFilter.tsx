@@ -15,6 +15,10 @@ export interface ObjectFilterProps {
   selectedClasses: Set<number>;
   /** Callback when selection changes */
   onSelectionChange: (selectedClasses: Set<number>) => void;
+  /** Current confidence threshold (0-1) */
+  confidenceThreshold: number;
+  /** Callback when confidence threshold changes */
+  onConfidenceThresholdChange: (threshold: number) => void;
   /** Whether the widget is currently open */
   isOpen: boolean;
   /** Callback to toggle widget visibility */
@@ -99,6 +103,8 @@ function ObjectFilter({
   detections,
   selectedClasses,
   onSelectionChange,
+  confidenceThreshold,
+  onConfidenceThresholdChange,
   isOpen,
   onToggle,
   isAnalyzerConnected,
@@ -186,6 +192,14 @@ function ObjectFilter({
     onClearAll?.();
   }, [onSelectionChange, onClearAll]);
 
+  const handleConfidenceChange = useCallback(
+    (value: number) => {
+      const clamped = Math.min(1, Math.max(0, value));
+      onConfidenceThresholdChange(clamped);
+    },
+    [onConfidenceThresholdChange]
+  );
+
   const hasDetections = detectedClasses.length > 0;
   const allSelected =
     hasDetections && selectedClasses.size === detectedClasses.length;
@@ -226,6 +240,32 @@ function ObjectFilter({
                 {noneSelected
                   ? 'No objects visible'
                   : `${selectedClasses.size} class${selectedClasses.size !== 1 ? 'es' : ''} selected`}
+              </p>
+            </div>
+
+            {/* Low confidence filter */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between text-xs text-[#e0e0e0] mb-1">
+                <span>Low-confidence filter</span>
+                <span className="text-[#00d4ff] font-mono">
+                  {Math.round(confidenceThreshold * 100)}%+
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={confidenceThreshold}
+                onChange={(e) =>
+                  handleConfidenceChange(parseFloat(e.target.value))
+                }
+                disabled={!isVideoConnected}
+                className="w-full accent-[#00d4ff] cursor-pointer disabled:cursor-not-allowed"
+              />
+              <p className="text-[#666] text-[11px] mt-1">
+                Hide detections below this confidence to keep metadata in sync
+                with trusted boxes.
               </p>
             </div>
 
