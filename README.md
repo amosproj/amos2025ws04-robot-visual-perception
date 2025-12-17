@@ -64,7 +64,7 @@ Open the shown URL in your console.
 
 ## Model Management
 ```bash
-# Download all models
+# Download default models (YOLO pt, MiDaS cache)
 make download-models
 
 # Download and export to ONNX
@@ -102,7 +102,6 @@ cd src/backend && uv run python -m analyzer.cli \
 Available CLI flags:
 - `--yolo-model-path`: Path to YOLO model file (e.g., `yolo11n.pt`; `yolov8n.pt` still works)
 - `--midas-model-path`: Path to MiDaS model cache directory
-- `--dev`: Enable development mode (auto-downloads models if not cached)
 - `--host`: Host to bind to (default: `0.0.0.0`)
 - `--port`: Port to bind to (default: `8001`)
 - `--reload`: Enable auto-reload for development
