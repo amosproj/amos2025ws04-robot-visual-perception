@@ -139,9 +139,9 @@ class AnalyzerWebSocketManager:
                     frame_id += 1
                     consecutive_errors = 0
                     
-                    # Convert to numpy array
+                    # Convert to numpy array and copy to avoid race conditions
                     try:
-                        frame_array = frame.to_ndarray(format="bgr24")  # type: ignore[union-attr]
+                        frame_array = frame.to_ndarray(format="bgr24").copy()  # type: ignore[union-attr]
                     except AttributeError:
                         logging.warning(f"Received frame without to_ndarray method: {type(frame)}")
                         continue
@@ -194,8 +194,6 @@ class AnalyzerWebSocketManager:
                             continue
                         current_frame_id, frame_array = latest_frame
 
-                    fps_counter += 1
-
                     # Calculate FPS every second
                     current_time = asyncio.get_event_loop().time()
                     if current_time - last_fps_time >= 1.0:
@@ -217,7 +215,13 @@ class AnalyzerWebSocketManager:
                             f"[Adaptive Res] Scale={target_scale:.2f} | FPS={current_fps:.1f}"
                         )
 
-                    # Resize frame for processing
+                    sample_rate = 2 if current_fps < self.fps_threshold else 4
+
+                    # Run ML inference with adaptive frame dropping
+                    if not self.active_connections or current_frame_id % sample_rate != 0:
+                        continue
+
+                    # Only resize and process frames that pass sample_rate check
                     if target_scale < 0.98:
                         new_w = int(frame_array.shape[1] * target_scale)
                         new_h = int(frame_array.shape[0] * target_scale)
@@ -225,11 +229,7 @@ class AnalyzerWebSocketManager:
                     else:
                         frame_small = frame_array
 
-                    sample_rate = 2 if current_fps < self.fps_threshold else 4
-
-                    # Run ML inference with adaptive frame dropping
-                    if not self.active_connections or current_frame_id % sample_rate != 0:
-                        continue
+                    fps_counter += 1  # Only count frames that are actually processed
 
                     # YOLO detection
                     detections = await detector.infer(frame_small)
