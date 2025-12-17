@@ -3,12 +3,22 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 import numpy as np
 
-# Common detection tuple: (x1, y1, x2, y2, class_id, confidence)
-Detection = tuple[int, int, int, int, int, float]
+
+@dataclass
+class Detection:
+    """Raw detection from object detector."""
+
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+    cls_id: int
+    confidence: float
 
 
 @runtime_checkable

@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 from common.config import config
-from common.core.contracts import DepthEstimator
+from common.core.contracts import DepthEstimator, Detection
 
 import logging
 
@@ -121,7 +121,7 @@ class _BaseMiDasDepthEstimator(DepthEstimator):
         self.transform = self._load_transform()
 
     def estimate_distance_m(
-        self, frame_rgb: np.ndarray, dets: list[tuple[int, int, int, int, int, float]]
+        self, frame_rgb: np.ndarray, dets: list[Detection]
     ) -> list[float]:
         """Estimate distance in meters for each detection based on depth map."""
         self.update_id += 1
@@ -153,13 +153,13 @@ class _BaseMiDasDepthEstimator(DepthEstimator):
     def _distances_from_depth_map(
         self,
         depth_map: np.ndarray,
-        dets: list[tuple[int, int, int, int, int, float]],
+        dets: list[Detection],
     ) -> list[float]:
         h, w = depth_map.shape
         distances: list[float] = []
-        for x1, y1, x2, y2, _cls_id, _conf in dets:
-            cx = int((x1 + x2) / 2)
-            cy = int((y1 + y2) / 2)
+        for det in dets:
+            cx = int((det.x1 + det.x2) / 2)
+            cy = int((det.y1 + det.y2) / 2)
             half_size = self.region_size // 2
             x_start = max(cx - half_size, 0)
             x_end = min(cx + half_size + 1, w)
