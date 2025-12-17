@@ -119,6 +119,7 @@ class AnalyzerWebSocketManager:
         frame_id = 0
         latest_frame: tuple[int, Any] | None = None  # (frame_id, frame_array)
         frame_lock = asyncio.Lock()
+        frame_ready = asyncio.Event()
         
         last_fps_time = asyncio.get_event_loop().time()
         fps_counter = 0
@@ -148,6 +149,7 @@ class AnalyzerWebSocketManager:
                     # Store latest frame with its frame_id
                     async with frame_lock:
                         latest_frame = (frame_id, frame_array)
+                        frame_ready.set()
                     
                 except asyncio.TimeoutError:
                     logging.warning("Frame receive timeout, skipping...")
@@ -183,13 +185,14 @@ class AnalyzerWebSocketManager:
         try:
             while self.active_connections:
                 try:
-                    # Get latest frame from receiver
+                    # Wait for new frame from receiver
+                    await frame_ready.wait()
+                    frame_ready.clear()
+                    
                     async with frame_lock:
                         if latest_frame is None:
-                            await asyncio.sleep(0.01)
                             continue
                         current_frame_id, frame_array = latest_frame
-                        latest_frame = None  # Mark as consumed
 
                     fps_counter += 1
 
