@@ -311,10 +311,18 @@ class AnalyzerWebSocketManager:
         try:
             loop = asyncio.get_running_loop()
 
-            # YOLO detection (async)
+            # Check active connections
             if not self.active_connections:
                 return
 
+            # Check sample rate (skip frames to save compute if FPS is low)
+            sample_rate = 2 if state.current_fps < self.fps_threshold else 4
+            should_detect = state.frame_id % sample_rate == 0
+            
+            if not should_detect:
+                return
+
+            # YOLO detection (async)
             detections = await detector.infer(frame_small)
             if not detections:
                 return
