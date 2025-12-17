@@ -60,8 +60,11 @@ def create_app(
     Args:
         yolo_model_path: Path to YOLO model file. If None, uses config default.
         midas_cache_directory: Path to MiDaS model cache directory. If None,
-            uses PyTorch Hub default cache location.
+            uses config default (models/midas_cache).
     """
+    if midas_cache_directory is None:
+        midas_cache_directory = config.MIDAS_CACHE_DIR
+
     lifespan_context = create_lifespan(yolo_model_path, midas_cache_directory)
 
     app = FastAPI(

@@ -72,10 +72,15 @@ export interface VideoOverlayHandle {
 const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
   ({ videoRef, isPaused, onFrameProcessed, style }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const metadataRef = useRef<MetadataFrame | null>(null);
+    const metadataBufferRef = useRef<MetadataFrame[]>([]);
     const animationFrameRef = useRef<number>();
+    const videoFrameCallbackRef = useRef<number>();
     const fpsCounterRef = useRef({ lastTime: 0, frames: 0, fps: 0 });
-    const lastRenderedTimestamp = useRef<number>(0);
+    const timeOffsetRef = useRef<number | null>(null);
+    const lastRenderedRef = useRef<{
+      metadata: MetadataFrame;
+      mediaTimeMs: number;
+    } | null>(null);
     const lastLayoutRef = useRef({
       width: 0,
       height: 0,
@@ -200,11 +205,96 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
     // Expose methods to parent component
     useImperativeHandle(ref, () => ({
       updateMetadata: (metadata: MetadataFrame) => {
-        metadataRef.current = metadata;
+        if (!metadata) {
+          metadataBufferRef.current = [];
+          timeOffsetRef.current = null;
+          lastRenderedRef.current = null;
+
+          // Clear canvas immediately to avoid stale boxes when no frames render
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.setTransform(1, 0, 0, 1, 0, 0);
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+          }
+          return;
+        }
+
+        const safeTimestamp =
+          typeof metadata.timestamp === 'number' &&
+          !Number.isNaN(metadata.timestamp)
+            ? metadata.timestamp
+            : Date.now();
+        const normalized: MetadataFrame = {
+          ...metadata,
+          timestamp: safeTimestamp,
+        };
+
+        const buffer = metadataBufferRef.current;
+
+        // Replace existing frameId if present to avoid duplicates
+        const existingIndex = buffer.findIndex(
+          (m) => m.frameId === normalized.frameId
+        );
+        if (existingIndex !== -1) {
+          buffer[existingIndex] = normalized;
+        } else {
+          buffer.push(normalized);
+        }
+
+        // Keep buffer sorted by timestamp to make matching predictable
+        buffer.sort((a, b) => a.timestamp - b.timestamp);
+
+        // Trim buffer to avoid unbounded growth
+        const MAX_BUFFER = 120;
+        if (buffer.length > MAX_BUFFER) {
+          buffer.splice(0, buffer.length - MAX_BUFFER);
+        }
+
+        metadataBufferRef.current = buffer;
       },
     }));
 
-    // Main render loop
+    const pickMetadataForTime = (mediaTimeMs: number) => {
+      const buffer = metadataBufferRef.current;
+      if (!buffer.length) return null;
+
+      const normalizeTimestamp = (frameTimestamp: number) => {
+        if (timeOffsetRef.current == null) {
+          timeOffsetRef.current = frameTimestamp - mediaTimeMs;
+        }
+        return frameTimestamp - timeOffsetRef.current;
+      };
+
+      let bestIndex = -1;
+      let bestDelta = Number.POSITIVE_INFINITY;
+
+      buffer.forEach((frame, idx) => {
+        const adjustedTimestamp = normalizeTimestamp(frame.timestamp);
+        const delta = Math.abs(adjustedTimestamp - mediaTimeMs);
+        if (delta < bestDelta) {
+          bestDelta = delta;
+          bestIndex = idx;
+        }
+      });
+
+      // Only accept if within tolerance window
+      const TOLERANCE_MS = 120;
+      if (bestIndex === -1 || bestDelta > TOLERANCE_MS) {
+        return null;
+      }
+
+      const match = buffer[bestIndex];
+
+      // Drop frames up to and including the one we used to prevent reuse
+      metadataBufferRef.current = buffer.slice(bestIndex + 1);
+
+      return match;
+    };
+
+    // Main render loop driven by video frames (with RAF fallback)
     useEffect(() => {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -234,7 +324,12 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
 
       updateCanvasSize();
 
-      const render = (currentTime: number) => {
+      const clearCanvas = () => {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      };
+
+      const renderOverlay = (mediaTimeMs: number, perfTimeMs: number) => {
         // Keep canvas aligned with the actually drawn video area (handles zoom/fullscreen/object-fit)
         updateCanvasSize();
 
@@ -242,139 +337,175 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         const canvasWidth = lastLayoutRef.current.width;
         const canvasHeight = lastLayoutRef.current.height;
 
-        const metadata = metadataRef.current;
+        const HOLD_LAST_MS = 150; // keep last overlay briefly to reduce flicker
 
-        // Don't render bounding boxes if video is paused or no metadata
-        if (
-          !metadata ||
-          metadata.timestamp === lastRenderedTimestamp.current ||
-          isPaused
-        ) {
-          // If paused, clear the canvas but keep the animation loop running for when it resumes
-          if (isPaused) {
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        let metadata = isPaused ? null : pickMetadataForTime(mediaTimeMs);
+
+        // If no fresh metadata, try to reuse last rendered frame within a short window
+        if (!metadata && lastRenderedRef.current) {
+          const age = mediaTimeMs - lastRenderedRef.current.mediaTimeMs;
+          if (age >= 0 && age <= HOLD_LAST_MS) {
+            metadata = lastRenderedRef.current.metadata;
           }
-          animationFrameRef.current = requestAnimationFrame(render);
-          return;
         }
 
-        lastRenderedTimestamp.current = metadata.timestamp;
+        // Clear when paused or nothing usable
+        if (!metadata) {
+          clearCanvas();
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          lastRenderedRef.current = null;
+        } else {
+          clearCanvas();
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        // Clear canvas
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          metadata.detections.forEach((detection, index) => {
+            const { box, label, confidence, distance } = detection;
 
-        metadata.detections.forEach((detection, index) => {
-          const { box, label, confidence, distance } = detection;
+            const rawX = box.x * canvasWidth;
+            const rawY = box.y * canvasHeight;
+            const rawWidth = box.width * canvasWidth;
+            const rawHeight = box.height * canvasHeight;
 
-          const rawX = box.x * canvasWidth;
-          const rawY = box.y * canvasHeight;
-          const rawWidth = box.width * canvasWidth;
-          const rawHeight = box.height * canvasHeight;
+            const bboxX = clamp(rawX, 0, canvasWidth);
+            const bboxY = clamp(rawY, 0, canvasHeight);
+            const bboxMaxX = clamp(rawX + rawWidth, 0, canvasWidth);
+            const bboxMaxY = clamp(rawY + rawHeight, 0, canvasHeight);
+            const bboxWidth = Math.max(0, bboxMaxX - bboxX);
+            const bboxHeight = Math.max(0, bboxMaxY - bboxY);
 
-          const bboxX = clamp(rawX, 0, canvasWidth);
-          const bboxY = clamp(rawY, 0, canvasHeight);
-          const bboxMaxX = clamp(rawX + rawWidth, 0, canvasWidth);
-          const bboxMaxY = clamp(rawY + rawHeight, 0, canvasHeight);
-          const bboxWidth = Math.max(0, bboxMaxX - bboxX);
-          const bboxHeight = Math.max(0, bboxMaxY - bboxY);
+            if (bboxWidth === 0 || bboxHeight === 0) {
+              return;
+            }
 
-          if (bboxWidth === 0 || bboxHeight === 0) {
-            return;
-          }
+            // Color scheme
+            const colors = [
+              '#00d4ff',
+              '#00ff88',
+              '#ff6b9d',
+              '#ffd93d',
+              '#ff8c42',
+              '#a8e6cf',
+              '#b4a5ff',
+              '#ffb347',
+            ];
+            const color = colors[index % colors.length];
 
-          // Color scheme
-          const colors = [
-            '#00d4ff',
-            '#00ff88',
-            '#ff6b9d',
-            '#ffd93d',
-            '#ff8c42',
-            '#a8e6cf',
-            '#b4a5ff',
-            '#ffb347',
-          ];
-          const color = colors[index % colors.length];
+            // Draw bounding box using calculated coordinates
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 8;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(bboxX, bboxY, bboxWidth, bboxHeight);
+            ctx.strokeRect(bboxX + 1, bboxY + 1, bboxWidth - 2, bboxHeight - 2);
+            ctx.shadowBlur = 0;
 
-          // Draw bounding box using calculated coordinates
-          ctx.shadowColor = color;
-          ctx.shadowBlur = 8;
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 3;
-          ctx.strokeRect(bboxX, bboxY, bboxWidth, bboxHeight);
-          ctx.strokeRect(bboxX + 1, bboxY + 1, bboxWidth - 2, bboxHeight - 2);
-          ctx.shadowBlur = 0;
+            // Label + distance
+            const labelText = `${label} ${
+              confidence !== undefined ? (confidence * 100).toFixed(0) : '?'
+            }%`;
+            const distanceText = distance ? ` | ${distance.toFixed(2)}m` : '';
+            const fullText = labelText + distanceText;
 
-          // Label + distance
-          const labelText = `${label} ${(confidence * 100).toFixed(0)}%`;
-          const distanceText = distance ? ` | ${distance.toFixed(2)}m` : '';
-          const fullText = labelText + distanceText;
+            ctx.font = 'bold 14px "SF Pro Display", -apple-system, sans-serif';
+            const textMetrics = ctx.measureText(fullText);
+            const textHeight = 18;
+            const padding = 6;
+            const labelY =
+              bboxY > textHeight + padding
+                ? bboxY - 4
+                : Math.min(
+                    canvasHeight - 2,
+                    bboxY + bboxHeight + textHeight + 4
+                  );
+            const maxLabelWidth = Math.min(
+              canvasWidth,
+              textMetrics.width + padding * 2
+            );
+            const labelX = clamp(bboxX, 0, canvasWidth - maxLabelWidth);
 
-          ctx.font = 'bold 14px "SF Pro Display", -apple-system, sans-serif';
-          const textMetrics = ctx.measureText(fullText);
-          const textHeight = 18;
-          const padding = 6;
-          const labelY =
-            bboxY > textHeight + padding
-              ? bboxY - 4
-              : Math.min(canvasHeight - 2, bboxY + bboxHeight + textHeight + 4);
-          const maxLabelWidth = Math.min(
-            canvasWidth,
-            textMetrics.width + padding * 2
-          );
-          const labelX = clamp(bboxX, 0, canvasWidth - maxLabelWidth);
+            // Background
+            const bgGradient = ctx.createLinearGradient(
+              labelX,
+              labelY - textHeight,
+              labelX,
+              labelY
+            );
+            bgGradient.addColorStop(0, `${color}ee`);
+            bgGradient.addColorStop(1, `${color}cc`);
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(
+              labelX,
+              labelY - textHeight - padding / 2,
+              maxLabelWidth,
+              textHeight + padding
+            );
 
-          // Background
-          const bgGradient = ctx.createLinearGradient(
-            labelX,
-            labelY - textHeight,
-            labelX,
-            labelY
-          );
-          bgGradient.addColorStop(0, `${color}ee`);
-          bgGradient.addColorStop(1, `${color}cc`);
-          ctx.fillStyle = bgGradient;
-          ctx.fillRect(
-            labelX,
-            labelY - textHeight - padding / 2,
-            maxLabelWidth,
-            textHeight + padding
-          );
+            // Text
+            ctx.fillStyle = '#000000';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.strokeText(fullText, labelX + padding, labelY - padding / 2);
+            ctx.fillText(fullText, labelX + padding, labelY - padding / 2);
+          });
 
-          // Text
-          ctx.fillStyle = '#000000';
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 3;
-          ctx.strokeText(fullText, labelX + padding, labelY - padding / 2);
-          ctx.fillText(fullText, labelX + padding, labelY - padding / 2);
-        });
+          // Remember what we rendered to soften flicker across small gaps
+          lastRenderedRef.current = { metadata, mediaTimeMs };
+        }
 
-        // FPS
+        // FPS (based on overlay draws)
         const fpsCounter = fpsCounterRef.current;
         fpsCounter.frames++;
-        if (currentTime - fpsCounter.lastTime >= 1000) {
+        if (perfTimeMs - fpsCounter.lastTime >= 1000) {
           fpsCounter.fps = fpsCounter.frames;
           fpsCounter.frames = 0;
-          fpsCounter.lastTime = currentTime;
+          fpsCounter.lastTime = perfTimeMs;
           onFrameProcessed?.(fpsCounter.fps);
         }
-
-        animationFrameRef.current = requestAnimationFrame(render);
       };
 
-      animationFrameRef.current = requestAnimationFrame(render);
+      const runWithVideoFrames =
+        typeof (video as any).requestVideoFrameCallback === 'function';
+
+      const frameCallback: any = runWithVideoFrames
+        ? (now: number, metadata: any) => {
+            const mediaTimeMs =
+              metadata?.mediaTime != null ? metadata.mediaTime * 1000 : 0;
+            renderOverlay(mediaTimeMs, now);
+            videoFrameCallbackRef.current = (
+              video as any
+            ).requestVideoFrameCallback(frameCallback);
+          }
+        : () => {};
+
+      if (runWithVideoFrames) {
+        videoFrameCallbackRef.current = (
+          video as any
+        ).requestVideoFrameCallback(frameCallback);
+      } else {
+        const rafRender = (now: number) => {
+          const mediaTimeMs = (video.currentTime || 0) * 1000;
+          renderOverlay(mediaTimeMs, now);
+          animationFrameRef.current = requestAnimationFrame(rafRender);
+        };
+        animationFrameRef.current = requestAnimationFrame(rafRender);
+      }
 
       return () => {
         if (animationFrameRef.current)
           cancelAnimationFrame(animationFrameRef.current);
+        if (
+          videoFrameCallbackRef.current &&
+          typeof (video as any).cancelVideoFrameCallback === 'function'
+        ) {
+          (video as any).cancelVideoFrameCallback(
+            videoFrameCallbackRef.current
+          );
+        }
         resizeObserver.disconnect();
         window.removeEventListener('resize', handleWindowResize);
         video.removeEventListener('loadedmetadata', updateCanvasSize);
       };
-    }, [videoRef, onFrameProcessed]);
+    }, [videoRef, onFrameProcessed, isPaused]);
 
     return (
       <canvas

@@ -61,3 +61,7 @@ onnx-cuda = [
 onnx-rocm = [
     "onnxruntime==1.20.1; sys_platform == 'linux'",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"

@@ -26,8 +26,9 @@ function App() {
   const [selectedClasses, setSelectedClasses] = useState<Set<number>>(
     new Set()
   );
+  const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.3);
   const prevAnalyzerConnectedRef = useRef(false);
-  const hasAutoSelectedRef = useRef(false);
+  const autoSelectedClassesRef = useRef<Set<number>>(new Set());
 
   // WebRTC connection to webcam service (for raw video)
   const {
@@ -63,6 +64,14 @@ function App() {
   });
 
   // Filter metadata based on selected classes
+  const thresholdedDetections = useMemo(() => {
+    if (!latestMetadata) return [];
+    return latestMetadata.detections.filter((detection) => {
+      if (detection.confidence === undefined) return true;
+      return detection.confidence >= confidenceThreshold;
+    });
+  }, [latestMetadata, confidenceThreshold]);
+
   const filteredMetadata = useMemo(() => {
     if (!latestMetadata) return null;
 
@@ -74,10 +83,10 @@ function App() {
       };
     }
 
-    // Otherwise, filter detections to only show selected classes
+    // Otherwise, filter detections to only show selected classes above threshold
     return {
       ...latestMetadata,
-      detections: latestMetadata.detections.filter((detection) => {
+      detections: thresholdedDetections.filter((detection) => {
         const classId =
           typeof detection.label === 'string'
             ? parseInt(detection.label, 10)
@@ -85,19 +94,24 @@ function App() {
         return !isNaN(classId) && selectedClasses.has(classId);
       }),
     };
-  }, [latestMetadata, selectedClasses]);
+  }, [latestMetadata, selectedClasses, thresholdedDetections]);
 
-  // Update overlay when new metadata arrives (but not when video is paused)
+  // Update overlay when new metadata arrives (only while video is connected and not paused)
   useEffect(() => {
-    if (filteredMetadata && videoPlayerRef.current && !isPaused) {
+    if (!videoPlayerRef.current) return;
+
+    if (videoState === 'connected' && filteredMetadata && !isPaused) {
       videoPlayerRef.current.updateOverlay(filteredMetadata);
+    } else {
+      videoPlayerRef.current.updateOverlay(null as any);
     }
-  }, [filteredMetadata, isPaused]);
+  }, [filteredMetadata, isPaused, videoState]);
 
   // Clear overlay when video is paused
   useEffect(() => {
     if (isPaused && videoPlayerRef.current) {
       setSelectedClasses(new Set());
+      autoSelectedClassesRef.current = new Set();
     }
   }, [isPaused]);
 
@@ -109,45 +123,52 @@ function App() {
         setSelectedClasses(new Set());
       }
       setSelectedClasses(new Set());
-      hasAutoSelectedRef.current = false; // Reset for next connection
+      autoSelectedClassesRef.current = new Set(); // Reset for next connection
     }
     prevAnalyzerConnectedRef.current = analyzerConnected;
   }, [analyzerConnected]);
 
-  // Auto-select all detected classes when first metadata arrives after analyzer connects
+  // Auto-select any newly detected classes (default "select all" behavior)
   useEffect(() => {
     if (
       analyzerConnected &&
-      latestMetadata?.detections &&
+      thresholdedDetections &&
       videoState === 'connected' &&
-      !hasAutoSelectedRef.current
+      thresholdedDetections.length > 0
     ) {
-      // Auto-select all classes from the first frame (only once per connection)
-      const allClasses = new Set(
-        latestMetadata.detections
-          .map((d) => {
-            const classId =
-              typeof d.label === 'string' ? parseInt(d.label, 10) : d.label;
-            return classId;
-          })
-          .filter((id) => !isNaN(id))
-      );
-      if (allClasses.size > 0) {
-        setSelectedClasses(allClasses);
-        hasAutoSelectedRef.current = true; // Mark as completed
-        log.info('ui.filter.auto_select', { classes: Array.from(allClasses) });
+      const newClassIds: number[] = [];
+
+      thresholdedDetections.forEach((detection) => {
+        const classId =
+          typeof detection.label === 'string'
+            ? parseInt(detection.label, 10)
+            : detection.label;
+
+        if (!isNaN(classId) && !autoSelectedClassesRef.current.has(classId)) {
+          autoSelectedClassesRef.current.add(classId);
+          newClassIds.push(classId);
+        }
+      });
+
+      if (newClassIds.length > 0) {
+        setSelectedClasses((prev) => {
+          const updated = new Set(prev);
+          newClassIds.forEach((id) => updated.add(id));
+          log.info('ui.filter.auto_select', { classes: Array.from(updated) });
+          return updated;
+        });
       }
     }
-  }, [analyzerConnected, latestMetadata, videoState, log]);
+  }, [analyzerConnected, thresholdedDetections, videoState, log]);
 
-  // Clear overlay and force "clear all" when video disconnects
+  // Clear overlay when video disconnects, but keep user selections
   useEffect(() => {
     if (videoState !== 'connected') {
       if (videoPlayerRef.current) {
-        setSelectedClasses(new Set());
+        videoPlayerRef.current.updateOverlay(null as any);
       }
-      // Force clear all selections when video is disconnected
-      setSelectedClasses(new Set());
+      // Allow auto-select to run again on reconnect
+      autoSelectedClassesRef.current = new Set();
     }
   }, [videoState]);
 
@@ -195,7 +216,7 @@ function App() {
         analyzerConnected={analyzerConnected}
         analyzerFps={analyzerFps || 0}
         overlayFps={overlayFps || 0}
-        objectCount={latestMetadata?.detections.length || 0}
+        objectCount={filteredMetadata?.detections.length || 0}
       />
       <ConnectionControls
         videoState={videoState}
@@ -207,9 +228,11 @@ function App() {
         onClearOverlay={handleClearOverlay}
       />
       <ObjectFilter
-        detections={latestMetadata?.detections || []}
+        detections={thresholdedDetections}
         selectedClasses={selectedClasses}
         onSelectionChange={handleSelectionChange}
+        confidenceThreshold={confidenceThreshold}
+        onConfidenceThresholdChange={setConfidenceThreshold}
         isOpen={isObjectFilterOpen}
         onToggle={handleToggleObjectFilter}
         isAnalyzerConnected={analyzerConnected}
