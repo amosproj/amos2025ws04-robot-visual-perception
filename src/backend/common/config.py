@@ -41,6 +41,9 @@ class Config:
     REGION_SIZE = int(os.getenv("REGION_SIZE", "5"))
     SCALE_FACTOR = float(os.getenv("SCALE_FACTOR", "432.0"))
     DEPTH_BACKEND: str = os.getenv("DEPTH_BACKEND", "torch").lower()
+    DEPTH_ANYTHING_SCALE_FACTOR: float = float(
+        os.getenv("DEPTH_ANYTHING_SCALE_FACTOR", "0.5")  # tunable, please test to see which works best
+    )
     MIDAS_MODEL_TYPE: str = os.getenv("MIDAS_MODEL_TYPE", "MiDaS_small")
     MIDAS_MODEL_REPO: str = os.getenv("MIDAS_MODEL_REPO", "intel-isl/MiDaS")
     MIDAS_CACHE_DIR: Path = Path(

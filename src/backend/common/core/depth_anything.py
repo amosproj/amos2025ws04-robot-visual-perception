@@ -42,7 +42,7 @@ class DepthAnythingV2Estimator(DepthEstimator):
             )
 
         self.region_size = config.REGION_SIZE
-        self.scale_factor = config.SCALE_FACTOR
+        self.scale_factor = config.DEPTH_ANYTHING_SCALE_FACTOR
         self.update_freq = config.UPDATE_FREQ
 
         self.update_id = -1
