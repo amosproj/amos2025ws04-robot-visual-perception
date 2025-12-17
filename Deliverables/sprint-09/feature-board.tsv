@@ -1,0 +1,63 @@
+Title	URL	Assignees	Status	Estimated size	Real size	Labels
+Overlay Frame Smoothing	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/167		Product Backlog			backend, enhancement, frontend
+Add Detection Threshold	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/170		Product Backlog			enhancement, frontend
+Evaluate Apple Depth Pro	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/165		Product Backlog			backend, enhancement
+Label Mapping in Backend	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/176		Product Backlog			backend, bug
+Improve depth estimation	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/166		Product Backlog			backend, enhancement, technical
+UI Improvements	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/168		Product Backlog			enhancement, frontend
+Refacor & Test: Object Tracking	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/183		Product Backlog			backend, chore
+Refactor & Test: Drawing logic of frontend	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/182		Product Backlog			chore, frontend
+Refactor & Test: Math functions	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/181		Product Backlog			backend, technical
+Top Down Radar View	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/186		Product Backlog			enhancement, frontend
+Video Router & Dispatching Service	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/56		Product Backlog	8		backend, research, sprint-5, sprint-6
+Centralized Configuration	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/173		Product Backlog			backend, technical
+Dark / Light Mode	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/175		Product Backlog			enhancement, frontend
+Support Multiple Languages	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/177		Product Backlog			enhancement, frontend
+Model quantization FP16 / INT8	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/178		Product Backlog			backend, enhancement, technical
+Tensor IO Binding	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/197		Product Backlog			backend, technical
+Optimize Preprocessing	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/199		Product Backlog			backend, technical
+Optimize Postprocessing	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/200		Product Backlog			backend, technical
+Align Model Inputs	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/201		Product Backlog			backend, technical
+Create Demo Day Slide	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/196		Product Backlog			chore
+Finalize User Facing Documentation	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/191		Product Backlog			chore
+Finalize Design Documentation	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/192		Product Backlog			chore
+Finalize Build Documentation	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/193		Product Backlog			chore
+Update Architecture Diagrams	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/194		Product Backlog			chore
+Create Demo Day Video	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/195		Product Backlog			chore
+Prometheus for Backend	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/179		Sprint Backlog	3		backend, build, technical
+Add Ion-Sfu Support	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/164		Sprint Backlog	3		backend, build
+Keep Metadata In Sync	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/117	Tenebrae311	In Progress	5		backend, bug, sprint-7, sprint-8
+Calibration Guide	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/184	anuunchin	In Progress	2		backend, documentation
+Frontend Logging	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/172	zohrehasadi00	Awaiting Review	3		frontend, technical
+Backend Logging	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/171	zohrehasadi00	Awaiting Review	3		backend, technical
+Standalone Model Downloading	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/113	saribx	Awaiting Review	2		backend, enhancement, sprint-7, sprint-8
+Video Stream From File	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/169	Tenebrae311	Awaiting Review	3		backend, enhancement
+Smoother Overlays	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/146	anuunchin	Awaiting Review	5		backend, enhancement, sprint-8
+Run on real Hardware	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/174	Paul2607	Awaiting Review	2		build
+Add Support for Depth Anything V2	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/145	saribx	Awaiting Review	3		backend, enhancement, sprint-8
+Low Confidence Filter	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/185	Christoph-Mantsch	Awaiting Review	3		enhancement, frontend
+Document Analyzer API Endpoints	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/124	anuunchin	Feature Archive	2	1	backend, documentation, sprint-7, sprint-8
+Add Support for Yolo11	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/144	zohrehasadi00	Feature Archive	2	1	backend, enhancement, sprint-8
+Run MiDaS via ONNX	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/142	zohrehasadi00	Feature Archive	2	2	backend, enhancement, sprint-8
+Disconnecting Unreliable	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/138	Paul2607	Feature Archive	3	3	bug, frontend, sprint-8
+Overlay Flickering When Zoomed-in / -out	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/141	Christoph-Mantsch, Paul2607	Feature Archive	3	2	bug, frontend, sprint-8
+Create Object Filter	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/120	Christoph-Mantsch, Paul2607	Feature Archive	3	3	enhancement, frontend, sprint-8
+Debounce Detections in Metadata Widget	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/147	Christoph-Mantsch	Feature Archive	3	3	enhancement, frontend, sprint-8
+Overlay Drawn Out-of-bounds	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/139	Christoph-Mantsch	Feature Archive	2	1	bug, frontend, sprint-8
+Ability to Hide Overlay	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/149	Paul2607	Feature Archive	1	0	enhancement, frontend, sprint-8
+Clearing Overlay Unreliable	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/140	Christoph-Mantsch, Paul2607	Feature Archive	2	2	bug, frontend, sprint-8
+Create Make Targets for ONNX Export	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/143	saribx, zohrehasadi00	Feature Archive	1	1	backend, enhancement, sprint-8
+React Metadata Widget	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/96	Christoph-Mantsch, Paul2607	Feature Archive	2	3	enhancement, frontend, sprint-6, sprint-7
+🟨 Send Object Location (x, y, z) relative to Camera	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/121	zohrehasadi00	Feature Archive	3	5	backend, frontend, sprint-7
+Make Object Analysis Extensible	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/123	zohrehasadi00	Feature Archive	3	2	enhancement, refactoring, sprint-7
+Reduce Inference Time	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/93	Tenebrae311	Feature Archive	3	3	backend, enhancement, sprint-6, sprint-7
+ 🟥 Transported Metadata Usage	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/54	Tenebrae311	Feature Archive	5	8	backend, frontend, sprint-5, sprint-6, sprint-7
+Initialize User Facing Documentation	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/97	Tenebrae311	Feature Archive	3	3	documentation, sprint-6
+Initialize Build/Deployment Documentation	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/99	zohrehasadi00	Feature Archive	3	1	documentation, sprint-6
+React Video Component	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/36	saribx	Feature Archive	3	3	frontend, sprint-5
+Properly use CSS	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/94	Christoph-Mantsch, Paul2607, saribx	Feature Archive	2	2	frontend, sprint-6, technical
+Docker Compose Setup	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/20	anuunchin	Feature Archive	3	3	backend, sprint-5, sprint-6
+Automate SBOM Generation	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/78	Christoph-Mantsch, Paul2607	Feature Archive	3	5	chore, sprint-5, sprint-6
+Windows Development Setup	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/77	Christoph-Mantsch, Paul2607, zohrehasadi00	Feature Archive	3	3	chore, sprint-5
+Investigate Statup Time	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/80	zohrehasadi00	Feature Archive	5	3	backend, bug, frontend, sprint-5
+React Video Overlay	https://github.com/amosproj/amos2025ws04-robot-visual-perception/issues/55	Christoph-Mantsch, Paul2607	Feature Archive	3	3	frontend, sprint-5

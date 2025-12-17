@@ -44,12 +44,18 @@ bin/
 .mypy_cache/
 .pytest_cache/
 venv/
-yolov8n.pt
 
 sbom.json
+
 sbom-dependencies.csv
 
 src/backend/models
 
 # Temporary files
 *.mp4
+# models directory
+src/backend/models/*
+!src/backend/models/.gitkeep
+src/backend/models/*.pt
+src/backend/models/*.onnx
+src/backend/models/midas_cache/

@@ -63,30 +63,44 @@ make run-analyzer-local
 ```
 The first analyzer start will download `yolo11n.pt` automatically (this will take some time)
 
-### Analyzer Service Options
+## Model Management
 
-The analyzer service supports different modes for model management:
+### Available Models
 
-**Development mode (default with `make run-analyzer-local`):**
-- Automatically downloads and caches models if they don't exist
-- Uses `--dev` flag to enable automatic model downloading
-- Models are cached for subsequent runs
+#### YOLO Model
+- `yolo11n.pt` - YOLO model for object detection
 
-**Production mode:**
-- Uses pre-downloaded models from specified paths
-- No network access required at runtime
-- Suitable for containerized deployments
+#### MiDaS Model
+- `MiDaS_small` - Lightweight model for depth estimation
 
-Example development usage:
+### Download Models
+
 ```bash
-cd src/backend && uv run python -m analyzer.cli \
-  --dev \
-  --yolo-model-path ./models/yolo11n.pt \
-  --midas-model-path ./models/midas_cache
+# Download all models
+make download-models
+
+# Download and export to ONNX
+make download-models-onnx
+
+# Download individual models
+make download-yolo
+make download-midas
+
+# Export models to ONNX
+make export-yolo-onnx
+make export-midas-onnx
 ```
 
-Example production usage:
+### Model Paths
+- YOLO model: `models/yolo11n.pt`
+- YOLO ONNX: `models/yolo11n.onnx`
+- MiDaS cache: `models/midas_cache`
+- MiDaS ONNX: `models/midas_small.onnx`
+
+Example production usage with custom model type:
 ```bash
+# Set model type via environment variable
+MIDAS_MODEL_TYPE=DPT_Hybrid \
 cd src/backend && uv run python -m analyzer.cli \
   --yolo-model-path ./models/yolo11n.pt \
   --midas-model-path ./models/midas_cache
@@ -156,14 +170,10 @@ Open the shown URL in your console.
   make export-onnx
   ```
 
-  Or manually with uv (use opset 18+ to avoid `Resize` downgrade failures):
+  Or use the granular make target:
 
   ```bash
-  uv run python - <<'PY'
-from ultralytics import YOLO
-YOLO("models/yolo11n.pt").export(format="onnx", opset=18, imgsz=640, simplify=True)
-PY
-mv yolo11n.onnx models/yolo11n.onnx
+  make export-yolo-onnx
   ```
 
   Then launch the analyzer with GPU providers, e.g.:
