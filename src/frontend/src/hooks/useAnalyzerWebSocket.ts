@@ -5,7 +5,7 @@
  */
 
 // hooks/useAnalyzerWebSocket.ts
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import type { MetadataFrame } from '../components/video/VideoOverlay';
 import { logger } from '../lib/logger';
 
@@ -28,7 +28,10 @@ export function useAnalyzerWebSocket({
   autoConnect = true,
   onBeforeDisconnect,
 }: AnalyzerWebSocketOptions = {}): UseAnalyzerWebSocketResult {
-  const log = logger.child({ component: 'useAnalyzerWebSocket', endpoint });
+  const log = useMemo(
+    () => logger.child({ component: 'useAnalyzerWebSocket', endpoint }),
+    []
+  );
   const [isConnected, setIsConnected] = useState(false);
   const [latestMetadata, setLatestMetadata] = useState<MetadataFrame | null>(
     null

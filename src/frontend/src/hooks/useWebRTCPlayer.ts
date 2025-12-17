@@ -69,7 +69,7 @@ export function useWebRTCPlayer({
   autoPlay = false,
   containerRef,
 }: UseWebRTCPlayerOptions): UseWebRTCPlayerResult {
-  const log = logger.child({ component: 'useWebRTCPlayer' });
+  const log = useMemo(() => logger.child({ component: 'useWebRTCPlayer' }), []);
   const offerUrl = useMemo(() => {
     const envUrl = (import.meta as any)?.env?.VITE_BACKEND_URL as
       | string
