@@ -6,6 +6,8 @@ from __future__ import annotations
 import numpy as np
 import torch
 
+from common.core.contracts import Detection
+
 
 def resize_to_frame(
     prediction: torch.Tensor | np.ndarray, output_shape: tuple[int, int]
@@ -29,7 +31,7 @@ def resize_to_frame(
 
 def calculate_distances(
     depth_map: np.ndarray,
-    dets: list[tuple[int, int, int, int, int, float]],
+    dets: list[Detection],
     region_size: int,
     scale_factor: float,
 ) -> list[float]:
@@ -37,15 +39,15 @@ def calculate_distances(
 
     Args:
         depth_map: The depth map (inverse depth).
-        dets: List of detections (x1, y1, x2, y2, cls_id, conf).
+        dets: List of detections.
         region_size: Size of the region to sample depth from.
         scale_factor: Factor to convert inverse depth to meters.
     """
     h, w = depth_map.shape
     distances: list[float] = []
-    for x1, y1, x2, y2, _cls_id, _conf in dets:
-        cx = int((x1 + x2) / 2)
-        cy = int((y1 + y2) / 2)
+    for det in dets:
+        cx = int((det.x1 + det.x2) / 2)
+        cy = int((det.y1 + det.y2) / 2)
         half_size = region_size // 2
         x_start = max(cx - half_size, 0)
         x_end = min(cx + half_size + 1, w)

@@ -12,7 +12,7 @@ import torch
 from PIL import Image
 
 from common.config import config
-from common.core.contracts import DepthEstimator
+from common.core.contracts import DepthEstimator, Detection
 from common.core.depth_utils import calculate_distances, resize_to_frame
 
 try:
@@ -73,7 +73,7 @@ class DepthAnythingV2Estimator(DepthEstimator):
         )
 
     def estimate_distance_m(
-        self, frame_rgb: np.ndarray, dets: list[tuple[int, int, int, int, int, float]]
+        self, frame_rgb: np.ndarray, dets: list[Detection]
     ) -> list[float]:
         """Estimate distance in meters for each detection based on depth map."""
         self.update_id += 1
@@ -107,6 +107,6 @@ class DepthAnythingV2Estimator(DepthEstimator):
     def _distances_from_depth_map(
         self,
         depth_map: np.ndarray,
-        dets: list[tuple[int, int, int, int, int, float]],
+        dets: list[Detection],
     ) -> list[float]:
         return calculate_distances(depth_map, dets, self.region_size, self.scale_factor)

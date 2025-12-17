@@ -88,8 +88,7 @@ class _Detector(ObjectDetector):
             frame_rgb (np.ndarray): Input image in RGB color format.
 
         Returns:
-            list[tuple[int, int, int, int, int, float]]: A list of detections, where each
-            tuple contains (x1, y1, x2, y2, class_id, confidence).
+            list[Detection]: A list of detections.
         """
         now = asyncio.get_running_loop().time()
         if self._last_det is not None and (now - self._last_time) < 0.10:
@@ -303,17 +302,17 @@ class _OnnxRuntimeDetector(_DetectorEngine):
                 box = cls_boxes[idx]
                 score = cls_scores[idx]
                 detections.append(
-                    (
-                        int(round(box[0])),
-                        int(round(box[1])),
-                        int(round(box[2])),
-                        int(round(box[3])),
-                        int(cls),
-                        float(score),
+                    Detection(
+                        x1=int(round(box[0])),
+                        y1=int(round(box[1])),
+                        x2=int(round(box[2])),
+                        y2=int(round(box[3])),
+                        cls_id=int(cls),
+                        confidence=float(score),
                     )
                 )
 
-        detections.sort(key=lambda det: det[5], reverse=True)
+        detections.sort(key=lambda det: det.confidence, reverse=True)
         return detections[: self._max_det]
 
     def _resolve_providers(self) -> list[str]:

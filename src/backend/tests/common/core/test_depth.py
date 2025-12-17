@@ -9,6 +9,7 @@ import pytest
 import torch
 
 import common.core.depth as depth
+from common.core.contracts import Detection
 from .conftest import DummySession, DummySessionOptions
 
 
@@ -92,7 +93,7 @@ def test_onnx_depth_estimator_runs_with_mock_session(
         midas_model="intel-isl/MiDaS",
     )
     frame = np.zeros((2, 2, 3), dtype=np.uint8)
-    dets = [(0, 0, 1, 1, 0, 0.9)]
+    dets = [Detection(x1=0, y1=0, x2=1, y2=1, cls_id=0, confidence=0.9)]
 
     distances = estimator.estimate_distance_m(frame, dets)
     assert distances and distances[0] == pytest.approx(depth.config.SCALE_FACTOR)
