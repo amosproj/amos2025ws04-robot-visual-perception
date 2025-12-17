@@ -43,6 +43,9 @@ class Config:
     DEPTH_BACKEND: str = os.getenv("DEPTH_BACKEND", "torch").lower()
     MIDAS_MODEL_TYPE: str = os.getenv("MIDAS_MODEL_TYPE", "MiDaS_small")
     MIDAS_MODEL_REPO: str = os.getenv("MIDAS_MODEL_REPO", "intel-isl/MiDaS")
+    MIDAS_CACHE_DIR: Path = Path(
+        os.getenv("MIDAS_CACHE_DIR", "models/midas_cache")
+    ).resolve()
     MIDAS_ONNX_MODEL_PATH: Path = Path(
         os.getenv("MIDAS_ONNX_MODEL_PATH", "models/midas_small.onnx")
     ).resolve()

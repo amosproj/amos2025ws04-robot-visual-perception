@@ -26,6 +26,9 @@ from analyzer.tracking_models import TrackedObject
 from analyzer.tracker import TrackingManager
 
 
+logger = logging.getLogger("manager")
+
+
 class MetadataMessage(BaseModel):
     """Metadata message model."""
 
@@ -125,7 +128,7 @@ class AnalyzerWebSocketManager:
             )
 
         except Exception as e:
-            logging.error(f"Error starting processing: {e}")
+            logger.error("Error starting processing", extra={"error": str(e)})
             await self._stop_processing()
 
     async def _stop_processing(self) -> None:
@@ -189,13 +192,13 @@ class AnalyzerWebSocketManager:
                         )
 
                 except Exception as e:
-                    logging.warning(f"Frame processing error: {e}")
+                    logger.warning("Frame processing error", extra={"error": str(e)})
                     await asyncio.sleep(0.1)
 
         except asyncio.CancelledError:
-            logging.warning("Frame processing cancelled")
+            logger.warning("Frame processing cancelled")
         except Exception as e:
-            logging.warning(f"Processing task error: {e}")
+            logger.warning("Processing task error", extra={"error": str(e)})
 
     async def _receive_and_convert_frame(
         self, state: ProcessingState
@@ -211,15 +214,18 @@ class AnalyzerWebSocketManager:
             frame = await asyncio.wait_for(state.source_track.recv(), timeout=5.0)  # type: ignore[union-attr]
             state.consecutive_errors = 0
         except asyncio.TimeoutError:
-            logging.warning("Frame receive timeout, skipping...")
+            logger.warning("Frame receive timeout, skipping")
             state.consecutive_errors += 1
 
             if state.consecutive_errors >= self.max_consecutive_errors:
-                logging.error("Too many consecutive timeouts, reconnecting...")
+                logger.error(
+                    "Too many consecutive timeouts, reconnecting",
+                    extra={"consecutive_errors": state.consecutive_errors},
+                )
                 raise Exception("WebRTC connection appears unstable")
             return None
         except Exception:
-            logging.warning("source_track broke / ended, attempting reconnect...")
+            logger.warning("source_track broke / ended, attempting reconnect...")
             state.consecutive_errors += 1
 
             if state.consecutive_errors >= self.max_consecutive_errors:
@@ -228,13 +234,16 @@ class AnalyzerWebSocketManager:
                     await self._webcam_session.close()
                 await asyncio.sleep(1.0)
                 try:
-                    logging.info("Reconnecting webcam session...")
+                    logger.info(
+                        "Reconnecting webcam session",
+                        extra={"attempt": state.consecutive_errors},
+                    )
                     if self._webcam_session is not None:
                         new_track = await self._webcam_session.connect()
                         state.source_track = new_track
                         state.consecutive_errors = 0
                 except Exception as conn_err:
-                    logging.error("Reconnect failed:", conn_err)
+                    logger.exception("Reconnect failed", extra={"error": str(conn_err)})
                     raise
             await asyncio.sleep(0.1)
             return None
@@ -243,7 +252,10 @@ class AnalyzerWebSocketManager:
             frame_array = frame.to_ndarray(format="bgr24")  # type: ignore[union-attr]
             return frame_array
         except AttributeError:
-            logging.warning(f"Received frame without to_ndarray method: {type(frame)}")
+            logger.warning(
+                "Received frame without to_ndarray method",
+                extra={"frame_type": str(type(frame))},
+            )
             return None
 
     def _update_fps_and_scaling(
@@ -274,9 +286,12 @@ class AnalyzerWebSocketManager:
                 self.min_scale, min(self.max_scale, state.target_scale)
             )
 
-            print(
-                f"[Adaptive Res] Scale={state.target_scale:.2f} | "
-                f"FPS={state.current_fps:.1f}"
+            logger.info(
+                "adaptive_resolution_update",
+                extra={
+                    "scale": round(state.target_scale, 2),
+                    "fps": round(state.current_fps, 1),
+                },
             )
 
         return state, current_time
@@ -355,8 +370,16 @@ class AnalyzerWebSocketManager:
         fx, fy, cx, cy = compute_camera_intrinsics(w, h)
 
         if not self._intrinsics_logged and getattr(config, "LOG_INTRINSICS", False):
-            logging.info(
-                f"intrinsics fx={fx:.2f} fy={fy:.2f} cx={cx:.2f} cy={cy:.2f} (frame {w}x{h})"
+            logger.info(
+                "camera_intrinsics",
+                extra={
+                    "fx": round(fx, 2),
+                    "fy": round(fy, 2),
+                    "cx": round(cx, 2),
+                    "cy": round(cy, 2),
+                    "frame_width": w,
+                    "frame_height": h,
+                },
             )
             self._intrinsics_logged = True
 
