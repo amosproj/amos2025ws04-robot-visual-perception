@@ -115,8 +115,7 @@ class AnalyzerWebSocketManager:
 
     async def _process_frames(self, source_track: MediaStreamTrack) -> None:
         """Process frames from webcam and send metadata to all WebSocket clients."""
-        detector = get_detector()
-        estimator = get_depth_estimator()
+        self._inference_task: asyncio.Task[None] | None = None
 
         frame_id = 0
         last_fps_time = asyncio.get_event_loop().time()
@@ -211,6 +210,13 @@ class AnalyzerWebSocketManager:
                             },
                         )
 
+                    # Smart Frame Dropping:
+                    # If an inference task is currently running, we skip this frame (drop it).
+                    # This ensures we don't build up a queue of old frames if the model is slow.
+                    # We only process the most recent frame when the analyzer is ready.
+                    if self._inference_task and not self._inference_task.done():
+                        continue
+
                     # Resize frame for processing
                     if target_scale < 0.98:
                         new_w = int(frame_array.shape[1] * target_scale)
@@ -219,35 +225,12 @@ class AnalyzerWebSocketManager:
                     else:
                         frame_small = frame_array
 
-                    sample_rate = 2 if current_fps < self.fps_threshold else 4
-
-                    # Run ML inference every 3rd frame and collect detections
-                    if not self.active_connections or frame_id % sample_rate != 0:
-                        continue
-
-                    # YOLO detection
-                    detections = await detector.infer(frame_small)
-
-                    if not detections:
-                        continue
-
-                    # Distance estimation
-                    distances = estimator.estimate_distance_m(frame_small, detections)
-
-                    metadata = self._build_metadata_message(
-                        frame_rgb=frame_small,
-                        detections=detections,
-                        distances=distances,
-                        timestamp=current_time,
-                        frame_id=frame_id,
-                        current_fps=current_fps,
+                    # Launch new inference task
+                    self._inference_task = asyncio.create_task(
+                        self._run_inference_pipeline(
+                            frame_small, frame_id, current_time, current_fps
+                        )
                     )
-
-                    # Create and send metadata message
-                    await self._send_metadata(metadata)
-
-                    # Small delay to prevent overwhelming
-                    # await asyncio.sleep(0.033)  # ~30 FPS processing
 
                 except Exception as e:
                     logger.warning("Frame processing error", extra={"error": str(e)})
@@ -257,6 +240,44 @@ class AnalyzerWebSocketManager:
             logger.warning("Frame processing cancelled")
         except Exception as e:
             logger.warning("Processing task error", extra={"error": str(e)})
+
+    async def _run_inference_pipeline(
+        self,
+        frame_small: np.ndarray,
+        frame_id: int,
+        current_time: float,
+        current_fps: float,
+    ) -> None:
+        """Run ML inference pipeline in a way that doesn't block the main loop."""
+        try:
+            detector = get_detector()
+            estimator = get_depth_estimator()
+            loop = asyncio.get_running_loop()
+
+            # YOLO detection (async)
+            detections = await detector.infer(frame_small)
+
+            if not detections:
+                return
+
+            distances = await loop.run_in_executor(
+                None, estimator.estimate_distance_m, frame_small, detections
+            )
+
+            metadata = self._build_metadata_message(
+                frame_rgb=frame_small,
+                detections=detections,
+                distances=distances,
+                timestamp=current_time,
+                frame_id=frame_id,
+                current_fps=current_fps,
+            )
+
+            # Create and send metadata message
+            await self._send_metadata(metadata)
+
+        except Exception as e:
+            logger.error("Inference pipeline error", extra={"error": str(e)})
 
     async def _send_metadata(self, metadata: MetadataMessage) -> None:
         """Send metadata to all active WebSocket clients."""

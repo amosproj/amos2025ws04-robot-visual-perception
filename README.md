@@ -58,7 +58,7 @@ make run-analyzer-local
 ```
 4) Start the frontend service (separate terminal)
 ```
-  make run-frontend-local
+make run-frontend-local
 ```
 Open the shown URL in your console.
 
@@ -81,7 +81,7 @@ make export-midas-onnx
 ```
 
 To start the analyzer service with ONNX backend:
-```
+```bash
 DETECTOR_BACKEND=onnx DEPTH_BACKEND=onnx make run-analyzer-local
 ```
 
