@@ -81,6 +81,7 @@ class AnalyzerWebSocketManager:
             early_termination_iou=config.TRACKING_EARLY_TERMINATION_IOU,
             confidence_decay=config.TRACKING_CONFIDENCE_DECAY,
             max_history_size=config.TRACKING_MAX_HISTORY_SIZE,
+            detection_threshold=config.DETECTION_THRESHOLD,
         )
 
     async def connect(self, websocket: WebSocket) -> None:
@@ -317,19 +318,35 @@ class AnalyzerWebSocketManager:
         detections: list[Detection] = []
         distances: list[float] = []
         updated_track_ids: set[int] = set()
+        active_track_ids: set[int] = set()
 
         detections = await detector.infer(frame_small)
         if detections:
             distances = estimator.estimate_distance_m(frame_small, detections)
-            updated_track_ids = self._tracking_manager.match_detections_to_tracks(
-                detections, distances, state.frame_id, state.last_fps_time
+            updated_track_ids, track_assignments = (
+                self._tracking_manager.match_detections_to_tracks(
+                    detections, distances, state.frame_id, state.last_fps_time
+                )
             )
+
+            # drop detections that have not reached activation threshold
+            filtered_detections: list[Detection] = []
+            filtered_distances: list[float] = []
+            for det, dist, track_id in zip(detections, distances, track_assignments):
+                track = self._tracking_manager._tracked_objects.get(track_id)
+                if track and track.is_active(self._tracking_manager.detection_threshold):
+                    filtered_detections.append(det)
+                    filtered_distances.append(dist)
+                    active_track_ids.add(track_id)
+
+            detections = filtered_detections
+            distances = filtered_distances
 
         interpolated_detections, interpolated_distances = (
             self._tracking_manager.get_interpolated_detections_and_distances(
                 state.frame_id,
                 state.last_fps_time,
-                track_ids_to_exclude=updated_track_ids,
+                track_ids_to_exclude=active_track_ids,
             )
         )
 
