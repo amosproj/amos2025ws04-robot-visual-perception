@@ -85,7 +85,8 @@ components:
             height:
               type: number
         label:
-          type: integer
+          type: string
+          description: Human-readable object class label
         confidence:
           type: number
         distance:

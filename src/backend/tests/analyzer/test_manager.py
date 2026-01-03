@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-
+import numpy as np
 from analyzer.manager import AnalyzerWebSocketManager, ProcessingState
 from common.core.contracts import Detection
 
@@ -158,3 +158,23 @@ async def test_process_detection_excludes_updated_tracks_from_interpolation(
         manager._tracking_manager.get_interpolated_detections_and_distances.call_args
     )
     assert call_args[1]["track_ids_to_exclude"] == {0}
+
+
+def test_build_metadata_message_maps_label_to_text(
+    manager: AnalyzerWebSocketManager,
+) -> None:
+    """Ensure detection labels are mapped to human-readable strings."""
+    frame = np.zeros((100, 200, 3), dtype=np.uint8)
+    detections = [Detection(x1=0, y1=0, x2=10, y2=10, cls_id=0, confidence=0.9)]
+    distances = [2.0]
+
+    metadata = manager._build_metadata_message(
+        frame_rgb=frame,
+        detections=detections,
+        distances=distances,
+        timestamp=1.0,
+        frame_id=1,
+        current_fps=30.0,
+    )
+
+    assert metadata.detections[0]["label"] == "Person"
