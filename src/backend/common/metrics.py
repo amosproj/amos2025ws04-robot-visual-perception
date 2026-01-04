@@ -2,81 +2,63 @@
 #
 # SPDX-License-Identifier: MIT
 from typing import Optional
+from prometheus_client import Counter, Histogram, REGISTRY, CollectorRegistry
 
-import os
-from opentelemetry import metrics
-
-# from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import (
-    PeriodicExportingMetricReader,
-    ConsoleMetricExporter,
-)
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.semconv.resource import ResourceAttributes
+# Global metrics instances
+_detection_duration: Optional[Histogram] = None
+_depth_estimation_duration: Optional[Histogram] = None
+_detections_count: Optional[Counter] = None
 
 
-_configured = False
-_meter: Optional[metrics.Meter] = None
-
-
-def configure_metrics(
-    service_name: str,
-    service_version: str,
-    environment: str | None = None,
-) -> metrics.Meter:
+def configure_metrics() -> None:
     """
-    Configure OpenTelemetry metrics and return a Meter instance.
-
-    This sets up:
-      - MeterProvider with OTLP HTTP exporter (if available)
-      - Respect for ENVIRONMENT / OTEL_EXPORTER_OTLP* env vars
-      - Returns a Meter for creating metrics
-
-    Args:
-        service_name: Name of the service (e.g., "analyzer")
-        service_version: Version of the service
-        environment: Deployment environment (e.g., "development", "production")
-
-    Returns:
-        Meter instance for creating metrics
+    Configure Prometheus metrics.
     """
-    global _configured, _meter
-    if _configured and _meter is not None:
-        return _meter
+    global _detection_duration, _depth_estimation_duration, _detections_count
 
-    env = (
-        os.getenv("ENVIRONMENT", "development") if environment is None else environment
+    if _detection_duration is not None:
+        return  # Already configured
+
+    _detection_duration = Histogram(
+        "analyzer_detection_duration_seconds",
+        "Time taken for object detection inference",
+        ["backend"],
     )
 
-    resource = Resource.create(
-        {
-            ResourceAttributes.SERVICE_NAME: service_name,
-            ResourceAttributes.SERVICE_VERSION: service_version,
-            ResourceAttributes.DEPLOYMENT_ENVIRONMENT: env,
-        }
+    _depth_estimation_duration = Histogram(
+        "analyzer_depth_estimation_duration_seconds",
+        "Time taken for depth estimation",
+        ["model_type"],
     )
 
-    exporter = ConsoleMetricExporter()
-    reader = PeriodicExportingMetricReader(exporter, export_interval_millis=1000)
-    meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
-
-    metrics.set_meter_provider(meter_provider)
-    _meter = metrics.get_meter(service_name, service_version)
-    _configured = True
-
-    return _meter
+    _detections_count = Counter(
+        "analyzer_detections_count",
+        "Total number of detected objects",
+        ["interpolated"],
+    )
 
 
-def get_meter() -> metrics.Meter:
-    """Get the configured Meter instance.
-
-    Returns:
-        Meter instance for creating metrics
-
-    Raises:
-        RuntimeError: If metrics have not been configured yet
-    """
-    if _meter is None:
+def get_detection_duration() -> Histogram:
+    """Get detection duration histogram metric."""
+    if _detection_duration is None:
         raise RuntimeError("Metrics not configured. Call configure_metrics() first.")
-    return _meter
+    return _detection_duration
+
+
+def get_depth_estimation_duration() -> Histogram:
+    """Get depth estimation duration histogram metric."""
+    if _depth_estimation_duration is None:
+        raise RuntimeError("Metrics not configured. Call configure_metrics() first.")
+    return _depth_estimation_duration
+
+
+def get_detections_count() -> Counter:
+    """Get detections count counter metric."""
+    if _detections_count is None:
+        raise RuntimeError("Metrics not configured. Call configure_metrics() first.")
+    return _detections_count
+
+
+def get_registry() -> CollectorRegistry:
+    """Get Prometheus registry for /metrics endpoint."""
+    return REGISTRY

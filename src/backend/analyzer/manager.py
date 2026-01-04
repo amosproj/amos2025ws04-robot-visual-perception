@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
-from opentelemetry.metrics import Histogram
+from prometheus_client import Histogram
 
 import numpy as np
 from aiortc import MediaStreamTrack
@@ -26,7 +26,11 @@ from common.utils.geometry import (
     unproject_bbox_center_to_camera,
 )
 from common.utils.image import resize_frame
-from common.metrics import get_meter
+from common.metrics import (
+    get_detection_duration,
+    get_depth_estimation_duration,
+    get_detections_count,
+)
 from analyzer.tracking_models import TrackedObject
 from analyzer.tracker import TrackingManager
 
@@ -88,22 +92,9 @@ class AnalyzerWebSocketManager:
             max_history_size=config.TRACKING_MAX_HISTORY_SIZE,
         )
 
-        meter = get_meter()
-        self._detection_duration = meter.create_histogram(
-            "analyzer.detection.duration_seconds",
-            description="Time taken for object detection inference",
-            unit="s",
-        )
-        self._depth_estimation_duration = meter.create_histogram(
-            "analyzer.depth_estimation.duration_seconds",
-            description="Time taken for depth estimation",
-            unit="s",
-        )
-        self._detections_count = meter.create_counter(
-            "analyzer.detections.count",
-            description="Total number of detected objects",
-            unit="1",
-        )
+        self._detection_duration = get_detection_duration()
+        self._depth_estimation_duration = get_depth_estimation_duration()
+        self._detections_count = get_detections_count()
 
     async def connect(self, websocket: WebSocket) -> None:
         """Accept a new WebSocket connection."""
@@ -184,19 +175,19 @@ class AnalyzerWebSocketManager:
 
     @contextmanager
     def _measure_time(
-        self, metric: Histogram, attributes: dict[str, str]
+        self, metric: Histogram, labels: dict[str, str]
     ) -> Iterator[None]:
         """Generic context manager to measure and record timing for any operation.
 
         Args:
             metric: The histogram metric to record to (e.g., self._detection_duration)
-            attributes: Attributes to attach to the metric
+            labels: Labels to attach to the metric
         """
         start = time.perf_counter()
         yield
         duration = time.perf_counter() - start
         if metric is not None:
-            metric.record(duration, attributes=attributes)
+            metric.labels(**labels).observe(duration)
 
     def _record_detection_count(
         self, detections: list[Detection], interpolated_detections: list[Detection]
@@ -211,14 +202,10 @@ class AnalyzerWebSocketManager:
             return
 
         if detections:
-            self._detections_count.add(
-                len(detections),
-                attributes={"interpolated": "false"},
-            )
+            self._detections_count.labels(interpolated="false").inc(len(detections))
         if interpolated_detections:
-            self._detections_count.add(
-                len(interpolated_detections),
-                attributes={"interpolated": "true"},
+            self._detections_count.labels(interpolated="true").inc(
+                len(interpolated_detections)
             )
 
     async def _process_frames(self, source_track: MediaStreamTrack) -> None:
@@ -380,14 +367,14 @@ class AnalyzerWebSocketManager:
         updated_track_ids: set[int] = set()
 
         with self._measure_time(
-            self._detection_duration, attributes={"backend": config.DETECTOR_BACKEND}
+            self._detection_duration, labels={"backend": config.DETECTOR_BACKEND}
         ):
             detections = await detector.infer(frame_small)
 
         if detections:
             with self._measure_time(
                 self._depth_estimation_duration,
-                attributes={"model_type": estimator.model_type},
+                labels={"model_type": estimator.model_type},
             ):
                 distances = estimator.estimate_distance_m(frame_small, detections)
 

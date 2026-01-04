@@ -13,7 +13,7 @@ from common.metrics import configure_metrics
 configure_logging(service_name="analyzer", service_version=__version__)
 
 # Initialize metrics
-configure_metrics(service_name="analyzer", service_version=__version__)
+configure_metrics()
 
 from contextlib import asynccontextmanager, suppress
 from collections.abc import AsyncIterator, Callable

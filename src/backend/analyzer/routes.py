@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: MIT
 from pathlib import Path
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from analyzer.manager import AnalyzerWebSocketManager
 
 
@@ -18,6 +19,12 @@ router = APIRouter()
 def health() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok", "service": "analyzer"}
+
+
+@router.get("/metrics")
+def metrics() -> Response:
+    """Prometheus metrics endpoint."""
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @router.websocket("/ws")

@@ -18,7 +18,8 @@ dependencies = [
     "opentelemetry-sdk==1.27.0",
     "opentelemetry-exporter-otlp==1.27.0",
     "opentelemetry-semantic-conventions==0.48b0",
-    
+    "prometheus-client==0.21.0",
+
     # WebRTC stuff
     "aiortc==1.14.0",
     "aioice==0.10.1",
