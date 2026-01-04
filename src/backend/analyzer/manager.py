@@ -2,14 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 import asyncio
+from dataclasses import dataclass
 import json
 import logging
-from dataclasses import dataclass
 from typing import Optional
 
 from aiortc import MediaStreamTrack
-import numpy as np
 from fastapi import WebSocket
+import numpy as np
 from pydantic import BaseModel
 
 from analyzer.tracker import TrackingManager
@@ -341,7 +341,9 @@ class AnalyzerWebSocketManager:
             filtered_distances: list[float] = []
             for det, dist, track_id in zip(detections, distances, track_assignments):
                 track = self._tracking_manager._tracked_objects.get(track_id)
-                if track and track.is_active(self._tracking_manager.detection_threshold):
+                if track and track.is_active(
+                    self._tracking_manager.detection_threshold
+                ):
                     filtered_detections.append(det)
                     filtered_distances.append(dist)
                     active_track_ids.add(track_id)
