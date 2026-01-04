@@ -202,7 +202,7 @@ class AnalyzerWebSocketManager:
 
     async def _receive_and_convert_frame(
         self, state: ProcessingState
-    ) -> Optional[np.ndarray]:
+    ) -> np.ndarray | None:
         """Receive frame from webcam and convert to numpy array.
 
         Handles timeouts, reconnection, and frame conversion errors.
