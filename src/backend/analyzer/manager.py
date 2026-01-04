@@ -211,10 +211,15 @@ class AnalyzerWebSocketManager:
         Returns:
             Frame as numpy array, or None if frame couldn't be received/converted.
         """
+        track = state.source_track
+        if track is None:
+            logger.warning("No source track available, skipping frame")
+            return None
+
         try:
             frame = await asyncio.wait_for(
-                state.source_track.recv(), timeout=5.0
-            )  # type: ignore[union-attr]
+                track.recv(), timeout=5.0
+            )
             state.consecutive_errors = 0
         except asyncio.TimeoutError:
             logger.warning("Frame receive timeout, skipping")
