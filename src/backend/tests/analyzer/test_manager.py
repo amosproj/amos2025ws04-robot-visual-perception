@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-import pytest
-from unittest.mock import AsyncMock, MagicMock
 from collections import deque
+from unittest.mock import AsyncMock, MagicMock
+
 import numpy as np
+import pytest
 
 from analyzer.manager import AnalyzerWebSocketManager, ProcessingState
 from analyzer.tracking_models import TrackedObject
@@ -15,7 +16,8 @@ from common.core.contracts import Detection
 def manager() -> AnalyzerWebSocketManager:
     """Create AnalyzerWebSocketManager for testing."""
     mgr = AnalyzerWebSocketManager()
-    mgr._tracking_manager.detection_threshold = 1  # default to allow single detections in most tests
+    mgr._tracking_manager.detection_threshold = 1
+    # default to allow single detections in most tests
     return mgr
 
 

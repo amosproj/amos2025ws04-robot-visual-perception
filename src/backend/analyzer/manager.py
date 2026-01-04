@@ -1,29 +1,28 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-from typing import Dict
 import asyncio
 import json
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
-import numpy as np
 from aiortc import MediaStreamTrack
 from fastapi import WebSocket
+import numpy as np
 from pydantic import BaseModel
-from common.core.session import WebcamSession
+
+from analyzer.tracker import TrackingManager
+from analyzer.tracking_models import TrackedObject
 from common.config import config
-from common.core.detector import get_detector
+from common.core.contracts import DepthEstimator, Detection, ObjectDetector
 from common.core.depth import get_depth_estimator
-from common.core.contracts import ObjectDetector, DepthEstimator, Detection
+from common.core.detector import get_detector
+from common.core.session import WebcamSession
 from common.utils.geometry import (
     compute_camera_intrinsics,
     unproject_bbox_center_to_camera,
 )
 from common.utils.image import resize_frame
-from analyzer.tracking_models import TrackedObject
-from analyzer.tracker import TrackingManager
 
 
 logger = logging.getLogger("manager")
@@ -48,7 +47,7 @@ class ProcessingState:
     current_fps: float = 30.0
     consecutive_errors: int = 0
     target_scale: float = 0.8
-    source_track: Optional[MediaStreamTrack] = None
+    source_track: MediaStreamTrack | None = None
 
     def __post_init__(self) -> None:
         if self.last_fps_time == 0.0:
@@ -73,7 +72,7 @@ class AnalyzerWebSocketManager:
         # adaptive frame dropping parameters
         self.fps_threshold = config.FPS_THRESHOLD
         # interpolation/ tracking params
-        self._tracked_objects: Dict[int, TrackedObject] = {}
+        self._tracked_objects: dict[int, TrackedObject] = {}
         self._next_track_id = 0
         self._tracking_manager = TrackingManager(
             iou_threshold=config.TRACKING_IOU_THRESHOLD,
@@ -212,7 +211,9 @@ class AnalyzerWebSocketManager:
             Frame as numpy array, or None if frame couldn't be received/converted.
         """
         try:
-            frame = await asyncio.wait_for(state.source_track.recv(), timeout=5.0)  # type: ignore[union-attr]
+            frame = await asyncio.wait_for(
+                state.source_track.recv(), timeout=5.0
+            )  # type: ignore[union-attr]
             state.consecutive_errors = 0
         except asyncio.TimeoutError:
             logger.warning("Frame receive timeout, skipping")
