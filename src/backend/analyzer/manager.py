@@ -5,6 +5,7 @@ from typing import Dict
 import asyncio
 import json
 import logging
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -22,6 +23,7 @@ from common.utils.geometry import (
     unproject_bbox_center_to_camera,
 )
 from common.utils.image import resize_frame
+from common.metrics import get_meter
 from analyzer.tracking_models import TrackedObject
 from analyzer.tracker import TrackingManager
 
@@ -81,6 +83,23 @@ class AnalyzerWebSocketManager:
             early_termination_iou=config.TRACKING_EARLY_TERMINATION_IOU,
             confidence_decay=config.TRACKING_CONFIDENCE_DECAY,
             max_history_size=config.TRACKING_MAX_HISTORY_SIZE,
+        )
+
+        meter = get_meter()
+        self._detection_duration = meter.create_histogram(
+            "analyzer.detection.duration_seconds",
+            description="Time taken for object detection inference",
+            unit="s",
+        )
+        self._depth_estimation_duration = meter.create_histogram(
+            "analyzer.depth_estimation.duration_seconds",
+            description="Time taken for depth estimation",
+            unit="s",
+        )
+        self._detections_count = meter.create_counter(
+            "analyzer.detections.count",
+            description="Total number of detected objects",
+            unit="1",
         )
 
     async def connect(self, websocket: WebSocket) -> None:
@@ -318,9 +337,30 @@ class AnalyzerWebSocketManager:
         distances: list[float] = []
         updated_track_ids: set[int] = set()
 
+        # Measure object detection timing
+        detection_start = time.perf_counter()
         detections = await detector.infer(frame_small)
+        detection_duration = time.perf_counter() - detection_start
+
+        if self._detection_duration is not None:
+            self._detection_duration.record(
+                detection_duration,
+                attributes={"backend": config.DETECTOR_BACKEND},
+            )
+
         if detections:
+            # Measure depth estimation timing
+            depth_start = time.perf_counter()
             distances = estimator.estimate_distance_m(frame_small, detections)
+            depth_duration = time.perf_counter() - depth_start
+
+            if self._depth_estimation_duration is not None:
+                model_type = getattr(estimator, "model_type", config.MIDAS_MODEL_TYPE)
+                self._depth_estimation_duration.record(
+                    depth_duration,
+                    attributes={"model_type": str(model_type)},
+                )
+
             updated_track_ids = self._tracking_manager.match_detections_to_tracks(
                 detections, distances, state.frame_id, state.last_fps_time
             )
@@ -335,6 +375,19 @@ class AnalyzerWebSocketManager:
 
         all_detections = detections + interpolated_detections
         all_distances = distances + interpolated_distances
+
+        # Record detection count
+        if self._detections_count is not None:
+            if detections:
+                self._detections_count.add(
+                    len(detections),
+                    attributes={"interpolated": "false"},
+                )
+            if interpolated_detections:
+                self._detections_count.add(
+                    len(interpolated_detections),
+                    attributes={"interpolated": "true"},
+                )
 
         # cleanup every frame, regardless of detections
         self._tracking_manager._remove_stale_tracks(state.frame_id)
