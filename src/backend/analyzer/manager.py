@@ -1,13 +1,16 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-from typing import Dict
+from contextlib import contextmanager
+from typing import Dict, Iterator
 import asyncio
 import json
 import logging
 import time
 from dataclasses import dataclass
 from typing import Optional
+
+from opentelemetry.metrics import Histogram
 
 import numpy as np
 from aiortc import MediaStreamTrack
@@ -179,6 +182,45 @@ class AnalyzerWebSocketManager:
                 pass
         self.active_connections.clear()
 
+    @contextmanager
+    def _measure_time(
+        self, metric: Histogram, attributes: dict[str, str]
+    ) -> Iterator[None]:
+        """Generic context manager to measure and record timing for any operation.
+
+        Args:
+            metric: The histogram metric to record to (e.g., self._detection_duration)
+            attributes: Attributes to attach to the metric
+        """
+        start = time.perf_counter()
+        yield
+        duration = time.perf_counter() - start
+        if metric is not None:
+            metric.record(duration, attributes=attributes)
+
+    def _record_detection_count(
+        self, detections: list[Detection], interpolated_detections: list[Detection]
+    ) -> None:
+        """Record detection count metrics.
+
+        Args:
+            detections: List of detected objects (non-interpolated)
+            interpolated_detections: List of interpolated objects
+        """
+        if self._detections_count is None:
+            return
+
+        if detections:
+            self._detections_count.add(
+                len(detections),
+                attributes={"interpolated": "false"},
+            )
+        if interpolated_detections:
+            self._detections_count.add(
+                len(interpolated_detections),
+                attributes={"interpolated": "true"},
+            )
+
     async def _process_frames(self, source_track: MediaStreamTrack) -> None:
         """Process frames from webcam and send metadata to all clients."""
         detector = get_detector()
@@ -337,29 +379,21 @@ class AnalyzerWebSocketManager:
         distances: list[float] = []
         updated_track_ids: set[int] = set()
 
-        # Measure object detection timing
-        detection_start = time.perf_counter()
-        detections = await detector.infer(frame_small)
-        detection_duration = time.perf_counter() - detection_start
-
-        if self._detection_duration is not None:
-            self._detection_duration.record(
-                detection_duration,
-                attributes={"backend": config.DETECTOR_BACKEND},
-            )
+        with self._measure_time(
+            self._detection_duration, attributes={"backend": config.DETECTOR_BACKEND}
+        ):
+            detections = await detector.infer(frame_small)
 
         if detections:
-            # Measure depth estimation timing
-            depth_start = time.perf_counter()
-            distances = estimator.estimate_distance_m(frame_small, detections)
-            depth_duration = time.perf_counter() - depth_start
-
-            if self._depth_estimation_duration is not None:
-                model_type = getattr(estimator, "model_type", config.MIDAS_MODEL_TYPE)
-                self._depth_estimation_duration.record(
-                    depth_duration,
-                    attributes={"model_type": str(model_type)},
-                )
+            with self._measure_time(
+                self._depth_estimation_duration,
+                attributes={
+                    "model_type": getattr(
+                        estimator, "model_type", config.MIDAS_MODEL_TYPE
+                    )
+                },
+            ):
+                distances = estimator.estimate_distance_m(frame_small, detections)
 
             updated_track_ids = self._tracking_manager.match_detections_to_tracks(
                 detections, distances, state.frame_id, state.last_fps_time
@@ -376,18 +410,7 @@ class AnalyzerWebSocketManager:
         all_detections = detections + interpolated_detections
         all_distances = distances + interpolated_distances
 
-        # Record detection count
-        if self._detections_count is not None:
-            if detections:
-                self._detections_count.add(
-                    len(detections),
-                    attributes={"interpolated": "false"},
-                )
-            if interpolated_detections:
-                self._detections_count.add(
-                    len(interpolated_detections),
-                    attributes={"interpolated": "true"},
-                )
+        self._record_detection_count(detections, interpolated_detections)
 
         # cleanup every frame, regardless of detections
         self._tracking_manager._remove_stale_tracks(state.frame_id)
