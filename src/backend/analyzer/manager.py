@@ -5,10 +5,11 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
+from typing import Optional
 
 from aiortc import MediaStreamTrack
-from fastapi import WebSocket
 import numpy as np
+from fastapi import WebSocket
 from pydantic import BaseModel
 
 from analyzer.tracker import TrackingManager
@@ -202,7 +203,7 @@ class AnalyzerWebSocketManager:
 
     async def _receive_and_convert_frame(
         self, state: ProcessingState
-    ) -> np.ndarray | None:
+    ) -> Optional[np.ndarray]:
         """Receive frame from webcam and convert to numpy array.
 
         Handles timeouts, reconnection, and frame conversion errors.
