@@ -1,29 +1,28 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-from typing import Dict
 import asyncio
 import json
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
-import numpy as np
 from aiortc import MediaStreamTrack
 from fastapi import WebSocket
+import numpy as np
 from pydantic import BaseModel
-from common.core.session import WebcamSession
+
+from analyzer.tracker import TrackingManager
+from analyzer.tracking_models import TrackedObject
 from common.config import config
-from common.core.detector import get_detector
+from common.core.contracts import DepthEstimator, Detection, ObjectDetector
 from common.core.depth import get_depth_estimator
-from common.core.contracts import ObjectDetector, DepthEstimator, Detection
+from common.core.detector import get_detector
+from common.core.session import WebcamSession
 from common.utils.geometry import (
     compute_camera_intrinsics,
     unproject_bbox_center_to_camera,
 )
 from common.utils.image import resize_frame
-from analyzer.tracking_models import TrackedObject
-from analyzer.tracker import TrackingManager
 
 
 logger = logging.getLogger("manager")
@@ -48,7 +47,7 @@ class ProcessingState:
     current_fps: float = 30.0
     consecutive_errors: int = 0
     target_scale: float = 0.8
-    source_track: Optional[MediaStreamTrack] = None
+    source_track: MediaStreamTrack | None = None
 
     def __post_init__(self) -> None:
         if self.last_fps_time == 0.0:
@@ -73,7 +72,7 @@ class AnalyzerWebSocketManager:
         # adaptive frame dropping parameters
         self.fps_threshold = config.FPS_THRESHOLD
         # interpolation/ tracking params
-        self._tracked_objects: Dict[int, TrackedObject] = {}
+        self._tracked_objects: dict[int, TrackedObject] = {}
         self._next_track_id = 0
         self._tracking_manager = TrackingManager(
             iou_threshold=config.TRACKING_IOU_THRESHOLD,
@@ -81,6 +80,7 @@ class AnalyzerWebSocketManager:
             early_termination_iou=config.TRACKING_EARLY_TERMINATION_IOU,
             confidence_decay=config.TRACKING_CONFIDENCE_DECAY,
             max_history_size=config.TRACKING_MAX_HISTORY_SIZE,
+            detection_threshold=config.DETECTION_THRESHOLD,
         )
 
     async def connect(self, websocket: WebSocket) -> None:
@@ -202,7 +202,7 @@ class AnalyzerWebSocketManager:
 
     async def _receive_and_convert_frame(
         self, state: ProcessingState
-    ) -> Optional[np.ndarray]:
+    ) -> np.ndarray | None:
         """Receive frame from webcam and convert to numpy array.
 
         Handles timeouts, reconnection, and frame conversion errors.
@@ -211,7 +211,9 @@ class AnalyzerWebSocketManager:
             Frame as numpy array, or None if frame couldn't be received/converted.
         """
         try:
-            frame = await asyncio.wait_for(state.source_track.recv(), timeout=5.0)  # type: ignore[union-attr]
+            frame = await asyncio.wait_for(
+                state.source_track.recv(), timeout=5.0
+            )  # type: ignore[union-attr]
             state.consecutive_errors = 0
         except asyncio.TimeoutError:
             logger.warning("Frame receive timeout, skipping")
@@ -317,19 +319,35 @@ class AnalyzerWebSocketManager:
         detections: list[Detection] = []
         distances: list[float] = []
         updated_track_ids: set[int] = set()
+        active_track_ids: set[int] = set()
 
         detections = await detector.infer(frame_small)
         if detections:
             distances = estimator.estimate_distance_m(frame_small, detections)
-            updated_track_ids = self._tracking_manager.match_detections_to_tracks(
-                detections, distances, state.frame_id, state.last_fps_time
+            updated_track_ids, track_assignments = (
+                self._tracking_manager.match_detections_to_tracks(
+                    detections, distances, state.frame_id, state.last_fps_time
+                )
             )
+
+            # drop detections that have not reached activation threshold
+            filtered_detections: list[Detection] = []
+            filtered_distances: list[float] = []
+            for det, dist, track_id in zip(detections, distances, track_assignments):
+                track = self._tracking_manager._tracked_objects.get(track_id)
+                if track and track.is_active(self._tracking_manager.detection_threshold):
+                    filtered_detections.append(det)
+                    filtered_distances.append(dist)
+                    active_track_ids.add(track_id)
+
+            detections = filtered_detections
+            distances = filtered_distances
 
         interpolated_detections, interpolated_distances = (
             self._tracking_manager.get_interpolated_detections_and_distances(
                 state.frame_id,
                 state.last_fps_time,
-                track_ids_to_exclude=updated_track_ids,
+                track_ids_to_exclude=active_track_ids,
             )
         )
 

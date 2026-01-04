@@ -25,11 +25,17 @@ class TrackedObject:
     cls_id: int
     history: deque[TrackedDetection]
     last_seen_frame: Optional[int] = None
+    detection_count: int = 0
 
     def add_detection(self, detection: TrackedDetection) -> None:
         """Add a new detection to history."""
         self.history.append(detection)
         self.last_seen_frame = detection.frame_id
+        self.detection_count += 1
+
+    def is_active(self, detection_threshold: int) -> bool:
+        """Return True if track has met the activation threshold."""
+        return self.detection_count >= detection_threshold
 
     def get_interpolated(
         self, target_frame_id: int, target_timestamp: float, confidence_decay: float
