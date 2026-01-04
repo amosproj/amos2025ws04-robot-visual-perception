@@ -2,14 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 import asyncio
-from dataclasses import dataclass
 import json
 import logging
+from dataclasses import dataclass
 from typing import Optional
 
+import numpy as np
 from aiortc import MediaStreamTrack
 from fastapi import WebSocket
-import numpy as np
 from pydantic import BaseModel
 
 from analyzer.tracker import TrackingManager
@@ -24,7 +24,6 @@ from common.utils.geometry import (
     unproject_bbox_center_to_camera,
 )
 from common.utils.image import resize_frame
-
 
 logger = logging.getLogger("manager")
 
