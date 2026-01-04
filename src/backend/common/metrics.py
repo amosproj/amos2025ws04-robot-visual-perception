@@ -1,14 +1,17 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-import logging
 from typing import Optional
 
 import os
 from opentelemetry import metrics
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+
+# from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.metrics.export import (
+    PeriodicExportingMetricReader,
+    ConsoleMetricExporter,
+)
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.semconv.resource import ResourceAttributes
 
@@ -54,29 +57,9 @@ def configure_metrics(
         }
     )
 
-    # Configure OTLP HTTP exporter (falls back to defaults if no endpoint provided)
-    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") or os.getenv(
-        "OTEL_EXPORTER_OTLP_ENDPOINT"
-    )
-
-    # Only enable OTLP export if an explicit endpoint is provided
-    if otlp_endpoint:
-        try:
-            otlp_exporter = OTLPMetricExporter(endpoint=otlp_endpoint)
-            reader = PeriodicExportingMetricReader(
-                otlp_exporter, export_interval_millis=5000
-            )
-            meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
-        except Exception as err:  # pragma: no cover
-            # If exporter setup fails, use a no-op provider and continue
-            logging.getLogger(__name__).warning(
-                "OTLP metrics exporter setup failed; metrics disabled",
-                extra={"error": str(err)},
-            )
-            meter_provider = MeterProvider(resource=resource)
-    else:
-        # No endpoint provided, use default provider (no-op)
-        meter_provider = MeterProvider(resource=resource)
+    exporter = ConsoleMetricExporter()
+    reader = PeriodicExportingMetricReader(exporter, export_interval_millis=1000)
+    meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
 
     metrics.set_meter_provider(meter_provider)
     _meter = metrics.get_meter(service_name, service_version)
