@@ -387,11 +387,7 @@ class AnalyzerWebSocketManager:
         if detections:
             with self._measure_time(
                 self._depth_estimation_duration,
-                attributes={
-                    "model_type": getattr(
-                        estimator, "model_type", config.MIDAS_MODEL_TYPE
-                    )
-                },
+                attributes={"model_type": estimator.model_type},
             ):
                 distances = estimator.estimate_distance_m(frame_small, detections)
 

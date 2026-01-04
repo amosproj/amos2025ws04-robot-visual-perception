@@ -43,6 +43,9 @@ class ObjectDetector(Protocol):
 class DepthEstimator(Protocol):
     """Interface for depth estimation backends."""
 
+    model_type: str
+    """Model type identifier (e.g., 'MiDaS_small', 'DPT_Hybrid', 'DPT_Large')."""
+
     def estimate_distance_m(
         self, frame_rgb: np.ndarray, detections: list[Detection]
     ) -> list[float]:
