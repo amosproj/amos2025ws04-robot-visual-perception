@@ -5,6 +5,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { logger } from '../lib/logger';
 
 // ConnectionState: short union for connection lifecycle
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
@@ -68,6 +69,7 @@ export function useWebRTCPlayer({
   autoPlay = false,
   containerRef,
 }: UseWebRTCPlayerOptions): UseWebRTCPlayerResult {
+  const log = useMemo(() => logger.child({ component: 'useWebRTCPlayer' }), []);
   const offerUrl = useMemo(() => {
     const envUrl = (import.meta as any)?.env?.VITE_BACKEND_URL as
       | string
@@ -89,6 +91,7 @@ export function useWebRTCPlayer({
 
   const connect = useCallback(async () => {
     if (pcRef.current) return;
+    log.info('webrtc.connect.start', { offerUrl });
     setErrorReason('');
     setConnectionState('connecting');
 
@@ -153,18 +156,21 @@ export function useWebRTCPlayer({
       await pc.setRemoteDescription(new RTCSessionDescription(answer));
       setConnectionState('connected');
       setIsPaused(false);
+      log.info('webrtc.connect.success');
     } catch (err) {
       setConnectionState('error');
       setErrorReason(String(err));
+      log.error('webrtc.connect.failed', { error: String(err) });
       try {
         pc.close();
       } catch {}
       pcRef.current = null;
     }
-  }, [offerUrl, autoPlay]);
+  }, [offerUrl, autoPlay, log]);
 
   const disconnect = useCallback(() => {
     const pc = pcRef.current;
+    log.info('webrtc.disconnect');
     if (pc) {
       try {
         pc.getReceivers().forEach((r) => r.track && (r.track.enabled = false));
@@ -186,7 +192,7 @@ export function useWebRTCPlayer({
       window.clearInterval(statsPollRef.current);
       statsPollRef.current = null;
     }
-  }, []);
+  }, [log]);
 
   const togglePlayPause = useCallback(async () => {
     if (connectionState !== 'connected') {
@@ -202,6 +208,7 @@ export function useWebRTCPlayer({
       } catch {}
       await videoRef.current.play().catch(() => {});
       setIsPaused(false);
+      log.info('webrtc.play.resumed');
     } else {
       try {
         pcRef.current
@@ -210,8 +217,9 @@ export function useWebRTCPlayer({
       } catch {}
       videoRef.current.pause();
       setIsPaused(true);
+      log.info('webrtc.play.paused');
     }
-  }, [connectionState, isPaused, connect]);
+  }, [connectionState, isPaused, connect, log]);
 
   const enterFullscreen = useCallback(() => {
     const el = (containerRef?.current ??
@@ -234,7 +242,8 @@ export function useWebRTCPlayer({
       el.webkitRequestFullscreen ||
       el.msRequestFullscreen;
     if (req) req.call(el);
-  }, [containerRef]);
+    log.info('webrtc.fullscreen.toggle');
+  }, [containerRef, log]);
 
   useEffect(() => {
     return () => disconnect();
@@ -354,7 +363,9 @@ export function useWebRTCPlayer({
         }
 
         setStats(newStats);
-      } catch {}
+      } catch (err) {
+        log.debug('webrtc.stats.error', { error: String(err) });
+      }
     };
 
     // initial poll and interval
@@ -366,7 +377,7 @@ export function useWebRTCPlayer({
         statsPollRef.current = null;
       }
     };
-  }, [connectionState]);
+  }, [connectionState, log]);
 
   return {
     videoRef,
