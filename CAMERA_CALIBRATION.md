@@ -99,3 +99,36 @@ export LOG_INTRINSICS=true
 
 You'll need to check analyzer logs for something like: `intrinsics fx=... fy=... cx=... cy=...`
 
+## 2. Depth scale factor
+
+MiDaS outputs relative depth values (higher = closer). The scale factor converts these to absolute distances in meters. This must be calibrated empirically.
+
+### Calibration procedure
+
+1. Place a target at a known distance (e.g., 2.0m) straight ahead, centered in the frame
+2. Read the reported distance from the UI overlay or logs (`D_est`)
+3. Calculate the new scale factor:
+   ```
+   SCALE_FACTOR_new = SCALE_FACTOR_old × (D_true / D_est)
+   ```
+   - `D_true` = actual measured distance (meters)
+   - `D_est` = reported distance from system (meters)
+   - Default `SCALE_FACTOR = 432.0`
+4. Update and restart:
+   ```bash
+   export SCALE_FACTOR=<calculated_value>
+   ```
+5. Repeat 1-2 times for better accuracy
+
+### Example
+
+- Actual distance: `D_true = 2.0m`
+- Reported distance: `D_est = 1.5m`
+- Current scale: `432.0`
+
+Calculation:
+```
+SCALE_FACTOR_new = 432.0 × (2.0 / 1.5) = 576.0
+```
+
+After restart, verify the system now reports ~2.0m for the same object.
