@@ -27,6 +27,89 @@ from common.utils.image import resize_frame
 
 logger = logging.getLogger("manager")
 
+COCO_LABELS: tuple[str, ...] = (
+    "Person",
+    "Bicycle",
+    "Car",
+    "Motorcycle",
+    "Airplane",
+    "Bus",
+    "Train",
+    "Truck",
+    "Boat",
+    "Traffic light",
+    "Fire hydrant",
+    "Stop sign",
+    "Parking meter",
+    "Bench",
+    "Bird",
+    "Cat",
+    "Dog",
+    "Horse",
+    "Sheep",
+    "Cow",
+    "Elephant",
+    "Bear",
+    "Zebra",
+    "Giraffe",
+    "Backpack",
+    "Umbrella",
+    "Handbag",
+    "Tie",
+    "Suitcase",
+    "Frisbee",
+    "Skis",
+    "Snowboard",
+    "Sports ball",
+    "Kite",
+    "Baseball bat",
+    "Baseball glove",
+    "Skateboard",
+    "Surfboard",
+    "Tennis racket",
+    "Bottle",
+    "Wine glass",
+    "Cup",
+    "Fork",
+    "Knife",
+    "Spoon",
+    "Bowl",
+    "Banana",
+    "Apple",
+    "Sandwich",
+    "Orange",
+    "Broccoli",
+    "Carrot",
+    "Hot dog",
+    "Pizza",
+    "Donut",
+    "Cake",
+    "Chair",
+    "Couch",
+    "Potted plant",
+    "Bed",
+    "Dining table",
+    "Toilet",
+    "Tv",
+    "Laptop",
+    "Mouse",
+    "Remote",
+    "Keyboard",
+    "Cell phone",
+    "Microwave",
+    "Oven",
+    "Toaster",
+    "Sink",
+    "Refrigerator",
+    "Book",
+    "Clock",
+    "Vase",
+    "Scissors",
+    "Teddy bear",
+    "Hair drier",
+    "Toothbrush",
+)
+
 
 class MetadataMessage(BaseModel):
     """Metadata message model."""
@@ -354,11 +437,12 @@ class AnalyzerWebSocketManager:
             detections = filtered_detections
             distances = filtered_distances
 
+        track_ids_to_exclude = updated_track_ids | active_track_ids
         interpolated_detections, interpolated_distances = (
             self._tracking_manager.get_interpolated_detections_and_distances(
                 state.frame_id,
                 state.last_fps_time,
-                track_ids_to_exclude=active_track_ids,
+                track_ids_to_exclude=track_ids_to_exclude,
             )
         )
 
@@ -428,6 +512,12 @@ class AnalyzerWebSocketManager:
                 det.x1, det.y1, det.x2, det.y2, dist_m, fx, fy, cx, cy
             )
 
+            label_text = (
+                COCO_LABELS[det.cls_id]
+                if 0 <= det.cls_id < len(COCO_LABELS)
+                else str(det.cls_id)
+            )
+
             det_payload.append(
                 {
                     "box": {
@@ -436,7 +526,7 @@ class AnalyzerWebSocketManager:
                         "width": norm_w,
                         "height": norm_h,
                     },
-                    "label": det.cls_id,
+                    "label": label_text,
                     "confidence": float(det.confidence),
                     "distance": float(dist_m),
                     "position": {"x": pos_x, "y": pos_y, "z": pos_z},
