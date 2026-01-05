@@ -123,7 +123,9 @@ class AnalyzerWebSocketManager:
             source_track = await self._webcam_session.connect()
 
             # Start processing task
-            self._processing_task = asyncio.create_task(self._process_frames(source_track))
+            self._processing_task = asyncio.create_task(
+                self._process_frames(source_track)
+            )
 
         except Exception as e:
             logger.error("Error starting processing", extra={"error": str(e)})
@@ -163,7 +165,9 @@ class AnalyzerWebSocketManager:
         detector = get_detector()
         estimator = get_depth_estimator()
 
-        state = ProcessingState(target_scale=self.target_scale_init, source_track=source_track)
+        state = ProcessingState(
+            target_scale=self.target_scale_init, source_track=source_track
+        )
 
         try:
             while self.active_connections:
@@ -329,8 +333,10 @@ class AnalyzerWebSocketManager:
         detections = await detector.infer(frame_small)
         if detections:
             distances = estimator.estimate_distance_m(frame_small, detections)
-            updated_track_ids, track_assignments = self._tracking_manager.match_detections_to_tracks(
-                detections, distances, state.frame_id, state.last_fps_time
+            updated_track_ids, track_assignments = (
+                self._tracking_manager.match_detections_to_tracks(
+                    detections, distances, state.frame_id, state.last_fps_time
+                )
             )
 
             # drop detections that have not reached activation threshold
@@ -350,7 +356,9 @@ class AnalyzerWebSocketManager:
 
         interpolated_detections, interpolated_distances = (
             self._tracking_manager.get_interpolated_detections_and_distances(
-                state.frame_id, state.last_fps_time, track_ids_to_exclude=active_track_ids
+                state.frame_id,
+                state.last_fps_time,
+                track_ids_to_exclude=active_track_ids,
             )
         )
 
