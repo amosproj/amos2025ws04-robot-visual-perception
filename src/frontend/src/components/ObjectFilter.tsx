@@ -80,7 +80,9 @@ const ClassCheckboxItem = memo(
             disabled={disabled}
             className="w-4 h-4 accent-theme-accent cursor-pointer disabled:cursor-not-allowed"
           />
-          <span className="text-sm text-theme-text-primary">{classInfo.label}</span>
+          <span className="text-sm text-theme-text-primary">
+            {classInfo.label}
+          </span>
         </div>
         <span className="text-xs text-theme-text-muted bg-theme-bg-tertiary px-2 py-0.5 rounded">
           {classInfo.count}

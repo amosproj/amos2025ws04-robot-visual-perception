@@ -55,7 +55,9 @@ export default function Header({
       </div>
       <div className="flex justify-center gap-8 flex-wrap bg-theme-bg-secondary border border-theme-border-subtle p-4 rounded-lg shadow-card">
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-theme-text-secondary">Video:</span>
+          <span className="font-semibold text-theme-text-secondary">
+            Video:
+          </span>
           <span
             className={`font-medium px-3 py-1 rounded ${getVideoStateClass(videoState)}`}
           >
@@ -69,7 +71,9 @@ export default function Header({
         </div>
 
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-theme-text-secondary">Analyzer:</span>
+          <span className="font-semibold text-theme-text-secondary">
+            Analyzer:
+          </span>
           <span
             className={`font-medium px-3 py-1 rounded ${getStatusValueClass(analyzerConnected)}`}
           >
@@ -83,14 +87,18 @@ export default function Header({
         </div>
 
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-theme-text-secondary">Overlay:</span>
+          <span className="font-semibold text-theme-text-secondary">
+            Overlay:
+          </span>
           <span className="font-medium px-3 py-1 rounded bg-theme-bg-tertiary text-theme-text-primary border border-theme-border">
             {overlayFps} FPS
           </span>
         </div>
 
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-theme-text-secondary">Objects:</span>
+          <span className="font-semibold text-theme-text-secondary">
+            Objects:
+          </span>
           <span className="font-medium px-3 py-1 rounded bg-theme-bg-tertiary text-theme-text-primary border border-theme-border">
             {objectCount}
           </span>
