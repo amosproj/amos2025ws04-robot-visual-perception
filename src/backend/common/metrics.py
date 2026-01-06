@@ -2,7 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 from typing import Optional
-from prometheus_client import Counter, Histogram, REGISTRY, CollectorRegistry
+
+from prometheus_client import (
+    REGISTRY,
+    CollectorRegistry,
+    Counter,
+    Histogram,
+    start_http_server,
+)
 
 # Global metrics instances
 _detection_duration: Optional[Histogram] = None
@@ -36,6 +43,8 @@ def configure_metrics() -> None:
         "Total number of detected objects",
         ["interpolated"],
     )
+
+    start_http_server(9000)
 
 
 def get_detection_duration() -> Histogram:

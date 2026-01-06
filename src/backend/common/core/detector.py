@@ -18,6 +18,10 @@ from common.utils.geometry import get_detections
 from common.utils.image import letterbox, scale_boxes
 from common.utils.math import non_maximum_supression, xywh_to_xyxy
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 try:  # pragma: no cover - optional dependency import
     import onnxruntime as ort  # type: ignore[import-not-found,import-untyped]
 except Exception:  # pragma: no cover - handled during backend selection
@@ -43,6 +47,8 @@ def _build_engine(
     model_path: Optional[Path], backend: Optional[str]
 ) -> ObjectDetectionBackend:
     backend_name = (backend or config.DETECTOR_BACKEND).lower()
+
+    logger.info(f"Initializing Object Detector with backend: {backend_name}")
     try:
         factory = _backend_registry[backend_name]
     except KeyError:
@@ -204,6 +210,9 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         sess_options.graph_optimization_level = (
             ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         )
+        # Suppress warnings (like CoreML noise)
+        sess_options.log_severity_level = 3
+
         self._session = ort.InferenceSession(
             str(model_path),
             providers=providers or None,

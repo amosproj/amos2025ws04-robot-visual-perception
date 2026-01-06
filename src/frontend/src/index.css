@@ -8,8 +8,97 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    /* Light theme (default) */
+    --color-bg-primary: #ffffff;
+    --color-bg-secondary: #f8fafc;
+    --color-bg-tertiary: #e2e8f0;
+    --color-bg-hover: #cbd5e1;
+    --color-bg-disabled: #f1f5f9;
+
+    --color-text-primary: #1e293b;
+    --color-text-secondary: #475569;
+    --color-text-muted: #94a3b8;
+
+    --color-border: #cbd5e1;
+    --color-border-subtle: #e2e8f0;
+
+    --color-accent: #0891b2;
+    --color-accent-hover: #0e7490;
+
+    --color-success: #059669;
+    --color-success-secondary: #047857;
+    --color-warning: #d97706;
+    --color-warning-secondary: #b45309;
+    --color-error: #dc2626;
+    --color-error-secondary: #b91c1c;
+    --color-primary: #2563eb;
+    --color-primary-secondary: #1d4ed8;
+
+    --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.1);
+    --shadow-accent-glow: 0 0 10px rgba(8, 145, 178, 0.3);
+    --shadow-success-glow: 0 0 8px rgba(5, 150, 105, 0.3);
+    --shadow-warning-glow: 0 0 8px rgba(217, 119, 6, 0.3);
+    --shadow-error-glow: 0 0 8px rgba(220, 38, 38, 0.3);
+  }
+
+  .dark {
+    /* Dark theme */
+    --color-bg-primary: #1a1a1a;
+    --color-bg-secondary: #2a2a2a;
+    --color-bg-tertiary: #404040;
+    --color-bg-hover: #505050;
+    --color-bg-disabled: #333333;
+
+    --color-text-primary: #e0e0e0;
+    --color-text-secondary: #b0b0b0;
+    --color-text-muted: #888888;
+
+    --color-border: #555555;
+    --color-border-subtle: #404040;
+
+    --color-accent: #00d4ff;
+    --color-accent-hover: #00b8e6;
+
+    --color-success: #00d4aa;
+    --color-success-secondary: #00b894;
+    --color-warning: #fdcb6e;
+    --color-warning-secondary: #e17055;
+    --color-error: #fd79a8;
+    --color-error-secondary: #e84393;
+    --color-primary: #74b9ff;
+    --color-primary-secondary: #0984e3;
+
+    --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+    --shadow-accent-glow: 0 0 10px rgba(0, 212, 255, 0.3);
+    --shadow-success-glow: 0 0 8px rgba(0, 212, 170, 0.3);
+    --shadow-warning-glow: 0 0 8px rgba(253, 203, 110, 0.3);
+    --shadow-error-glow: 0 0 8px rgba(253, 121, 168, 0.3);
+  }
+
+  /* Smooth theme transitions */
+  *,
+  *::before,
+  *::after {
+    transition:
+      background-color 0.2s ease-in-out,
+      border-color 0.2s ease-in-out,
+      color 0.2s ease-in-out,
+      box-shadow 0.2s ease-in-out;
+  }
+
+  /* Disable transitions during initial theme load to prevent flash */
+  .theme-transition-disabled *,
+  .theme-transition-disabled *::before,
+  .theme-transition-disabled *::after {
+    transition: none !important;
+  }
+}
+
 body {
-  background-color: #1a1a1a;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
   margin: 0;
   padding: 0;
 }
@@ -17,6 +106,6 @@ body {
 @layer components {
   /* Control button base styles */
   .control-btn {
-    @apply bg-transparent border-none text-white cursor-pointer p-2 flex items-center justify-center rounded hover:bg-white/20 transition-colors;
+    @apply bg-transparent border-none text-theme-text-primary cursor-pointer p-2 flex items-center justify-center rounded hover:bg-theme-bg-hover transition-colors;
   }
 }

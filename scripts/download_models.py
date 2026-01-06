@@ -38,6 +38,7 @@ sys.path.insert(0, str(backend_path))
 try:
     from common.config import config
     from common.core.model_downloader import (
+        ensure_depth_anything_model_available,
         ensure_midas_model_available,
         ensure_yolo_model_downloaded,
         export_midas_to_onnx,
@@ -120,7 +121,7 @@ def parse_args() -> argparse.Namespace:
         "--models",
         type=str,
         default="yolo,midas",
-        help="Comma-separated list of models to process (default: yolo,midas)",
+        help="Comma-separated list of models to process (yolo, midas, depth-anything)",
     )
 
     return parser.parse_args()
@@ -197,6 +198,24 @@ def main() -> None:
                 model_repo=args.midas_repo,
                 opset=args.onnx_opset,
             )
+
+    # --- Depth Anything Processing ---
+    if "depth-anything" in models_to_process:
+        logger.info("\n--- Processing Depth Anything V2 ---")
+        
+        da_model = "depth-anything/Depth-Anything-V2-Small-hf"
+        da_cache = None
+        try:
+            da_model = config.DEPTH_ANYTHING_MODEL
+            da_cache = config.DEPTH_ANYTHING_CACHE_DIR
+        except Exception:
+            pass
+
+        ensure_depth_anything_model_available(
+            model_name=da_model,
+            cache_dir=da_cache
+        )
+
 
     logger.info("\n--- Done ---")
     logger.info("Models available at: %s", output_dir)
