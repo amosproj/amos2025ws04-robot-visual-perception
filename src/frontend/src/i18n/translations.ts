@@ -5,7 +5,7 @@
  */
 
 export const SUPPORTED_LANGUAGES = ['en', 'de', 'fr', 'es', 'it'] as const;
-export type Language = typeof SUPPORTED_LANGUAGES[number];
+export type Language = (typeof SUPPORTED_LANGUAGES)[number];
 
 export const LANGUAGE_OPTIONS: ReadonlyArray<{
   value: Language;
@@ -19,9 +19,7 @@ export const LANGUAGE_OPTIONS: ReadonlyArray<{
 ];
 
 export type TranslationParams = Record<string, string | number>;
-export type TranslationValue =
-  | string
-  | ((params: TranslationParams) => string);
+export type TranslationValue = string | ((params: TranslationParams) => string);
 
 type TranslationMap = Record<string, TranslationValue>;
 
@@ -161,8 +159,10 @@ const fr: TranslationMap = {
   objectFilterSelectAll: 'Tout selectionner',
   objectFilterClearAll: 'Tout effacer',
   objectFilterNoDetections: 'Aucun objet detecte pour le moment',
-  objectFilterInfoNoneSelected: 'Selectionner des classes pour afficher les boites',
-  objectFilterInfoSomeSelected: 'Seules les classes selectionnees sont visibles',
+  objectFilterInfoNoneSelected:
+    'Selectionner des classes pour afficher les boites',
+  objectFilterInfoSomeSelected:
+    'Seules les classes selectionnees sont visibles',
   metadataToggle: 'Basculer le widget de metadonnees',
   metadataShowDetails: 'Afficher les details',
   metadataGroupByType: 'Grouper par type',

@@ -237,7 +237,6 @@ const GroupedDetectionCard = memo(({ group }: { group: GroupedDetection }) => {
   );
 });
 
-
 GroupedDetectionCard.displayName = 'GroupedDetectionCard';
 
 export default memo(DetectionInfo);

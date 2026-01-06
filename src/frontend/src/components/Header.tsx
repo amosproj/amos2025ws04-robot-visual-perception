@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2025 robot-visual-perception
  *
  * SPDX-License-Identifier: MIT
-*/
+ */
 
 import { useI18n } from '../i18n';
 import type { TranslationKey } from '../i18n/translations';
