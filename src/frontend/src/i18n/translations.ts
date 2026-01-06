@@ -1,0 +1,298 @@
+/*
+ * SPDX-FileCopyrightText: 2025 robot-visual-perception
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+export const SUPPORTED_LANGUAGES = ['en', 'de', 'fr', 'es', 'it'] as const;
+export type Language = (typeof SUPPORTED_LANGUAGES)[number];
+
+export const LANGUAGE_OPTIONS: ReadonlyArray<{
+  value: Language;
+  label: string;
+}> = [
+  { value: 'en', label: 'English' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'fr', label: 'Francais' },
+  { value: 'es', label: 'Espanol' },
+  { value: 'it', label: 'Italiano' },
+];
+
+export type TranslationParams = Record<string, string | number>;
+export type TranslationValue = string | ((params: TranslationParams) => string);
+
+type TranslationMap = Record<string, TranslationValue>;
+
+const appTitle = 'Robot Visual Perception';
+
+const en: TranslationMap = {
+  appTitle,
+  languageLabel: 'Language',
+  videoLabel: 'Video',
+  analyzerLabel: 'Analyzer',
+  overlayLabel: 'Overlay',
+  objectsLabel: 'Objects',
+  statusConnected: 'Connected',
+  statusDisconnected: 'Disconnected',
+  videoStateIdle: 'Disconnected',
+  videoStateConnecting: 'Connecting',
+  videoStateConnected: 'Connected',
+  videoStateError: 'Error',
+  connectionConnecting: 'Connecting...',
+  connectionConnectVideo: 'Connect Video',
+  connectionDisconnectVideo: 'Disconnect Video',
+  connectionConnectAnalyzer: 'Connect Analyzer',
+  connectionDisconnectAnalyzer: 'Disconnect Analyzer',
+  connectionClearOverlay: 'Clear Overlay',
+  objectFilterToggle: 'Toggle Object Filter',
+  objectFilterTitle: 'Object Filter',
+  objectFilterNoVisible: 'No objects visible',
+  objectFilterSelectedClasses: ({ count }) =>
+    count === 1 ? '1 class selected' : `${count} classes selected`,
+  objectFilterConfidenceTitle: 'Low-confidence filter',
+  objectFilterConfidenceHelper:
+    'Hide detections below this confidence to keep metadata in sync with trusted boxes.',
+  objectFilterSelectAll: 'Select All',
+  objectFilterClearAll: 'Clear All',
+  objectFilterNoDetections: 'No objects detected yet',
+  objectFilterInfoNoneSelected: 'Select classes to show bounding boxes',
+  objectFilterInfoSomeSelected: 'Only selected classes are visible',
+  metadataToggle: 'Toggle Metadata Widget',
+  metadataShowDetails: 'Show Details',
+  metadataGroupByType: 'Group by Type',
+  metadataNoObjectsDetected: 'No objects detected',
+  detectionsTitleGrouped: ({ count }) =>
+    `Detections (${count} ${count === 1 ? 'object' : 'objects'})`,
+  detectionsTitleLatest: ({ count }) => `Latest Detections (${count})`,
+  detectionsGroupedItem: ({ count, label }) => `${count}x ${label}`,
+  streamInfoTitle: 'Stream Info',
+  streamInfoResolution: 'Resolution',
+  streamInfoNetworkQuality: 'Network Quality',
+  streamInfoVideoQuality: 'Video Quality',
+  streamInfoPacketLoss: 'Packet Loss',
+  streamInfoJitter: 'Jitter',
+  streamInfoBitrate: 'Bitrate',
+  streamInfoFramesReceived: 'Frames Received',
+  streamInfoFramesDecoded: 'Frames Decoded',
+  labelUnknown: ({ id }) => `Unknown (${id})`,
+};
+
+const de: TranslationMap = {
+  appTitle,
+  languageLabel: 'Sprache',
+  videoLabel: 'Video',
+  analyzerLabel: 'Analyzer',
+  overlayLabel: 'Overlay',
+  objectsLabel: 'Objekte',
+  statusConnected: 'Verbunden',
+  statusDisconnected: 'Getrennt',
+  videoStateIdle: 'Getrennt',
+  videoStateConnecting: 'Verbinden',
+  videoStateConnected: 'Verbunden',
+  videoStateError: 'Fehler',
+  connectionConnecting: 'Verbinde...',
+  connectionConnectVideo: 'Video verbinden',
+  connectionDisconnectVideo: 'Video trennen',
+  connectionConnectAnalyzer: 'Analyzer verbinden',
+  connectionDisconnectAnalyzer: 'Analyzer trennen',
+  connectionClearOverlay: 'Overlay leeren',
+  objectFilterToggle: 'Objektfilter umschalten',
+  objectFilterTitle: 'Objektfilter',
+  objectFilterNoVisible: 'Keine Objekte sichtbar',
+  objectFilterSelectedClasses: ({ count }) =>
+    count === 1 ? '1 Klasse ausgewaehlt' : `${count} Klassen ausgewaehlt`,
+  objectFilterConfidenceTitle: 'Filter fuer niedrige Konfidenz',
+  objectFilterConfidenceHelper:
+    'Erkennungen unter dieser Konfidenz ausblenden, um Metadaten mit verlaesslichen Boxen synchron zu halten.',
+  objectFilterSelectAll: 'Alle waehlen',
+  objectFilterClearAll: 'Alle entfernen',
+  objectFilterNoDetections: 'Noch keine Objekte erkannt',
+  objectFilterInfoNoneSelected: 'Klassen waehlen, um Boxen anzuzeigen',
+  objectFilterInfoSomeSelected: 'Nur ausgewaehlte Klassen sind sichtbar',
+  metadataToggle: 'Metadaten-Widget umschalten',
+  metadataShowDetails: 'Details anzeigen',
+  metadataGroupByType: 'Nach Typ gruppieren',
+  metadataNoObjectsDetected: 'Keine Objekte erkannt',
+  detectionsTitleGrouped: ({ count }) =>
+    `Erkennungen (${count} ${count === 1 ? 'Objekt' : 'Objekte'})`,
+  detectionsTitleLatest: ({ count }) => `Neueste Erkennungen (${count})`,
+  detectionsGroupedItem: ({ count, label }) => `${count}x ${label}`,
+  streamInfoTitle: 'Stream-Info',
+  streamInfoResolution: 'Aufloesung',
+  streamInfoNetworkQuality: 'Netzwerkqualitaet',
+  streamInfoVideoQuality: 'Videoqualitaet',
+  streamInfoPacketLoss: 'Paketverlust',
+  streamInfoJitter: 'Jitter',
+  streamInfoBitrate: 'Bitrate',
+  streamInfoFramesReceived: 'Frames empfangen',
+  streamInfoFramesDecoded: 'Frames dekodiert',
+  labelUnknown: ({ id }) => `Unbekannt (${id})`,
+};
+
+const fr: TranslationMap = {
+  appTitle,
+  languageLabel: 'Langue',
+  videoLabel: 'Video',
+  analyzerLabel: 'Analyseur',
+  overlayLabel: 'Overlay',
+  objectsLabel: 'Objets',
+  statusConnected: 'Connecte',
+  statusDisconnected: 'Deconnecte',
+  videoStateIdle: 'Deconnecte',
+  videoStateConnecting: 'Connexion',
+  videoStateConnected: 'Connecte',
+  videoStateError: 'Erreur',
+  connectionConnecting: 'Connexion...',
+  connectionConnectVideo: 'Connecter la video',
+  connectionDisconnectVideo: 'Deconnecter la video',
+  connectionConnectAnalyzer: 'Connecter l analyseur',
+  connectionDisconnectAnalyzer: 'Deconnecter l analyseur',
+  connectionClearOverlay: 'Effacer l overlay',
+  objectFilterToggle: 'Basculer le filtre d objets',
+  objectFilterTitle: 'Filtre d objets',
+  objectFilterNoVisible: 'Aucun objet visible',
+  objectFilterSelectedClasses: ({ count }) =>
+    count === 1 ? '1 classe selectionnee' : `${count} classes selectionnees`,
+  objectFilterConfidenceTitle: 'Filtre de faible confiance',
+  objectFilterConfidenceHelper:
+    'Masquer les detections en dessous de ce seuil pour garder les metadonnees synchronisees avec les boites fiables.',
+  objectFilterSelectAll: 'Tout selectionner',
+  objectFilterClearAll: 'Tout effacer',
+  objectFilterNoDetections: 'Aucun objet detecte pour le moment',
+  objectFilterInfoNoneSelected:
+    'Selectionner des classes pour afficher les boites',
+  objectFilterInfoSomeSelected:
+    'Seules les classes selectionnees sont visibles',
+  metadataToggle: 'Basculer le widget de metadonnees',
+  metadataShowDetails: 'Afficher les details',
+  metadataGroupByType: 'Grouper par type',
+  metadataNoObjectsDetected: 'Aucun objet detecte',
+  detectionsTitleGrouped: ({ count }) =>
+    `Detections (${count} ${count === 1 ? 'objet' : 'objets'})`,
+  detectionsTitleLatest: ({ count }) => `Dernieres detections (${count})`,
+  detectionsGroupedItem: ({ count, label }) => `${count}x ${label}`,
+  streamInfoTitle: 'Infos du flux',
+  streamInfoResolution: 'Resolution',
+  streamInfoNetworkQuality: 'Qualite reseau',
+  streamInfoVideoQuality: 'Qualite video',
+  streamInfoPacketLoss: 'Perte de paquets',
+  streamInfoJitter: 'Jitter',
+  streamInfoBitrate: 'Debit',
+  streamInfoFramesReceived: 'Frames recues',
+  streamInfoFramesDecoded: 'Frames decodees',
+  labelUnknown: ({ id }) => `Inconnu (${id})`,
+};
+
+const es: TranslationMap = {
+  appTitle,
+  languageLabel: 'Idioma',
+  videoLabel: 'Video',
+  analyzerLabel: 'Analizador',
+  overlayLabel: 'Overlay',
+  objectsLabel: 'Objetos',
+  statusConnected: 'Conectado',
+  statusDisconnected: 'Desconectado',
+  videoStateIdle: 'Desconectado',
+  videoStateConnecting: 'Conectando',
+  videoStateConnected: 'Conectado',
+  videoStateError: 'Error',
+  connectionConnecting: 'Conectando...',
+  connectionConnectVideo: 'Conectar video',
+  connectionDisconnectVideo: 'Desconectar video',
+  connectionConnectAnalyzer: 'Conectar analizador',
+  connectionDisconnectAnalyzer: 'Desconectar analizador',
+  connectionClearOverlay: 'Limpiar overlay',
+  objectFilterToggle: 'Alternar filtro de objetos',
+  objectFilterTitle: 'Filtro de objetos',
+  objectFilterNoVisible: 'No hay objetos visibles',
+  objectFilterSelectedClasses: ({ count }) =>
+    count === 1 ? '1 clase seleccionada' : `${count} clases seleccionadas`,
+  objectFilterConfidenceTitle: 'Filtro de baja confianza',
+  objectFilterConfidenceHelper:
+    'Ocultar detecciones por debajo de esta confianza para mantener los metadatos en sincronizacion con las cajas confiables.',
+  objectFilterSelectAll: 'Seleccionar todo',
+  objectFilterClearAll: 'Limpiar todo',
+  objectFilterNoDetections: 'Aun no se detectan objetos',
+  objectFilterInfoNoneSelected: 'Selecciona clases para mostrar las cajas',
+  objectFilterInfoSomeSelected: 'Solo las clases seleccionadas son visibles',
+  metadataToggle: 'Alternar widget de metadatos',
+  metadataShowDetails: 'Mostrar detalles',
+  metadataGroupByType: 'Agrupar por tipo',
+  metadataNoObjectsDetected: 'No se detectaron objetos',
+  detectionsTitleGrouped: ({ count }) =>
+    `Detecciones (${count} ${count === 1 ? 'objeto' : 'objetos'})`,
+  detectionsTitleLatest: ({ count }) => `Ultimas detecciones (${count})`,
+  detectionsGroupedItem: ({ count, label }) => `${count}x ${label}`,
+  streamInfoTitle: 'Info del stream',
+  streamInfoResolution: 'Resolucion',
+  streamInfoNetworkQuality: 'Calidad de red',
+  streamInfoVideoQuality: 'Calidad de video',
+  streamInfoPacketLoss: 'Perdida de paquetes',
+  streamInfoJitter: 'Jitter',
+  streamInfoBitrate: 'Bitrate',
+  streamInfoFramesReceived: 'Frames recibidos',
+  streamInfoFramesDecoded: 'Frames decodificados',
+  labelUnknown: ({ id }) => `Desconocido (${id})`,
+};
+
+const it: TranslationMap = {
+  appTitle,
+  languageLabel: 'Lingua',
+  videoLabel: 'Video',
+  analyzerLabel: 'Analizzatore',
+  overlayLabel: 'Overlay',
+  objectsLabel: 'Oggetti',
+  statusConnected: 'Connesso',
+  statusDisconnected: 'Disconnesso',
+  videoStateIdle: 'Disconnesso',
+  videoStateConnecting: 'Connessione',
+  videoStateConnected: 'Connesso',
+  videoStateError: 'Errore',
+  connectionConnecting: 'Connessione...',
+  connectionConnectVideo: 'Connetti video',
+  connectionDisconnectVideo: 'Disconnetti video',
+  connectionConnectAnalyzer: 'Connetti analizzatore',
+  connectionDisconnectAnalyzer: 'Disconnetti analizzatore',
+  connectionClearOverlay: 'Pulisci overlay',
+  objectFilterToggle: 'Attiva filtro oggetti',
+  objectFilterTitle: 'Filtro oggetti',
+  objectFilterNoVisible: 'Nessun oggetto visibile',
+  objectFilterSelectedClasses: ({ count }) =>
+    count === 1 ? '1 classe selezionata' : `${count} classi selezionate`,
+  objectFilterConfidenceTitle: 'Filtro bassa confidenza',
+  objectFilterConfidenceHelper:
+    'Nascondi le rilevazioni sotto questa confidenza per mantenere i metadati sincronizzati con le box affidabili.',
+  objectFilterSelectAll: 'Seleziona tutto',
+  objectFilterClearAll: 'Deseleziona tutto',
+  objectFilterNoDetections: 'Nessun oggetto rilevato',
+  objectFilterInfoNoneSelected: 'Seleziona classi per mostrare le box',
+  objectFilterInfoSomeSelected: 'Solo le classi selezionate sono visibili',
+  metadataToggle: 'Attiva widget metadati',
+  metadataShowDetails: 'Mostra dettagli',
+  metadataGroupByType: 'Raggruppa per tipo',
+  metadataNoObjectsDetected: 'Nessun oggetto rilevato',
+  detectionsTitleGrouped: ({ count }) =>
+    `Rilevamenti (${count} ${count === 1 ? 'oggetto' : 'oggetti'})`,
+  detectionsTitleLatest: ({ count }) => `Ultimi rilevamenti (${count})`,
+  detectionsGroupedItem: ({ count, label }) => `${count}x ${label}`,
+  streamInfoTitle: 'Info stream',
+  streamInfoResolution: 'Risoluzione',
+  streamInfoNetworkQuality: 'Qualita rete',
+  streamInfoVideoQuality: 'Qualita video',
+  streamInfoPacketLoss: 'Perdita pacchetti',
+  streamInfoJitter: 'Jitter',
+  streamInfoBitrate: 'Bitrate',
+  streamInfoFramesReceived: 'Frames ricevuti',
+  streamInfoFramesDecoded: 'Frames decodificati',
+  labelUnknown: ({ id }) => `Sconosciuto (${id})`,
+};
+
+export const translations = {
+  en,
+  de,
+  fr,
+  es,
+  it,
+};
+
+export type TranslationKey = keyof typeof en;
