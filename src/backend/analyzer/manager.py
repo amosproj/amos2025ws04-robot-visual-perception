@@ -19,6 +19,7 @@ from common.core.contracts import DepthEstimator, Detection, ObjectDetector
 from common.core.depth import get_depth_estimator
 from common.core.detector import get_detector
 from common.core.session import WebcamSession
+from common.data.coco_labels import get_coco_label
 from common.utils.geometry import (
     compute_camera_intrinsics,
     unproject_bbox_center_to_camera,
@@ -26,89 +27,6 @@ from common.utils.geometry import (
 from common.utils.image import resize_frame
 
 logger = logging.getLogger("manager")
-
-COCO_LABELS: tuple[str, ...] = (
-    "Person",
-    "Bicycle",
-    "Car",
-    "Motorcycle",
-    "Airplane",
-    "Bus",
-    "Train",
-    "Truck",
-    "Boat",
-    "Traffic light",
-    "Fire hydrant",
-    "Stop sign",
-    "Parking meter",
-    "Bench",
-    "Bird",
-    "Cat",
-    "Dog",
-    "Horse",
-    "Sheep",
-    "Cow",
-    "Elephant",
-    "Bear",
-    "Zebra",
-    "Giraffe",
-    "Backpack",
-    "Umbrella",
-    "Handbag",
-    "Tie",
-    "Suitcase",
-    "Frisbee",
-    "Skis",
-    "Snowboard",
-    "Sports ball",
-    "Kite",
-    "Baseball bat",
-    "Baseball glove",
-    "Skateboard",
-    "Surfboard",
-    "Tennis racket",
-    "Bottle",
-    "Wine glass",
-    "Cup",
-    "Fork",
-    "Knife",
-    "Spoon",
-    "Bowl",
-    "Banana",
-    "Apple",
-    "Sandwich",
-    "Orange",
-    "Broccoli",
-    "Carrot",
-    "Hot dog",
-    "Pizza",
-    "Donut",
-    "Cake",
-    "Chair",
-    "Couch",
-    "Potted plant",
-    "Bed",
-    "Dining table",
-    "Toilet",
-    "Tv",
-    "Laptop",
-    "Mouse",
-    "Remote",
-    "Keyboard",
-    "Cell phone",
-    "Microwave",
-    "Oven",
-    "Toaster",
-    "Sink",
-    "Refrigerator",
-    "Book",
-    "Clock",
-    "Vase",
-    "Scissors",
-    "Teddy bear",
-    "Hair drier",
-    "Toothbrush",
-)
 
 
 class MetadataMessage(BaseModel):
@@ -512,12 +430,6 @@ class AnalyzerWebSocketManager:
                 det.x1, det.y1, det.x2, det.y2, dist_m, fx, fy, cx, cy
             )
 
-            label_text = (
-                COCO_LABELS[det.cls_id]
-                if 0 <= det.cls_id < len(COCO_LABELS)
-                else str(det.cls_id)
-            )
-
             det_payload.append(
                 {
                     "box": {
@@ -526,7 +438,8 @@ class AnalyzerWebSocketManager:
                         "width": norm_w,
                         "height": norm_h,
                     },
-                    "label": label_text,
+                    "label": det.cls_id,
+                    "label_text": get_coco_label(det.cls_id),
                     "confidence": float(det.confidence),
                     "distance": float(dist_m),
                     "position": {"x": pos_x, "y": pos_y, "z": pos_z},

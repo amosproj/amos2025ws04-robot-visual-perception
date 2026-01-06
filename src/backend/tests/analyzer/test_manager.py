@@ -177,12 +177,22 @@ async def test_process_detection_excludes_updated_tracks_from_interpolation(
     assert call_args[1]["track_ids_to_exclude"] == {0}
 
 
+@pytest.mark.parametrize(
+    "cls_id, expected_label",
+    [
+        (0, "Person"),  # happy path
+        (999, "Unknown (999)"),  # out of range
+        ("foo", "Unknown (foo)"),  # non-numeric input
+    ],
+)
 def test_build_metadata_message_maps_label_to_text(
-    manager: AnalyzerWebSocketManager,
+    manager: AnalyzerWebSocketManager, cls_id: int | str, expected_label: str
 ) -> None:
-    """Ensure detection labels are mapped to human-readable strings."""
+    """Ensure detection labels are mapped to human-readable strings, including unknowns."""
     frame = np.zeros((100, 200, 3), dtype=np.uint8)
-    detections = [Detection(x1=0, y1=0, x2=10, y2=10, cls_id=0, confidence=0.9)]
+    detections = [
+        Detection(x1=0, y1=0, x2=10, y2=10, cls_id=cls_id, confidence=0.9)  # type: ignore[arg-type]
+    ]
     distances = [2.0]
 
     metadata = manager._build_metadata_message(
@@ -194,7 +204,8 @@ def test_build_metadata_message_maps_label_to_text(
         current_fps=30.0,
     )
 
-    assert metadata.detections[0]["label"] == "Person"
+    assert metadata.detections[0]["label"] == cls_id
+    assert metadata.detections[0]["label_text"] == expected_label
 
 
 @pytest.mark.asyncio
