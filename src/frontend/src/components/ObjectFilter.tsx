@@ -7,6 +7,7 @@
 import { useState, useMemo, useCallback, memo, useEffect } from 'react';
 import { getCocoLabel } from '../constants/cocoLabels';
 import { BoundingBox } from './video/VideoOverlay';
+import { useI18n } from '../i18n';
 
 export interface ObjectFilterProps {
   /** Current detections from the latest frame */
@@ -63,7 +64,7 @@ const ClassCheckboxItem = memo(
         className={`flex items-center justify-between p-2 rounded transition-colors ${
           disabled
             ? 'opacity-50 cursor-not-allowed'
-            : 'hover:bg-[#333] cursor-pointer'
+            : 'hover:bg-theme-bg-disabled cursor-pointer'
         }`}
         onClick={(e) => {
           e.preventDefault();
@@ -78,11 +79,13 @@ const ClassCheckboxItem = memo(
             checked={isSelected}
             onChange={() => {}} // Handled by label onClick
             disabled={disabled}
-            className="w-4 h-4 accent-[#00d4ff] cursor-pointer disabled:cursor-not-allowed"
+            className="w-4 h-4 accent-theme-accent cursor-pointer disabled:cursor-not-allowed"
           />
-          <span className="text-sm text-[#e0e0e0]">{classInfo.label}</span>
+          <span className="text-sm text-theme-text-primary">
+            {classInfo.label}
+          </span>
         </div>
-        <span className="text-xs text-[#888] bg-[#404040] px-2 py-0.5 rounded">
+        <span className="text-xs text-theme-text-muted bg-theme-bg-tertiary px-2 py-0.5 rounded">
           {classInfo.count}
         </span>
       </label>
@@ -111,6 +114,11 @@ function ObjectFilter({
   isVideoConnected,
   onClearAll,
 }: ObjectFilterProps) {
+  const { t, language } = useI18n();
+  const unknownLabel = useCallback(
+    (value: string | number) => t('labelUnknown', { id: value }),
+    [t]
+  );
   // Track all classes ever seen in the session with their first-seen timestamp
   const [seenClasses, setSeenClasses] = useState<Map<number, number>>(
     new Map()
@@ -159,7 +167,7 @@ function ObjectFilter({
       const count = currentClasses.get(classId) || 0;
       classes.push({
         classId,
-        label: getCocoLabel(classId),
+        label: getCocoLabel(classId, language, { unknownLabel }),
         count,
         firstSeen,
       });
@@ -167,7 +175,7 @@ function ObjectFilter({
 
     // Sort by first-seen timestamp (newest first = highest timestamp first)
     return classes.sort((a, b) => b.firstSeen - a.firstSeen);
-  }, [seenClasses, currentClasses]);
+  }, [seenClasses, currentClasses, language, unknownLabel]);
 
   const handleToggleClass = useCallback(
     (classId: number) => {
@@ -210,8 +218,8 @@ function ObjectFilter({
       {/* Toggle button */}
       <button
         onClick={onToggle}
-        className="fixed left-5 top-[80px] z-50 bg-[#404040] hover:bg-[#505050] text-[#00d4ff] rounded-lg p-2 transition-colors border border-[#555] shadow-lg"
-        aria-label="Toggle Object Filter"
+        className="fixed left-5 top-[80px] z-50 bg-theme-bg-tertiary hover:bg-theme-bg-hover text-theme-accent rounded-lg p-2 transition-colors border border-theme-border shadow-lg"
+        aria-label={t('objectFilterToggle')}
       >
         <svg
           width="24"
@@ -230,24 +238,26 @@ function ObjectFilter({
       {/* Widget content */}
       {isOpen && (
         <div className="fixed left-5 top-[120px] w-[280px] max-h-[calc(100vh-140px)] overflow-y-auto z-50 transition-all duration-300">
-          <div className="bg-[#2a2a2a] border border-[#404040] p-4 rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+          <div className="bg-theme-bg-secondary border border-theme-border-subtle p-4 rounded-lg shadow-card">
             {/* Header */}
             <div className="mb-3">
-              <h3 className="my-0 text-[#00d4ff] text-lg font-semibold">
-                Object Filter
+              <h3 className="my-0 text-theme-accent text-lg font-semibold">
+                {t('objectFilterTitle')}
               </h3>
-              <p className="text-[#888] text-xs mt-1">
+              <p className="text-theme-text-muted text-xs mt-1">
                 {noneSelected
-                  ? 'No objects visible'
-                  : `${selectedClasses.size} class${selectedClasses.size !== 1 ? 'es' : ''} selected`}
+                  ? t('objectFilterNoVisible')
+                  : t('objectFilterSelectedClasses', {
+                      count: selectedClasses.size,
+                    })}
               </p>
             </div>
 
             {/* Low confidence filter */}
             <div className="mb-4">
-              <div className="flex items-center justify-between text-xs text-[#e0e0e0] mb-1">
-                <span>Low-confidence filter</span>
-                <span className="text-[#00d4ff] font-mono">
+              <div className="flex items-center justify-between text-xs text-theme-text-primary mb-1">
+                <span>{t('objectFilterConfidenceTitle')}</span>
+                <span className="text-theme-accent font-mono">
                   {Math.round(confidenceThreshold * 100)}%+
                 </span>
               </div>
@@ -261,11 +271,10 @@ function ObjectFilter({
                   handleConfidenceChange(parseFloat(e.target.value))
                 }
                 disabled={!isVideoConnected}
-                className="w-full accent-[#00d4ff] cursor-pointer disabled:cursor-not-allowed"
+                className="w-full accent-theme-accent cursor-pointer disabled:cursor-not-allowed"
               />
-              <p className="text-[#666] text-[11px] mt-1">
-                Hide detections below this confidence to keep metadata in sync
-                with trusted boxes.
+              <p className="text-theme-text-muted text-[11px] mt-1">
+                {t('objectFilterConfidenceHelper')}
               </p>
             </div>
 
@@ -275,16 +284,16 @@ function ObjectFilter({
                 <button
                   onClick={handleSelectAll}
                   disabled={allSelected || !isVideoConnected}
-                  className="flex-1 text-xs px-2 py-1.5 bg-[#404040] hover:bg-[#505050] disabled:bg-[#333] disabled:text-[#666] text-[#00d4ff] rounded border border-[#555] transition-colors"
+                  className="flex-1 text-xs px-2 py-1.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover disabled:bg-theme-bg-disabled disabled:text-theme-text-muted text-theme-accent rounded border border-theme-border transition-colors"
                 >
-                  Select All
+                  {t('objectFilterSelectAll')}
                 </button>
                 <button
                   onClick={handleClearAll}
                   disabled={noneSelected || !isVideoConnected}
-                  className="flex-1 text-xs px-2 py-1.5 bg-[#404040] hover:bg-[#505050] disabled:bg-[#333] disabled:text-[#666] text-[#00d4ff] rounded border border-[#555] transition-colors"
+                  className="flex-1 text-xs px-2 py-1.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover disabled:bg-theme-bg-disabled disabled:text-theme-text-muted text-theme-accent rounded border border-theme-border transition-colors"
                 >
-                  Clear All
+                  {t('objectFilterClearAll')}
                 </button>
               </div>
             )}
@@ -303,18 +312,18 @@ function ObjectFilter({
                 ))}
               </div>
             ) : (
-              <p className="text-[#888] text-sm italic text-center py-4">
-                No objects detected yet
+              <p className="text-theme-text-muted text-sm italic text-center py-4">
+                {t('objectFilterNoDetections')}
               </p>
             )}
 
             {/* Info text */}
             {hasDetections && (
-              <div className="mt-3 pt-3 border-t border-[#404040]">
-                <p className="text-[#666] text-xs">
+              <div className="mt-3 pt-3 border-t border-theme-border-subtle">
+                <p className="text-theme-text-muted text-xs">
                   {noneSelected
-                    ? 'Select classes to show bounding boxes'
-                    : 'Only selected classes are visible'}
+                    ? t('objectFilterInfoNoneSelected')
+                    : t('objectFilterInfoSomeSelected')}
                 </p>
               </div>
             )}

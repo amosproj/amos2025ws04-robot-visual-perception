@@ -19,6 +19,7 @@ def tracking_manager_factory():
         early_termination_iou: float = 0.9,
         confidence_decay: float = 0.1,
         max_history_size: int = 5,
+        detection_threshold: int = 1,
     ) -> TrackingManager:
         return TrackingManager(
             iou_threshold=iou_threshold,
@@ -26,6 +27,7 @@ def tracking_manager_factory():
             early_termination_iou=early_termination_iou,
             confidence_decay=confidence_decay,
             max_history_size=max_history_size,
+            detection_threshold=detection_threshold,
         )
 
     return _create_manager
@@ -111,7 +113,7 @@ def test_match_detections_to_tracks_creates_new_tracks(tracking_manager) -> None
     """Test that new tracks are created for unmatched detections and that
     detections are matched to existing tracks by IoU."""
     detections = [create_detection()]
-    updated_ids = tracking_manager.match_detections_to_tracks(
+    updated_ids, _ = tracking_manager.match_detections_to_tracks(
         detections, [2.5], frame_id=1, timestamp=1.0
     )
     assert len(updated_ids) == 1
@@ -120,7 +122,7 @@ def test_match_detections_to_tracks_creates_new_tracks(tracking_manager) -> None
 
     # overlapping detection should match
     det2 = [create_detection(x1=12, y1=22, x2=52, y2=62, confidence=0.8)]
-    updated_ids = tracking_manager.match_detections_to_tracks(
+    updated_ids, _ = tracking_manager.match_detections_to_tracks(
         det2, [2.6], frame_id=2, timestamp=2.0
     )
     assert len(updated_ids) == 1
@@ -185,7 +187,7 @@ def test_get_interpolated_detections_excludes_specified_tracks(
     """Test that excluded track IDs are not interpolated."""
     # create two tracks
     det1 = [create_detection()]
-    updated_ids1 = tracking_manager.match_detections_to_tracks(
+    updated_ids1, _ = tracking_manager.match_detections_to_tracks(
         det1, [2.5], frame_id=1, timestamp=1.0
     )
     det2 = [create_detection(x1=100, y1=100, x2=150, y2=160, cls_id=1, confidence=0.8)]

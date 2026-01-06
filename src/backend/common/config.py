@@ -82,7 +82,13 @@ class Config:
     ICE_GATHERING_TIMEOUT: float = float(os.getenv("ICE_GATHERING_TIMEOUT", "5.0"))
 
     # Analyzer mode (for analyzer.py)
-    WEBCAM_OFFER_URL: str = os.getenv("WEBCAM_OFFER_URL", "http://localhost:8000/offer")
+    STREAMER_OFFER_URL: str = os.getenv(
+        "STREAMER_OFFER_URL", "http://localhost:8000/offer"
+    )
+
+    # video file path for file service
+    VIDEO_FILE_PATH: str = os.getenv("VIDEO_FILE_PATH", "video.mp4")
+    VIDEO_SOURCE_TYPE: str = os.getenv("VIDEO_SOURCE_TYPE", "webcam").lower()
 
     # CORS settings
     CORS_ORIGINS: list[str] = os.getenv("CORS_ORIGINS", "*").split(",")
@@ -123,6 +129,8 @@ class Config:
     )
     # Size for history of each tracked object
     TRACKING_MAX_HISTORY_SIZE: int = int(os.getenv("TRACKING_MAX_HISTORY_SIZE", "5"))
+    # Minimum detections before a track becomes active/sent
+    DETECTION_THRESHOLD: int = int(os.getenv("DETECTION_THRESHOLD", "2"))
 
 
 config = Config()

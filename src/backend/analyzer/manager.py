@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-from typing import Dict
 import asyncio
 import json
 import logging
@@ -12,19 +11,20 @@ import numpy as np
 from aiortc import MediaStreamTrack
 from fastapi import WebSocket
 from pydantic import BaseModel
-from common.core.session import WebcamSession
+
+from analyzer.tracker import TrackingManager
+from analyzer.tracking_models import TrackedObject
 from common.config import config
-from common.core.detector import get_detector
+from common.core.contracts import DepthEstimator, Detection, ObjectDetector
 from common.core.depth import get_depth_estimator
-from common.core.contracts import ObjectDetector, DepthEstimator, Detection
+from common.core.detector import get_detector
+from common.core.session import WebcamSession
+from common.data.coco_labels import get_coco_label
 from common.utils.geometry import (
     compute_camera_intrinsics,
     unproject_bbox_center_to_camera,
 )
 from common.utils.image import resize_frame
-from analyzer.tracking_models import TrackedObject
-from analyzer.tracker import TrackingManager
-
 
 logger = logging.getLogger("manager")
 
@@ -48,7 +48,7 @@ class ProcessingState:
     current_fps: float = 30.0
     consecutive_errors: int = 0
     target_scale: float = 0.8
-    source_track: Optional[MediaStreamTrack] = None
+    source_track: MediaStreamTrack | None = None
 
     def __post_init__(self) -> None:
         if self.last_fps_time == 0.0:
@@ -74,7 +74,7 @@ class AnalyzerWebSocketManager:
         # adaptive frame dropping parameters
         self.fps_threshold = config.FPS_THRESHOLD
         # interpolation/ tracking params
-        self._tracked_objects: Dict[int, TrackedObject] = {}
+        self._tracked_objects: dict[int, TrackedObject] = {}
         self._next_track_id = 0
         self._tracking_manager = TrackingManager(
             iou_threshold=config.TRACKING_IOU_THRESHOLD,
@@ -82,6 +82,7 @@ class AnalyzerWebSocketManager:
             early_termination_iou=config.TRACKING_EARLY_TERMINATION_IOU,
             confidence_decay=config.TRACKING_CONFIDENCE_DECAY,
             max_history_size=config.TRACKING_MAX_HISTORY_SIZE,
+            detection_threshold=config.DETECTION_THRESHOLD,
         )
 
     async def connect(self, websocket: WebSocket) -> None:
@@ -119,7 +120,7 @@ class AnalyzerWebSocketManager:
 
         try:
             # Connect to webcam service
-            upstream_url = config.WEBCAM_OFFER_URL
+            upstream_url = config.STREAMER_OFFER_URL
             self._webcam_session = WebcamSession(upstream_url)
             source_track = await self._webcam_session.connect()
 
@@ -167,8 +168,7 @@ class AnalyzerWebSocketManager:
         estimator = get_depth_estimator()
 
         state = ProcessingState(
-            target_scale=self.target_scale_init,
-            source_track=source_track,
+            target_scale=self.target_scale_init, source_track=source_track
         )
 
         try:
@@ -213,8 +213,13 @@ class AnalyzerWebSocketManager:
         Returns:
             Frame as numpy array, or None if frame couldn't be received/converted.
         """
+        track = state.source_track
+        if track is None:
+            logger.warning("No source track available, skipping frame")
+            return None
+
         try:
-            frame = await asyncio.wait_for(state.source_track.recv(), timeout=5.0)  # type: ignore[union-attr]
+            frame = await asyncio.wait_for(track.recv(), timeout=5.0)
             state.consecutive_errors = 0
         except asyncio.TimeoutError:
             logger.warning("Frame receive timeout, skipping")
@@ -308,45 +313,65 @@ class AnalyzerWebSocketManager:
         current_time: float,
     ) -> None:
         """Run ML inference detection and tracking pipeline in background."""
+
+        # Check active connections
+        if not self.active_connections:
+            return
+
+        # Check sample rate (skip frames to save compute if FPS is low)
+        sample_rate = 2 if state.current_fps < self.fps_threshold else 4
+        should_detect = state.frame_id % sample_rate == 0
+
+        if not should_detect:
+            return
+
         try:
-            loop = asyncio.get_running_loop()
-
-            # Check active connections
-            if not self.active_connections:
-                return
-
-            # Check sample rate (skip frames to save compute if FPS is low)
-            sample_rate = 2 if state.current_fps < self.fps_threshold else 4
-            should_detect = state.frame_id % sample_rate == 0
-
-            if not should_detect:
-                return
-
             # YOLO detection (async)
-            detections = await detector.infer(frame_small)
-            if not detections:
+            raw_detections = await detector.infer(frame_small)
+            if not raw_detections:
                 return
 
             # Distance estimation (sync) -> run in executor
-            distances = await loop.run_in_executor(
-                None, estimator.estimate_distance_m, frame_small, detections
+            raw_distances = await asyncio.get_running_loop().run_in_executor(
+                None, estimator.estimate_distance_m, frame_small, raw_detections
             )
 
             # Tracking logic
-            updated_track_ids = self._tracking_manager.match_detections_to_tracks(
-                detections, distances, state.frame_id, state.last_fps_time
+            updated_track_ids, track_assignments = (
+                self._tracking_manager.match_detections_to_tracks(
+                    raw_detections, raw_distances, state.frame_id, state.last_fps_time
+                )
             )
 
+            # drop detections that have not reached activation threshold
+            filtered_detections: list[Detection] = []
+            filtered_distances: list[float] = []
+            active_track_ids: set[int] = set()
+            for det, dist, track_id in zip(
+                raw_detections, raw_distances, track_assignments
+            ):
+                track = self._tracking_manager._tracked_objects.get(track_id)
+                if track and track.is_active(
+                    self._tracking_manager.detection_threshold
+                ):
+                    filtered_detections.append(det)
+                    filtered_distances.append(dist)
+                    active_track_ids.add(track_id)
+
+            raw_detections = filtered_detections
+            raw_distances = filtered_distances
+
+            track_ids_to_exclude = updated_track_ids | active_track_ids
             interpolated_detections, interpolated_distances = (
                 self._tracking_manager.get_interpolated_detections_and_distances(
                     state.frame_id,
                     state.last_fps_time,
-                    track_ids_to_exclude=updated_track_ids,
+                    track_ids_to_exclude=track_ids_to_exclude,
                 )
             )
 
-            all_detections = detections + interpolated_detections
-            all_distances = distances + interpolated_distances
+            all_detections = raw_detections + interpolated_detections
+            all_distances = raw_distances + interpolated_distances
 
             # cleanup every frame, regardless of detections
             self._tracking_manager._remove_stale_tracks(state.frame_id)
@@ -426,6 +451,7 @@ class AnalyzerWebSocketManager:
                         "height": norm_h,
                     },
                     "label": det.cls_id,
+                    "label_text": get_coco_label(det.cls_id),
                     "confidence": float(det.confidence),
                     "distance": float(dist_m),
                     "position": {"x": pos_x, "y": pos_y, "z": pos_z},

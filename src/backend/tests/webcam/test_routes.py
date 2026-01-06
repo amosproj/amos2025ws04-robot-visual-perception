@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 from fastapi.testclient import TestClient
 
-from webcam.main import app
+from streamer.main import app
 
 
 def test_health_endpoint() -> None:
@@ -11,7 +11,10 @@ def test_health_endpoint() -> None:
     client = TestClient(app)
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "webcam"}
+    response_json = response.json()
+    assert response_json["status"] == "ok"
+    assert response_json["service"] == "streamer"
+    assert response_json["source_type"] in ("webcam", "file")
 
 
 def test_options_offer() -> None:

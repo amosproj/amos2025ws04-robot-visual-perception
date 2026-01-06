@@ -86,6 +86,10 @@ components:
               type: number
         label:
           type: integer
+          description: Detector class ID (e.g., COCO class index)
+        label_text:
+          type: string
+          description: Human-readable object class label
         confidence:
           type: number
         distance:

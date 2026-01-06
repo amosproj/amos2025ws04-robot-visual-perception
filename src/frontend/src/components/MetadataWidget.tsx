@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { MetadataFrame } from './video/VideoOverlay';
 import DetectionInfo from './DetectionInfo';
 import StreamInfo, { type StreamInfoProps } from './StreamInfo';
+import { useI18n } from '../i18n';
 
 export interface MetadataWidgetProps {
   /** Detection metadata from AI backend */
@@ -38,6 +39,7 @@ function MetadataWidget({
   onToggle,
 }: MetadataWidgetProps) {
   const [showGrouped, setShowGrouped] = useState(defaultGrouped);
+  const { t } = useI18n();
 
   const hasDetections =
     detectionMetadata && detectionMetadata.detections.length > 0;
@@ -47,8 +49,8 @@ function MetadataWidget({
       {/* Toggle button */}
       <button
         onClick={onToggle}
-        className="fixed right-5 top-[80px] z-50 bg-[#404040] hover:bg-[#505050] text-[#00d4ff] rounded-lg p-2 transition-colors border border-[#555] shadow-lg"
-        aria-label="Toggle Metadata Widget"
+        className="fixed right-5 top-[80px] z-50 bg-theme-bg-tertiary hover:bg-theme-bg-hover text-theme-accent rounded-lg p-2 transition-colors border border-theme-border shadow-lg"
+        aria-label={t('metadataToggle')}
       >
         <svg
           width="24"
@@ -78,9 +80,11 @@ function MetadataWidget({
                 <div className="mb-3 flex justify-end">
                   <button
                     onClick={() => setShowGrouped(!showGrouped)}
-                    className="text-xs px-3 py-1.5 bg-[#404040] hover:bg-[#505050] text-[#00d4ff] rounded border border-[#555] transition-colors"
+                    className="text-xs px-3 py-1.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover text-theme-accent rounded border border-theme-border transition-colors"
                   >
-                    {showGrouped ? 'Show Details' : 'Group by Type'}
+                    {showGrouped
+                      ? t('metadataShowDetails')
+                      : t('metadataGroupByType')}
                   </button>
                 </div>
 
@@ -93,9 +97,9 @@ function MetadataWidget({
 
             {/* No detections message */}
             {!hasDetections && detectionMetadata && (
-              <div className="bg-[#2a2a2a] border border-[#404040] p-5 rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
-                <p className="text-[#888] text-sm italic text-center">
-                  No objects detected
+              <div className="bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card">
+                <p className="text-theme-text-muted text-sm italic text-center">
+                  {t('metadataNoObjectsDetected')}
                 </p>
               </div>
             )}
