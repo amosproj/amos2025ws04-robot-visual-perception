@@ -140,8 +140,8 @@ function DetectionInfo({
 
   if (showGrouped) {
     return (
-      <div className="bg-[#2a2a2a] border border-[#404040] p-5 rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
-        <h3 className="my-0 mb-4 text-[#00d4ff] text-xl">
+      <div className="bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card">
+        <h3 className="my-0 mb-4 text-theme-accent text-xl">
           {t('detectionsTitleGrouped', { count: detections.length })}
         </h3>
         <div className="max-h-96 overflow-y-auto space-y-2">
@@ -154,8 +154,8 @@ function DetectionInfo({
   }
 
   return (
-    <div className="bg-[#2a2a2a] border border-[#404040] p-5 rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
-      <h3 className="my-0 mb-4 text-[#00d4ff] text-xl">
+    <div className="bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card">
+      <h3 className="my-0 mb-4 text-theme-accent text-xl">
         {t('detectionsTitleLatest', { count: detections.length })}
       </h3>
       <div className="max-h-96 overflow-y-auto">
@@ -185,13 +185,15 @@ const DetectionCard = memo(
     const labelName = resolveLabel(detection.label);
 
     return (
-      <div className="flex flex-col items-center gap-2 px-3 py-2 bg-[#404040] w-full rounded-md border-l-[3px] border-l-[#00d4ff] border border-[#555]">
-        <span className="font-semibold text-[#e0e0e0]">{labelName}</span>
-        <span className="bg-gradient-to-br from-[#74b9ff] to-[#0984e3] text-white px-2 py-0.5 rounded text-xs font-semibold font-mono shadow-[0_2px_4px_rgba(116,185,255,0.3)]">
+      <div className="flex flex-col items-center gap-2 px-3 py-2 bg-theme-bg-tertiary w-full rounded-md border-l-[3px] border-l-theme-accent border border-theme-border">
+        <span className="font-semibold text-theme-text-primary">
+          {labelName}
+        </span>
+        <span className="bg-gradient-to-br from-theme-primary to-theme-primary-secondary text-white px-2 py-0.5 rounded text-xs font-semibold font-mono shadow-[0_2px_4px_rgba(116,185,255,0.3)]">
           {(detection.confidence * 100).toFixed(1)}%
         </span>
         {detection.distance !== undefined && (
-          <span className="bg-gradient-to-br from-[#00d4aa] to-[#00b894] text-white px-2 py-0.5 rounded text-xs font-semibold font-mono shadow-[0_2px_4px_rgba(0,212,170,0.3)]">
+          <span className="bg-gradient-to-br from-theme-success to-theme-success-secondary text-white px-2 py-0.5 rounded text-xs font-semibold font-mono shadow-success-glow">
             {detection.distance.toFixed(2)}m
           </span>
         )}
@@ -212,22 +214,22 @@ const GroupedDetectionCard = memo(({ group }: { group: GroupedDetection }) => {
   const { t } = useI18n();
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-[#404040] rounded-md border-l-[3px] border-l-[#00d4ff] border border-[#555]">
+    <div className="flex items-center justify-between px-4 py-3 bg-theme-bg-tertiary rounded-md border-l-[3px] border-l-theme-accent border border-theme-border">
       <div className="flex items-center gap-3">
-        <span className="font-semibold text-[#e0e0e0] text-lg">
+        <span className="font-semibold text-theme-text-primary text-lg">
           {t('detectionsGroupedItem', {
             count: group.count,
             label: group.label,
           })}
         </span>
-        <span className="text-[#888] text-xs">
+        <span className="text-theme-text-muted text-xs">
           {group.minConfidence === group.maxConfidence
             ? `${(group.minConfidence * 100).toFixed(1)}%`
             : `${(group.minConfidence * 100).toFixed(1)}%-${(group.maxConfidence * 100).toFixed(1)}%`}
         </span>
       </div>
       {group.minDistance !== undefined && (
-        <span className="bg-gradient-to-br from-[#00d4aa] to-[#00b894] text-white px-3 py-1 rounded text-sm font-semibold shadow-[0_2px_4px_rgba(0,212,170,0.3)]">
+        <span className="bg-gradient-to-br from-theme-success to-theme-success-secondary text-white px-3 py-1 rounded text-sm font-semibold shadow-success-glow">
           {group.minDistance === group.maxDistance
             ? `${group.minDistance.toFixed(2)}m`
             : `${group.minDistance.toFixed(2)}-${group.maxDistance!.toFixed(2)}m`}
