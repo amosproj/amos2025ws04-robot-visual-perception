@@ -24,6 +24,7 @@ from common.utils.geometry import (
 from common.utils.image import resize_frame
 from analyzer.tracking_models import TrackedObject
 from analyzer.tracker import TrackingManager
+from common.data.coco_labels import get_coco_label
 
 
 logger = logging.getLogger("manager")
@@ -408,6 +409,7 @@ class AnalyzerWebSocketManager:
                         "height": norm_h,
                     },
                     "label": det.cls_id,
+                    "label_text": get_coco_label(det.cls_id),
                     "confidence": float(det.confidence),
                     "distance": float(dist_m),
                     "position": {"x": pos_x, "y": pos_y, "z": pos_z},
