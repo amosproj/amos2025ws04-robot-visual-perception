@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { MetadataFrame } from './video/VideoOverlay';
 import DetectionInfo from './DetectionInfo';
 import StreamInfo, { type StreamInfoProps } from './StreamInfo';
+import { useI18n } from '../i18n';
 
 export interface MetadataWidgetProps {
   /** Detection metadata from AI backend */
@@ -38,6 +39,7 @@ function MetadataWidget({
   onToggle,
 }: MetadataWidgetProps) {
   const [showGrouped, setShowGrouped] = useState(defaultGrouped);
+  const { t } = useI18n();
 
   const hasDetections =
     detectionMetadata && detectionMetadata.detections.length > 0;
@@ -48,7 +50,7 @@ function MetadataWidget({
       <button
         onClick={onToggle}
         className="fixed right-5 top-[80px] z-50 bg-[#404040] hover:bg-[#505050] text-[#00d4ff] rounded-lg p-2 transition-colors border border-[#555] shadow-lg"
-        aria-label="Toggle Metadata Widget"
+        aria-label={t('metadataToggle')}
       >
         <svg
           width="24"
@@ -80,7 +82,9 @@ function MetadataWidget({
                     onClick={() => setShowGrouped(!showGrouped)}
                     className="text-xs px-3 py-1.5 bg-[#404040] hover:bg-[#505050] text-[#00d4ff] rounded border border-[#555] transition-colors"
                   >
-                    {showGrouped ? 'Show Details' : 'Group by Type'}
+                    {showGrouped
+                      ? t('metadataShowDetails')
+                      : t('metadataGroupByType')}
                   </button>
                 </div>
 
@@ -95,7 +99,7 @@ function MetadataWidget({
             {!hasDetections && detectionMetadata && (
               <div className="bg-[#2a2a2a] border border-[#404040] p-5 rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
                 <p className="text-[#888] text-sm italic text-center">
-                  No objects detected
+                  {t('metadataNoObjectsDetected')}
                 </p>
               </div>
             )}

@@ -5,6 +5,7 @@
  */
 
 import { memo } from 'react';
+import { useI18n } from '../i18n';
 
 export interface StreamInfoProps {
   videoResolution?: { width: number; height: number };
@@ -23,16 +24,20 @@ function StreamInfo({
   framesReceived,
   framesDecoded,
 }: StreamInfoProps) {
+  const { t } = useI18n();
+
   return (
     <div className="bg-[#2a2a2a] border border-[#404040] p-5 rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
-      <h3 className="my-0 mb-4 text-[#00d4ff] text-xl">Stream Info</h3>
+      <h3 className="my-0 mb-4 text-[#00d4ff] text-xl">
+        {t('streamInfoTitle')}
+      </h3>
 
       <div className="space-y-3">
         {/* Video Resolution */}
         {videoResolution && (
           <InfoRow
-            label="Resolution"
-            value={`${videoResolution.width} × ${videoResolution.height}`}
+            label={t('streamInfoResolution')}
+            value={`${videoResolution.width} x ${videoResolution.height}`}
             valueClass="text-[#00d4ff]"
           />
         )}
@@ -43,12 +48,12 @@ function StreamInfo({
           bitrate !== undefined) && (
           <>
             <div className="text-[#888] text-xs font-semibold uppercase mt-4 mb-2">
-              Network Quality
+              {t('streamInfoNetworkQuality')}
             </div>
 
             {packetLoss !== undefined && (
               <InfoRow
-                label="Packet Loss"
+                label={t('streamInfoPacketLoss')}
                 value={`${packetLoss.toFixed(2)}%`}
                 valueClass={
                   packetLoss < 1
@@ -62,7 +67,7 @@ function StreamInfo({
 
             {jitter !== undefined && (
               <InfoRow
-                label="Jitter"
+                label={t('streamInfoJitter')}
                 value={`${jitter.toFixed(1)} ms`}
                 valueClass="text-[#a29bfe]"
               />
@@ -70,7 +75,7 @@ function StreamInfo({
 
             {bitrate !== undefined && (
               <InfoRow
-                label="Bitrate"
+                label={t('streamInfoBitrate')}
                 value={`${bitrate.toFixed(2)} Mbps`}
                 valueClass="text-[#00d4ff]"
               />
@@ -82,12 +87,12 @@ function StreamInfo({
         {(framesReceived !== undefined || framesDecoded !== undefined) && (
           <>
             <div className="text-[#888] text-xs font-semibold uppercase mt-4 mb-2">
-              Video Quality
+              {t('streamInfoVideoQuality')}
             </div>
 
             {framesReceived !== undefined && (
               <InfoRow
-                label="Frames Received"
+                label={t('streamInfoFramesReceived')}
                 value={framesReceived.toString()}
                 valueClass="text-[#888]"
               />
@@ -95,7 +100,7 @@ function StreamInfo({
 
             {framesDecoded !== undefined && (
               <InfoRow
-                label="Frames Decoded"
+                label={t('streamInfoFramesDecoded')}
                 value={framesDecoded.toString()}
                 valueClass="text-[#888]"
               />

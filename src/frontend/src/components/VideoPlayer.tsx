@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   useEffect,
+  useCallback,
   RefObject,
   forwardRef,
   useImperativeHandle,
@@ -15,6 +16,8 @@ import {
 } from 'react';
 import VideoOverlay, { VideoOverlayHandle } from './video/VideoOverlay';
 import { PlayerControls } from './video/PlayerControls';
+import { getCocoLabel } from '../constants/cocoLabels';
+import { useI18n } from '../i18n';
 
 export interface VideoPlayerProps {
   /** Reference to the video element */
@@ -60,6 +63,16 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     const overlayRef = useRef<VideoOverlayHandle>(null);
     const [showControls, setShowControls] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const { language, t } = useI18n();
+    const unknownLabel = useCallback(
+      (value: string | number) => t('labelUnknown', { id: value }),
+      [t]
+    );
+    const labelResolver = useCallback(
+      (label: string | number) =>
+        getCocoLabel(label, language, { unknownLabel }),
+      [language, unknownLabel]
+    );
 
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
@@ -128,6 +141,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           videoRef={videoRef}
           isPaused={isPaused}
           onFrameProcessed={onOverlayFpsUpdate}
+          labelResolver={labelResolver}
         />
 
         <PlayerControls
