@@ -119,7 +119,7 @@ class AnalyzerWebSocketManager:
 
         try:
             # Connect to webcam service
-            upstream_url = config.WEBCAM_OFFER_URL
+            upstream_url = config.STREAMER_OFFER_URL
             self._webcam_session = WebcamSession(upstream_url)
             source_track = await self._webcam_session.connect()
 
