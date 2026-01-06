@@ -7,9 +7,13 @@
 
 from common import __version__
 from common.logging_config import configure_logging
+from common.metrics import configure_metrics
 
 # Initialize logging early
 configure_logging(service_name="analyzer", service_version=__version__)
+
+# Initialize metrics
+configure_metrics()
 
 from contextlib import asynccontextmanager, suppress
 from collections.abc import AsyncIterator, Callable

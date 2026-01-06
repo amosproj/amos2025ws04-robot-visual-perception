@@ -4,12 +4,15 @@
 import asyncio
 import json
 import logging
+import time
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Optional
+from typing import Iterator, Optional
 
 import numpy as np
 from aiortc import MediaStreamTrack
 from fastapi import WebSocket
+from prometheus_client import Histogram
 from pydantic import BaseModel
 
 from analyzer.tracker import TrackingManager
@@ -20,6 +23,11 @@ from common.core.depth import get_depth_estimator
 from common.core.detector import get_detector
 from common.core.session import WebcamSession
 from common.data.coco_labels import get_coco_label
+from common.metrics import (
+    get_depth_estimation_duration,
+    get_detection_duration,
+    get_detections_count,
+)
 from common.utils.geometry import (
     compute_camera_intrinsics,
     unproject_bbox_center_to_camera,
@@ -84,6 +92,10 @@ class AnalyzerWebSocketManager:
             max_history_size=config.TRACKING_MAX_HISTORY_SIZE,
             detection_threshold=config.DETECTION_THRESHOLD,
         )
+
+        self._detection_duration = get_detection_duration()
+        self._depth_estimation_duration = get_depth_estimation_duration()
+        self._detections_count = get_detections_count()
 
     async def connect(self, websocket: WebSocket) -> None:
         """Accept a new WebSocket connection."""
@@ -161,6 +173,41 @@ class AnalyzerWebSocketManager:
             except Exception:
                 pass
         self.active_connections.clear()
+
+    @contextmanager
+    def _measure_time(
+        self, metric: Histogram, labels: dict[str, str]
+    ) -> Iterator[None]:
+        """Generic context manager to measure and record timing for any operation.
+
+        Args:
+            metric: The histogram metric to record to (e.g., self._detection_duration)
+            labels: Labels to attach to the metric
+        """
+        start = time.perf_counter()
+        yield
+        duration = time.perf_counter() - start
+        if metric is not None:
+            metric.labels(**labels).observe(duration)
+
+    def _record_detection_count(
+        self, detections: list[Detection], interpolated_detections: list[Detection]
+    ) -> None:
+        """Record detection count metrics.
+
+        Args:
+            detections: List of detected objects (non-interpolated)
+            interpolated_detections: List of interpolated objects
+        """
+        if self._detections_count is None:
+            return
+
+        if detections:
+            self._detections_count.labels(interpolated="false").inc(len(detections))
+        if interpolated_detections:
+            self._detections_count.labels(interpolated="true").inc(
+                len(interpolated_detections)
+            )
 
     async def _process_frames(self, source_track: MediaStreamTrack) -> None:
         """Process frames from webcam and send metadata to all clients."""
@@ -304,6 +351,70 @@ class AnalyzerWebSocketManager:
 
         return state, current_time
 
+    async def _process_detection(
+        self,
+        frame_small: np.ndarray,
+        state: ProcessingState,
+        detector: ObjectDetector,
+        estimator: DepthEstimator,
+    ) -> tuple[list[Detection], list[float]]:
+        with self._measure_time(
+            self._detection_duration, labels={"backend": config.DETECTOR_BACKEND}
+        ):
+            # YOLO detection (async)
+            raw_detections = await detector.infer(frame_small)
+
+        if not raw_detections:
+            return [], []
+
+        with self._measure_time(
+            self._depth_estimation_duration,
+            labels={"model_type": estimator.model_type},
+        ):
+            # Distance estimation (sync) -> run in executor
+            raw_distances = await asyncio.get_running_loop().run_in_executor(
+                None, estimator.estimate_distance_m, frame_small, raw_detections
+            )
+
+        # Tracking logic
+        updated_track_ids, track_assignments = (
+            self._tracking_manager.match_detections_to_tracks(
+                raw_detections, raw_distances, state.frame_id, state.last_fps_time
+            )
+        )
+
+        # drop detections that have not reached activation threshold
+        filtered_detections: list[Detection] = []
+        filtered_distances: list[float] = []
+        active_track_ids: set[int] = set()
+        for det, dist, track_id in zip(
+            raw_detections, raw_distances, track_assignments
+        ):
+            track = self._tracking_manager._tracked_objects.get(track_id)
+            if track and track.is_active(self._tracking_manager.detection_threshold):
+                filtered_detections.append(det)
+                filtered_distances.append(dist)
+                active_track_ids.add(track_id)
+
+        track_ids_to_exclude = updated_track_ids | active_track_ids
+        interpolated_detections, interpolated_distances = (
+            self._tracking_manager.get_interpolated_detections_and_distances(
+                state.frame_id,
+                state.last_fps_time,
+                track_ids_to_exclude=track_ids_to_exclude,
+            )
+        )
+
+        self._record_detection_count(filtered_detections, interpolated_detections)
+
+        all_detections = filtered_detections + interpolated_detections
+        all_distances = filtered_distances + interpolated_distances
+
+        # cleanup every frame, regardless of detections
+        self._tracking_manager._remove_stale_tracks(state.frame_id)
+
+        return all_detections, all_distances
+
     async def _run_inference_pipeline(
         self,
         frame_small: np.ndarray,
@@ -326,55 +437,12 @@ class AnalyzerWebSocketManager:
             return
 
         try:
-            # YOLO detection (async)
-            raw_detections = await detector.infer(frame_small)
-            if not raw_detections:
-                return
-
-            # Distance estimation (sync) -> run in executor
-            raw_distances = await asyncio.get_running_loop().run_in_executor(
-                None, estimator.estimate_distance_m, frame_small, raw_detections
+            all_detections, all_distances = await self._process_detection(
+                frame_small=frame_small,
+                state=state,
+                detector=detector,
+                estimator=estimator,
             )
-
-            # Tracking logic
-            updated_track_ids, track_assignments = (
-                self._tracking_manager.match_detections_to_tracks(
-                    raw_detections, raw_distances, state.frame_id, state.last_fps_time
-                )
-            )
-
-            # drop detections that have not reached activation threshold
-            filtered_detections: list[Detection] = []
-            filtered_distances: list[float] = []
-            active_track_ids: set[int] = set()
-            for det, dist, track_id in zip(
-                raw_detections, raw_distances, track_assignments
-            ):
-                track = self._tracking_manager._tracked_objects.get(track_id)
-                if track and track.is_active(
-                    self._tracking_manager.detection_threshold
-                ):
-                    filtered_detections.append(det)
-                    filtered_distances.append(dist)
-                    active_track_ids.add(track_id)
-
-            raw_detections = filtered_detections
-            raw_distances = filtered_distances
-
-            track_ids_to_exclude = updated_track_ids | active_track_ids
-            interpolated_detections, interpolated_distances = (
-                self._tracking_manager.get_interpolated_detections_and_distances(
-                    state.frame_id,
-                    state.last_fps_time,
-                    track_ids_to_exclude=track_ids_to_exclude,
-                )
-            )
-
-            all_detections = raw_detections + interpolated_detections
-            all_distances = raw_distances + interpolated_distances
-
-            # cleanup every frame, regardless of detections
-            self._tracking_manager._remove_stale_tracks(state.frame_id)
 
             if all_detections:
                 await self._send_frame_metadata(

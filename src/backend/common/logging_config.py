@@ -136,10 +136,8 @@ def configure_logging(
 
     log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
     log_level = getattr(logging, log_level_name, logging.INFO)
-    env: str = (
-        environment
-        if environment is not None
-        else os.getenv("ENVIRONMENT", "development")
+    env = (
+        os.getenv("ENVIRONMENT", "development") if environment is None else environment
     )
     log_format: str = os.getenv("LOG_FORMAT", "json").lower()
 
@@ -155,10 +153,8 @@ def configure_logging(
     _logs.set_logger_provider(logger_provider)
 
     # Configure OTLP HTTP exporter (falls back to defaults if no endpoint provided)
-    otlp_endpoint = (
-        os.getenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
-        or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-        or None
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT") or os.getenv(
+        "OTEL_EXPORTER_OTLP_ENDPOINT"
     )
 
     # Only enable OTLP export if an explicit endpoint is provided
