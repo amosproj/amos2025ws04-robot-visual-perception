@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+import ThemeToggle from './ThemeToggle';
+
 export interface HeaderProps {
   videoState: string;
   latencyMs?: number;
@@ -16,22 +18,22 @@ export interface HeaderProps {
 // Helper function to get status value classes
 const getStatusValueClass = (isConnected: boolean) => {
   if (isConnected) {
-    return 'bg-gradient-to-br from-[#00d4aa] to-[#00b894] text-white shadow-[0_0_8px_rgba(0,212,170,0.3)]';
+    return 'bg-gradient-to-br from-theme-success to-theme-success-secondary text-white shadow-success-glow';
   }
-  return 'bg-[#404040] text-[#e0e0e0] border border-[#555]';
+  return 'bg-theme-bg-tertiary text-theme-text-primary border border-theme-border';
 };
 
 const getVideoStateClass = (state: string) => {
   if (state === 'connected') {
-    return 'bg-gradient-to-br from-[#00d4aa] to-[#00b894] text-white shadow-[0_0_8px_rgba(0,212,170,0.3)]';
+    return 'bg-gradient-to-br from-theme-success to-theme-success-secondary text-white shadow-success-glow';
   }
   if (state === 'connecting') {
-    return 'bg-gradient-to-br from-[#fdcb6e] to-[#e17055] text-white shadow-[0_0_8px_rgba(253,203,110,0.3)] animate-pulse';
+    return 'bg-gradient-to-br from-theme-warning to-theme-warning-secondary text-white shadow-warning-glow animate-pulse';
   }
   if (state === 'error') {
-    return 'bg-gradient-to-br from-[#fd79a8] to-[#e84393] text-white shadow-[0_0_8px_rgba(253,121,168,0.3)]';
+    return 'bg-gradient-to-br from-theme-error to-theme-error-secondary text-white shadow-error-glow';
   }
-  return 'bg-[#404040] text-[#e0e0e0] border border-[#555]';
+  return 'bg-theme-bg-tertiary text-theme-text-primary border border-theme-border';
 };
 
 export default function Header({
@@ -44,48 +46,60 @@ export default function Header({
 }: HeaderProps) {
   return (
     <div className="text-center mb-8">
-      <h1 className="my-0 mb-5 text-[#00d4ff] text-[2.5rem] font-light shadow-[0_0_10px_rgba(0,212,255,0.3)]">
-        Robot Visual Perception
-      </h1>
-      <div className="flex justify-center gap-8 flex-wrap bg-[#2a2a2a] border border-[#404040] p-4 rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+      <div className="flex justify-between items-center mb-5">
+        <div className="w-10" /> {/* Spacer for centering */}
+        <h1 className="my-0 text-theme-accent text-[2.5rem] font-light shadow-accent-glow">
+          Robot Visual Perception
+        </h1>
+        <ThemeToggle />
+      </div>
+      <div className="flex justify-center gap-8 flex-wrap bg-theme-bg-secondary border border-theme-border-subtle p-4 rounded-lg shadow-card">
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-[#b0b0b0]">Video:</span>
+          <span className="font-semibold text-theme-text-secondary">
+            Video:
+          </span>
           <span
             className={`font-medium px-3 py-1 rounded ${getVideoStateClass(videoState)}`}
           >
             {videoState}
           </span>
           {latencyMs && (
-            <span className="text-[#00d4ff] text-xs font-semibold shadow-[0_0_4px_rgba(0,212,255,0.5)]">
+            <span className="text-theme-accent text-xs font-semibold shadow-accent-glow">
               ({latencyMs}ms)
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-[#b0b0b0]">Analyzer:</span>
+          <span className="font-semibold text-theme-text-secondary">
+            Analyzer:
+          </span>
           <span
             className={`font-medium px-3 py-1 rounded ${getStatusValueClass(analyzerConnected)}`}
           >
             {analyzerConnected ? 'Connected' : 'Disconnected'}
           </span>
           {analyzerFps && analyzerFps > 0 && (
-            <span className="text-[#00d4ff] text-xs font-semibold shadow-[0_0_4px_rgba(0,212,255,0.5)]">
+            <span className="text-theme-accent text-xs font-semibold shadow-accent-glow">
               ({analyzerFps} FPS)
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-[#b0b0b0]">Overlay:</span>
-          <span className="font-medium px-3 py-1 rounded bg-[#404040] text-[#e0e0e0] border border-[#555]">
+          <span className="font-semibold text-theme-text-secondary">
+            Overlay:
+          </span>
+          <span className="font-medium px-3 py-1 rounded bg-theme-bg-tertiary text-theme-text-primary border border-theme-border">
             {overlayFps} FPS
           </span>
         </div>
 
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-[#b0b0b0]">Objects:</span>
-          <span className="font-medium px-3 py-1 rounded bg-[#404040] text-[#e0e0e0] border border-[#555]">
+          <span className="font-semibold text-theme-text-secondary">
+            Objects:
+          </span>
+          <span className="font-medium px-3 py-1 rounded bg-theme-bg-tertiary text-theme-text-primary border border-theme-border">
             {objectCount}
           </span>
         </div>
