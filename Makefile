@@ -248,3 +248,10 @@ download-midas:
 # Combined download and export
 # Export implies download, so we just need export
 download-models-onnx: export-onnx
+
+download-depth-anything:
+	@echo "Downloading Depth Anything V2 model..."
+	@mkdir -p $(MODELS_DIR)
+	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --models depth-anything \
+	  --output-dir $(MODELS_DIR)

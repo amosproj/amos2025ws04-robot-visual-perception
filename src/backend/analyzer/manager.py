@@ -62,6 +62,7 @@ class AnalyzerWebSocketManager:
         self.active_connections: set[WebSocket] = set()
         self._webcam_session: WebcamSession | None = None
         self._processing_task: asyncio.Task[None] | None = None
+        self._inference_task: asyncio.Task[None] | None = None
         self._intrinsics_logged: bool = False
 
         self.max_consecutive_errors = 5
@@ -183,20 +184,15 @@ class AnalyzerWebSocketManager:
                     state, current_time = self._update_fps_and_scaling(state)
                     frame_small = resize_frame(frame_array, state.target_scale)
 
-                    detections, distances = await self._process_detection(
-                        frame_small,
-                        state,
-                        detector,
-                        estimator,
-                    )
-                    if detections:
-                        await self._send_frame_metadata(
-                            frame_small,
-                            detections,
-                            distances,
-                            current_time,
-                            state,
+                    # Smart Frame Dropping
+                    if self._inference_task and not self._inference_task.done():
+                        continue
+
+                    self._inference_task = asyncio.create_task(
+                        self._run_inference_pipeline(
+                            frame_small, state, detector, estimator, current_time
                         )
+                    )
 
                 except Exception as e:
                     logger.warning("Frame processing error", extra={"error": str(e)})
@@ -308,42 +304,52 @@ class AnalyzerWebSocketManager:
 
         return state, current_time
 
-    async def _process_detection(
+    async def _run_inference_pipeline(
         self,
         frame_small: np.ndarray,
         state: ProcessingState,
         detector: ObjectDetector,
         estimator: DepthEstimator,
-    ) -> tuple[list[Detection], list[float]]:
-        """Process detection for current frame (real or interpolated).
+        current_time: float,
+    ) -> None:
+        """Run ML inference detection and tracking pipeline in background."""
 
-        Returns:
-            Tuple of (detections, distances) lists
-        """
+        # Check active connections
+        if not self.active_connections:
+            return
+
+        # Check sample rate (skip frames to save compute if FPS is low)
         sample_rate = 2 if state.current_fps < self.fps_threshold else 4
         should_detect = state.frame_id % sample_rate == 0
 
-        if not self.active_connections or not should_detect:
-            return [], []
+        if not should_detect:
+            return
 
-        detections: list[Detection] = []
-        distances: list[float] = []
-        updated_track_ids: set[int] = set()
-        active_track_ids: set[int] = set()
+        try:
+            # YOLO detection (async)
+            raw_detections = await detector.infer(frame_small)
+            if not raw_detections:
+                return
 
-        detections = await detector.infer(frame_small)
-        if detections:
-            distances = estimator.estimate_distance_m(frame_small, detections)
+            # Distance estimation (sync) -> run in executor
+            raw_distances = await asyncio.get_running_loop().run_in_executor(
+                None, estimator.estimate_distance_m, frame_small, raw_detections
+            )
+
+            # Tracking logic
             updated_track_ids, track_assignments = (
                 self._tracking_manager.match_detections_to_tracks(
-                    detections, distances, state.frame_id, state.last_fps_time
+                    raw_detections, raw_distances, state.frame_id, state.last_fps_time
                 )
             )
 
             # drop detections that have not reached activation threshold
             filtered_detections: list[Detection] = []
             filtered_distances: list[float] = []
-            for det, dist, track_id in zip(detections, distances, track_assignments):
+            active_track_ids: set[int] = set()
+            for det, dist, track_id in zip(
+                raw_detections, raw_distances, track_assignments
+            ):
                 track = self._tracking_manager._tracked_objects.get(track_id)
                 if track and track.is_active(
                     self._tracking_manager.detection_threshold
@@ -352,25 +358,31 @@ class AnalyzerWebSocketManager:
                     filtered_distances.append(dist)
                     active_track_ids.add(track_id)
 
-            detections = filtered_detections
-            distances = filtered_distances
+            raw_detections = filtered_detections
+            raw_distances = filtered_distances
 
-        track_ids_to_exclude = updated_track_ids | active_track_ids
-        interpolated_detections, interpolated_distances = (
-            self._tracking_manager.get_interpolated_detections_and_distances(
-                state.frame_id,
-                state.last_fps_time,
-                track_ids_to_exclude=track_ids_to_exclude,
+            track_ids_to_exclude = updated_track_ids | active_track_ids
+            interpolated_detections, interpolated_distances = (
+                self._tracking_manager.get_interpolated_detections_and_distances(
+                    state.frame_id,
+                    state.last_fps_time,
+                    track_ids_to_exclude=track_ids_to_exclude,
+                )
             )
-        )
 
-        all_detections = detections + interpolated_detections
-        all_distances = distances + interpolated_distances
+            all_detections = raw_detections + interpolated_detections
+            all_distances = raw_distances + interpolated_distances
 
-        # cleanup every frame, regardless of detections
-        self._tracking_manager._remove_stale_tracks(state.frame_id)
+            # cleanup every frame, regardless of detections
+            self._tracking_manager._remove_stale_tracks(state.frame_id)
 
-        return all_detections, all_distances
+            if all_detections:
+                await self._send_frame_metadata(
+                    frame_small, all_detections, all_distances, current_time, state
+                )
+
+        except Exception as e:
+            logger.error("Inference pipeline error", extra={"error": str(e)})
 
     async def _send_metadata(self, metadata: MetadataMessage) -> None:
         """Send metadata to all active WebSocket clients."""
