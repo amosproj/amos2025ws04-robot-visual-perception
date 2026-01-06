@@ -19,6 +19,7 @@ class TrackingManager:
         early_termination_iou: float,
         confidence_decay: float,
         max_history_size: int,
+        detection_threshold: int,
     ) -> None:
         """Initialize tracking manager.
 
@@ -28,12 +29,14 @@ class TrackingManager:
             early_termination_iou: IoU threshold for early termination during matching
             confidence_decay: Confidence decay factor per unit interpolation factor
             max_history_size: Maximum number of detections to keep in track history
+            detection_threshold: Minimum number of detections before a track is active
         """
         self.iou_threshold = iou_threshold
         self.max_frames_without_detection = max_frames_without_detection
         self.early_termination_iou = early_termination_iou
         self.confidence_decay = confidence_decay
         self.max_history_size = max_history_size
+        self.detection_threshold = max(0, detection_threshold)
         self._tracked_objects: dict[int, TrackedObject] = {}
         self._next_track_id = 0
 
@@ -43,7 +46,7 @@ class TrackingManager:
         distances: list[float],
         frame_id: int,
         timestamp: float,
-    ) -> set[int]:
+    ) -> tuple[set[int], list[int]]:
         """Match new detections to existing tracks or create new tracks.
 
         Args:
@@ -53,9 +56,12 @@ class TrackingManager:
             timestamp: Current timestamp
 
         Returns:
-            Set of track IDs that were updated (matched or newly created).
+            Tuple of:
+                - Set of track IDs that were updated (matched or newly created).
+                - List of track IDs aligned with the input detections/distances.
         """
         used_track_ids: set[int] = set()
+        track_assignments: list[int] = []
 
         new_detections = [
             TrackedDetection(
@@ -114,9 +120,10 @@ class TrackingManager:
                 self._tracked_objects[track_id] = new_track
 
             self._tracked_objects[track_id].add_detection(det)
+            track_assignments.append(track_id)
             used_track_ids.add(track_id)
 
-        return used_track_ids
+        return used_track_ids, track_assignments
 
     def get_interpolated_detections_and_distances(
         self,
@@ -140,6 +147,8 @@ class TrackingManager:
         distances: list[float] = []
 
         for track_id, track in self._tracked_objects.items():
+            if not track.is_active(self.detection_threshold):
+                continue
             if track_id in track_ids_to_exclude:
                 continue
             interp_det = track.get_interpolated(
