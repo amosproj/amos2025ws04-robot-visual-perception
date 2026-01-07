@@ -57,6 +57,10 @@ class Config:
     DEPTH_ANYTHING_CACHE_DIR: Path = Path(
         os.getenv("DEPTH_ANYTHING_CACHE_DIR", "models/depth_anything_cache")
     ).resolve()
+    DEPTH_PRO_MODEL: str = os.getenv("DEPTH_PRO_MODEL", "depth_pro")
+    DEPTH_PRO_CACHE_DIR: Path = Path(
+        os.getenv("DEPTH_PRO_CACHE_DIR", "models/depth_pro_cache")
+    ).resolve()
     MIDAS_ONNX_MODEL_PATH: Path = Path(
         os.getenv("MIDAS_ONNX_MODEL_PATH", "models/midas_small.onnx")
     ).resolve()

@@ -59,3 +59,4 @@ src/backend/models/*
 src/backend/models/*.pt
 src/backend/models/*.onnx
 src/backend/models/midas_cache/
+src/backend/checkpoints/
