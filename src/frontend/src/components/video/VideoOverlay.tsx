@@ -5,6 +5,19 @@
  */
 
 import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import {
+  getDetectionColor,
+  computeDisplayedVideoRect,
+  calculateBoundingBoxPixels,
+  formatDetectionLabel,
+  calculateLabelPosition,
+  findBestMetadataMatch,
+  sanitizeTimestamp,
+  isHeldFrameValid,
+  hasLayoutChanged,
+  HOLD_LAST_MS,
+  type ObjectFit,
+} from '../../lib/overlayUtils';
 
 /**
  * Metadata for a single detected object with bounding box
@@ -91,10 +104,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       dpr: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
     });
 
-    const clamp = (value: number, min: number, max: number) =>
-      Math.min(Math.max(value, min), max);
-
-    const computeDisplayedVideoRect = (
+    const getDisplayedVideoRect = (
       video: HTMLVideoElement,
       videoRect: DOMRect
     ) => {
@@ -103,57 +113,15 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       const elementWidth = videoRect.width;
       const elementHeight = videoRect.height;
       const objectFit =
-        window.getComputedStyle(video).objectFit?.toLowerCase() || 'contain';
+        (window.getComputedStyle(video).objectFit?.toLowerCase() as ObjectFit) || 'contain';
 
-      if (!intrinsicWidth || !intrinsicHeight) {
-        return {
-          width: elementWidth,
-          height: elementHeight,
-          offsetX: 0,
-          offsetY: 0,
-        };
-      }
-
-      const widthRatio = elementWidth / intrinsicWidth;
-      const heightRatio = elementHeight / intrinsicHeight;
-      let renderWidth = elementWidth;
-      let renderHeight = elementHeight;
-
-      switch (objectFit) {
-        case 'cover': {
-          const scale = Math.max(widthRatio, heightRatio);
-          renderWidth = intrinsicWidth * scale;
-          renderHeight = intrinsicHeight * scale;
-          break;
-        }
-        case 'fill': {
-          renderWidth = elementWidth;
-          renderHeight = elementHeight;
-          break;
-        }
-        case 'none': {
-          renderWidth = intrinsicWidth;
-          renderHeight = intrinsicHeight;
-          break;
-        }
-        case 'scale-down': {
-          const scale = Math.min(1, Math.min(widthRatio, heightRatio));
-          renderWidth = intrinsicWidth * scale;
-          renderHeight = intrinsicHeight * scale;
-          break;
-        }
-        case 'contain':
-        default: {
-          const scale = Math.min(widthRatio, heightRatio);
-          renderWidth = intrinsicWidth * scale;
-          renderHeight = intrinsicHeight * scale;
-        }
-      }
-
-      const offsetX = (elementWidth - renderWidth) / 2;
-      const offsetY = (elementHeight - renderHeight) / 2;
-
-      return { width: renderWidth, height: renderHeight, offsetX, offsetY };
+      return computeDisplayedVideoRect(
+        intrinsicWidth,
+        intrinsicHeight,
+        elementWidth,
+        elementHeight,
+        objectFit
+      );
     };
 
     const syncCanvasLayout = (
@@ -163,7 +131,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
     ) => {
       const videoRect = video.getBoundingClientRect();
       const containerRect = video.parentElement?.getBoundingClientRect();
-      const { width, height, offsetX, offsetY } = computeDisplayedVideoRect(
+      const { width, height, offsetX, offsetY } = getDisplayedVideoRect(
         video,
         videoRect
       );
@@ -174,13 +142,11 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       const left =
         (containerRect ? videoRect.left - containerRect.left : 0) + offsetX;
 
-      const sizeChanged =
-        Math.abs(width - lastLayoutRef.current.width) > 0.5 ||
-        Math.abs(height - lastLayoutRef.current.height) > 0.5 ||
-        dpr !== lastLayoutRef.current.dpr;
-      const positionChanged =
-        Math.abs(top - lastLayoutRef.current.top) > 0.5 ||
-        Math.abs(left - lastLayoutRef.current.left) > 0.5;
+      const currentLayout = { width, height, top, left, dpr };
+      const { sizeChanged, positionChanged } = hasLayoutChanged(
+        currentLayout,
+        lastLayoutRef.current
+      );
 
       if (sizeChanged) {
         canvas.width = Math.max(1, Math.round(width * dpr));
@@ -198,7 +164,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       }
 
       if (sizeChanged || positionChanged) {
-        lastLayoutRef.current = { width, height, top, left, dpr };
+        lastLayoutRef.current = currentLayout;
       }
 
       return sizeChanged || positionChanged;
@@ -224,14 +190,9 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           return;
         }
 
-        const safeTimestamp =
-          typeof metadata.timestamp === 'number' &&
-          !Number.isNaN(metadata.timestamp)
-            ? metadata.timestamp
-            : Date.now();
         const normalized: MetadataFrame = {
           ...metadata,
-          timestamp: safeTimestamp,
+          timestamp: sanitizeTimestamp(metadata.timestamp),
         };
 
         const buffer = metadataBufferRef.current;
@@ -263,35 +224,25 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       const buffer = metadataBufferRef.current;
       if (!buffer.length) return null;
 
-      const normalizeTimestamp = (frameTimestamp: number) => {
-        if (timeOffsetRef.current == null) {
-          timeOffsetRef.current = frameTimestamp - mediaTimeMs;
-        }
-        return frameTimestamp - timeOffsetRef.current;
-      };
+      // Initialize time offset on first frame if not set
+      if (timeOffsetRef.current == null) {
+        timeOffsetRef.current = buffer[0].timestamp - mediaTimeMs;
+      }
 
-      let bestIndex = -1;
-      let bestDelta = Number.POSITIVE_INFINITY;
+      const matchResult = findBestMetadataMatch(
+        buffer,
+        mediaTimeMs,
+        timeOffsetRef.current
+      );
 
-      buffer.forEach((frame, idx) => {
-        const adjustedTimestamp = normalizeTimestamp(frame.timestamp);
-        const delta = Math.abs(adjustedTimestamp - mediaTimeMs);
-        if (delta < bestDelta) {
-          bestDelta = delta;
-          bestIndex = idx;
-        }
-      });
-
-      // Only accept if within tolerance window
-      const TOLERANCE_MS = 120;
-      if (bestIndex === -1 || bestDelta > TOLERANCE_MS) {
+      if (!matchResult) {
         return null;
       }
 
-      const match = buffer[bestIndex];
+      const match = buffer[matchResult.index];
 
       // Drop frames up to and including the one we used to prevent reuse
-      metadataBufferRef.current = buffer.slice(bestIndex + 1);
+      metadataBufferRef.current = buffer.slice(matchResult.index + 1);
 
       return match;
     };
@@ -331,9 +282,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       };
 
-      const resolveLabel =
-        labelResolver ?? ((value: string | number) => String(value));
-
       const renderOverlay = (mediaTimeMs: number, perfTimeMs: number) => {
         // Keep canvas aligned with the actually drawn video area (handles zoom/fullscreen/object-fit)
         updateCanvasSize();
@@ -342,14 +290,11 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         const canvasWidth = lastLayoutRef.current.width;
         const canvasHeight = lastLayoutRef.current.height;
 
-        const HOLD_LAST_MS = 150; // keep last overlay briefly to reduce flicker
-
         let metadata = isPaused ? null : pickMetadataForTime(mediaTimeMs);
 
         // If no fresh metadata, try to reuse last rendered frame within a short window
         if (!metadata && lastRenderedRef.current) {
-          const age = mediaTimeMs - lastRenderedRef.current.mediaTimeMs;
-          if (age >= 0 && age <= HOLD_LAST_MS) {
+          if (isHeldFrameValid(mediaTimeMs, lastRenderedRef.current.mediaTimeMs, HOLD_LAST_MS)) {
             metadata = lastRenderedRef.current.metadata;
           }
         }
@@ -366,34 +311,18 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           metadata.detections.forEach((detection, index) => {
             const { box, label, confidence, distance } = detection;
 
-            const rawX = box.x * canvasWidth;
-            const rawY = box.y * canvasHeight;
-            const rawWidth = box.width * canvasWidth;
-            const rawHeight = box.height * canvasHeight;
+            // Calculate pixel coordinates using utility function
+            const pixelBox = calculateBoundingBoxPixels(box, canvasWidth, canvasHeight);
 
-            const bboxX = clamp(rawX, 0, canvasWidth);
-            const bboxY = clamp(rawY, 0, canvasHeight);
-            const bboxMaxX = clamp(rawX + rawWidth, 0, canvasWidth);
-            const bboxMaxY = clamp(rawY + rawHeight, 0, canvasHeight);
-            const bboxWidth = Math.max(0, bboxMaxX - bboxX);
-            const bboxHeight = Math.max(0, bboxMaxY - bboxY);
-
-            if (bboxWidth === 0 || bboxHeight === 0) {
+            // Skip if box has no visible area
+            if (!pixelBox) {
               return;
             }
 
-            // Color scheme
-            const colors = [
-              '#00d4ff',
-              '#00ff88',
-              '#ff6b9d',
-              '#ffd93d',
-              '#ff8c42',
-              '#a8e6cf',
-              '#b4a5ff',
-              '#ffb347',
-            ];
-            const color = colors[index % colors.length];
+            const { x: bboxX, y: bboxY, width: bboxWidth, height: bboxHeight } = pixelBox;
+
+            // Get color for this detection
+            const color = getDetectionColor(index);
 
             // Draw bounding box using calculated coordinates
             ctx.shadowColor = color;
@@ -404,43 +333,43 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             ctx.strokeRect(bboxX + 1, bboxY + 1, bboxWidth - 2, bboxHeight - 2);
             ctx.shadowBlur = 0;
 
-            // Label + distance
-            const labelText = `${resolveLabel(label)} ${
-              confidence !== undefined ? (confidence * 100).toFixed(0) : '?'
-            }%`;
-            const distanceText = distance ? ` | ${distance.toFixed(2)}m` : '';
-            const fullText = labelText + distanceText;
+            // Format label text using utility function
+            const fullText = formatDetectionLabel(label, confidence, distance, labelResolver);
 
             ctx.font = 'bold 14px "SF Pro Display", -apple-system, sans-serif';
             const textMetrics = ctx.measureText(fullText);
             const textHeight = 18;
             const padding = 6;
-            const labelY =
-              bboxY > textHeight + padding
-                ? bboxY - 4
-                : Math.min(
-                    canvasHeight - 2,
-                    bboxY + bboxHeight + textHeight + 4
-                  );
             const maxLabelWidth = Math.min(
               canvasWidth,
               textMetrics.width + padding * 2
             );
-            const labelX = clamp(bboxX, 0, canvasWidth - maxLabelWidth);
+
+            // Calculate label position using utility function
+            const labelPos = calculateLabelPosition(
+              bboxX,
+              bboxY,
+              bboxHeight,
+              textHeight,
+              padding,
+              maxLabelWidth,
+              canvasWidth,
+              canvasHeight
+            );
 
             // Background
             const bgGradient = ctx.createLinearGradient(
-              labelX,
-              labelY - textHeight,
-              labelX,
-              labelY
+              labelPos.x,
+              labelPos.y - textHeight,
+              labelPos.x,
+              labelPos.y
             );
             bgGradient.addColorStop(0, `${color}ee`);
             bgGradient.addColorStop(1, `${color}cc`);
             ctx.fillStyle = bgGradient;
             ctx.fillRect(
-              labelX,
-              labelY - textHeight - padding / 2,
+              labelPos.x,
+              labelPos.y - textHeight - padding / 2,
               maxLabelWidth,
               textHeight + padding
             );
@@ -449,8 +378,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             ctx.fillStyle = '#000000';
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 3;
-            ctx.strokeText(fullText, labelX + padding, labelY - padding / 2);
-            ctx.fillText(fullText, labelX + padding, labelY - padding / 2);
+            ctx.strokeText(fullText, labelPos.x + padding, labelPos.y - padding / 2);
+            ctx.fillText(fullText, labelPos.x + padding, labelPos.y - padding / 2);
           });
 
           // Remember what we rendered to soften flicker across small gaps
