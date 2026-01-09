@@ -119,6 +119,15 @@ function ObjectFilter({
     (value: string | number) => t('labelUnknown', { id: value }),
     [t]
   );
+  const resolveLabel = useCallback(
+    (label: string | number, labelText?: string) => {
+      if (labelText && labelText.trim().length > 0) {
+        return labelText;
+      }
+      return getCocoLabel(label, language, { unknownLabel });
+    },
+    [language, unknownLabel]
+  );
   // Track all classes ever seen in the session with their first-seen timestamp
   const [seenClasses, setSeenClasses] = useState<Map<number, number>>(
     new Map()
@@ -133,7 +142,7 @@ function ObjectFilter({
 
   // Compute current frame's class counts and update seen classes
   const currentClasses = useMemo(() => {
-    const classMap = new Map<number, number>();
+    const classMap = new Map<number, { count: number; label: string }>();
 
     detections.forEach((detection) => {
       const classId =
@@ -142,7 +151,15 @@ function ObjectFilter({
           : detection.label;
 
       if (!isNaN(classId)) {
-        classMap.set(classId, (classMap.get(classId) || 0) + 1);
+        const resolvedLabel = resolveLabel(
+          detection.label,
+          detection.labelText
+        );
+        const existing = classMap.get(classId);
+        classMap.set(classId, {
+          count: (existing?.count ?? 0) + 1,
+          label: existing?.label ?? resolvedLabel,
+        });
 
         // Track when this class was first seen
         setSeenClasses((prev) => {
@@ -157,17 +174,19 @@ function ObjectFilter({
     });
 
     return classMap;
-  }, [detections]);
+  }, [detections, resolveLabel]);
 
   // Build stable list of detected classes (ordered by first-seen, newest at top)
   const detectedClasses = useMemo(() => {
     const classes: DetectedClass[] = [];
 
     seenClasses.forEach((firstSeen, classId) => {
-      const count = currentClasses.get(classId) || 0;
+      const classInfo = currentClasses.get(classId);
+      const count = classInfo?.count || 0;
       classes.push({
         classId,
-        label: getCocoLabel(classId, language, { unknownLabel }),
+        label:
+          classInfo?.label ?? resolveLabel(classId, undefined),
         count,
         firstSeen,
       });
@@ -175,7 +194,7 @@ function ObjectFilter({
 
     // Sort by first-seen timestamp (newest first = highest timestamp first)
     return classes.sort((a, b) => b.firstSeen - a.firstSeen);
-  }, [seenClasses, currentClasses, language, unknownLabel]);
+  }, [seenClasses, currentClasses, resolveLabel]);
 
   const handleToggleClass = useCallback(
     (classId: number) => {
