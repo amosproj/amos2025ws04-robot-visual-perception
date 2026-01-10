@@ -69,8 +69,15 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       [t]
     );
     const labelResolver = useCallback(
-      (label: string | number) =>
-        getCocoLabel(label, language, { unknownLabel }),
+      (label: string | number, labelText?: string) => {
+        if (
+          typeof labelText === 'string' &&
+          labelText.trim().length > 0
+        ) {
+          return labelText;
+        }
+        return getCocoLabel(label, language, { unknownLabel });
+      },
       [language, unknownLabel]
     );
 
