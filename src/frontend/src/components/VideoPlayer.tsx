@@ -70,10 +70,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     );
     const labelResolver = useCallback(
       (label: string | number, labelText?: string) => {
-        if (
-          typeof labelText === 'string' &&
-          labelText.trim().length > 0
-        ) {
+        if (typeof labelText === 'string' && labelText.trim().length > 0) {
           return labelText;
         }
         return getCocoLabel(label, language, { unknownLabel });

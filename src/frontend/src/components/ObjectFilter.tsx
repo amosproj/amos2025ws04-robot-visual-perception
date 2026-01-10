@@ -185,8 +185,7 @@ function ObjectFilter({
       const count = classInfo?.count || 0;
       classes.push({
         classId,
-        label:
-          classInfo?.label ?? resolveLabel(classId, undefined),
+        label: classInfo?.label ?? resolveLabel(classId, undefined),
         count,
         firstSeen,
       });
