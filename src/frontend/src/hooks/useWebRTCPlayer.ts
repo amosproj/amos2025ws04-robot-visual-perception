@@ -7,6 +7,38 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { logger } from '../lib/logger';
 
+export type TransportMode = 'direct' | 'ion-sfu';
+
+interface SfuConfig {
+  url?: string;
+  sessionId?: string;
+  clientId?: string;
+}
+
+const ICE_SERVERS = [{ urls: ['stun:stun.l.google.com:19302'] }];
+
+function serializeDescription(desc: RTCSessionDescriptionInit) {
+  return { sdp: desc.sdp ?? '', type: desc.type ?? 'offer' };
+}
+
+function serializeCandidate(candidate: RTCIceCandidate) {
+  return {
+    candidate: candidate.candidate,
+    sdpMid: candidate.sdpMid ?? undefined,
+    sdpMLineIndex: candidate.sdpMLineIndex ?? undefined,
+  };
+}
+
+function randomId() {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 // ConnectionState: short union for connection lifecycle
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
 
@@ -37,6 +69,8 @@ export interface UseWebRTCPlayerOptions {
   signalingEndpoint?: string;
   autoPlay?: boolean;
   containerRef?: React.RefObject<HTMLDivElement>;
+  transportMode?: TransportMode;
+  sfuConfig?: SfuConfig;
 }
 
 // WebRTC Stats
@@ -68,6 +102,8 @@ export function useWebRTCPlayer({
   signalingEndpoint,
   autoPlay = false,
   containerRef,
+  transportMode,
+  sfuConfig,
 }: UseWebRTCPlayerOptions): UseWebRTCPlayerResult {
   const log = useMemo(() => logger.child({ component: 'useWebRTCPlayer' }), []);
   const offerUrl = useMemo(() => {
@@ -78,9 +114,40 @@ export function useWebRTCPlayer({
     return normalizeOfferUrl(base);
   }, [signalingEndpoint]);
 
+  const sfuClientIdRef = useRef<string | null>(null);
+  const resolvedMode: TransportMode = useMemo(() => {
+    const envMode = (
+      (import.meta as any)?.env?.VITE_WEBRTC_MODE as string | undefined
+    )?.toLowerCase();
+    if (transportMode) return transportMode;
+    if (envMode === 'ion-sfu') return 'ion-sfu';
+    if (sfuConfig?.url || (import.meta as any)?.env?.VITE_SFU_URL)
+      return 'ion-sfu';
+    return 'direct';
+  }, [transportMode, sfuConfig]);
+
+  const sfuSettings = useMemo(() => {
+    const env: any = (import.meta as any)?.env ?? {};
+    const url = sfuConfig?.url ?? env?.VITE_SFU_URL ?? 'ws://localhost:7000/ws';
+    const sessionId =
+      sfuConfig?.sessionId ?? env?.VITE_SFU_SESSION ?? 'optibot';
+    if (!sfuClientIdRef.current) {
+      sfuClientIdRef.current =
+        sfuConfig?.clientId ??
+        env?.VITE_SFU_CLIENT_ID ??
+        `frontend-${randomId()}`;
+    }
+    return { url, sessionId, clientId: sfuClientIdRef.current };
+  }, [sfuConfig]);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const statsPollRef = useRef<number | null>(null);
+  const sfuSignalRef = useRef<WebSocket | null>(null);
+  const sfuPendingRef = useRef<Map<string, (msg: any) => void>>(new Map());
+  const sfuTimeoutsRef = useRef<Map<string, number>>(new Map());
+  const sfuPubPcRef = useRef<RTCPeerConnection | null>(null);
+  const sfuSubPcRef = useRef<RTCPeerConnection | null>(null);
 
   const [connectionState, setConnectionState] =
     useState<ConnectionState>('idle');
@@ -89,15 +156,43 @@ export function useWebRTCPlayer({
   const [latencyMs, setLatencyMs] = useState<number | undefined>(undefined);
   const [stats, setStats] = useState<WebRTCStats>({});
 
-  const connect = useCallback(async () => {
+  const resetSfuState = useCallback(() => {
+    sfuPendingRef.current.forEach((resolve) => resolve({ error: 'cancelled' }));
+    sfuPendingRef.current.clear();
+    sfuTimeoutsRef.current.forEach((timeoutId) =>
+      window.clearTimeout(timeoutId)
+    );
+    sfuTimeoutsRef.current.clear();
+    if (sfuSignalRef.current) {
+      try {
+        sfuSignalRef.current.onmessage = null;
+        sfuSignalRef.current.onerror = null;
+        sfuSignalRef.current.onclose = null;
+        sfuSignalRef.current.close();
+      } catch {}
+    }
+    sfuSignalRef.current = null;
+    [sfuPubPcRef.current, sfuSubPcRef.current].forEach((pc) => {
+      if (pc) {
+        try {
+          pc.getReceivers().forEach(
+            (r) => r.track && (r.track.enabled = false)
+          );
+          pc.close();
+        } catch {}
+      }
+    });
+    sfuPubPcRef.current = null;
+    sfuSubPcRef.current = null;
+  }, []);
+
+  const connectDirect = useCallback(async () => {
     if (pcRef.current) return;
     log.info('webrtc.connect.start', { offerUrl });
     setErrorReason('');
     setConnectionState('connecting');
 
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }],
-    });
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     pcRef.current = pc;
 
     pc.addTransceiver('video', { direction: 'recvonly' });
@@ -168,9 +263,186 @@ export function useWebRTCPlayer({
     }
   }, [offerUrl, autoPlay, log]);
 
+  const connectSfu = useCallback(async () => {
+    if (sfuSignalRef.current || sfuSubPcRef.current) return;
+
+    log.info('webrtc.sfu.connect.start', {
+      signaling: sfuSettings.url,
+      sessionId: sfuSettings.sessionId,
+    });
+    setErrorReason('');
+    setConnectionState('connecting');
+
+    const signal = new WebSocket(sfuSettings.url);
+    sfuSignalRef.current = signal;
+
+    const rpcNotify = (method: string, params: any) => {
+      if (signal.readyState === WebSocket.OPEN) {
+        signal.send(JSON.stringify({ method, params }));
+      }
+    };
+
+    const rpcCall = (method: string, params: any) =>
+      new Promise<any>((resolve, reject) => {
+        const id = randomId();
+        const timeoutId = window.setTimeout(() => {
+          sfuPendingRef.current.delete(id);
+          sfuTimeoutsRef.current.delete(id);
+          reject(new Error(`SFU ${method} timeout`));
+        }, 12000);
+        sfuTimeoutsRef.current.set(id, timeoutId);
+        sfuPendingRef.current.set(id, (msg: any) => {
+          window.clearTimeout(timeoutId);
+          sfuTimeoutsRef.current.delete(id);
+          sfuPendingRef.current.delete(id);
+          if (msg.error) reject(new Error(String(msg.error)));
+          else resolve(msg.result ?? msg);
+        });
+        signal.send(JSON.stringify({ id, method, params }));
+      });
+
+    const pubPc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const subPc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    sfuPubPcRef.current = pubPc;
+    sfuSubPcRef.current = subPc;
+    pcRef.current = subPc;
+
+    pubPc.createDataChannel('ion-sfu');
+    pubPc.onicecandidate = ({ candidate }) => {
+      if (candidate) {
+        rpcNotify('trickle', {
+          candidate: serializeCandidate(candidate),
+          target: 0,
+        });
+      }
+    };
+    subPc.onicecandidate = ({ candidate }) => {
+      if (candidate) {
+        rpcNotify('trickle', {
+          candidate: serializeCandidate(candidate),
+          target: 1,
+        });
+      }
+    };
+    subPc.ontrack = (e) => {
+      const [stream] = e.streams;
+      if (!videoRef.current) return;
+      videoRef.current.srcObject = stream;
+      videoRef.current.onloadedmetadata = () => {
+        if (autoPlay) {
+          videoRef.current?.play().catch(() => {});
+        }
+      };
+      setConnectionState('connected');
+      setIsPaused(false);
+    };
+
+    const handleOffer = async (params: any) => {
+      const desc = params?.desc ?? params;
+      if (!desc?.sdp || !desc?.type) return;
+      await subPc.setRemoteDescription(desc);
+      const answer = await subPc.createAnswer();
+      await subPc.setLocalDescription(answer);
+      rpcNotify('answer', { desc: serializeDescription(answer) });
+    };
+
+    const handleTrickle = async (params: any) => {
+      const targetPc =
+        params?.target === 0 ? pubPc : params?.target === 1 ? subPc : null;
+      if (!targetPc || !params?.candidate) return;
+      try {
+        await targetPc.addIceCandidate(params.candidate);
+      } catch (err) {
+        log.debug('webrtc.sfu.candidate.reject', { error: String(err) });
+      }
+    };
+
+    signal.onmessage = async (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.id && (message.result !== undefined || message.error)) {
+          const handler = sfuPendingRef.current.get(message.id);
+          if (handler) {
+            handler(message);
+          }
+          return;
+        }
+        if (message.method === 'offer') {
+          await handleOffer(message.params);
+        } else if (message.method === 'trickle') {
+          await handleTrickle(message.params);
+        }
+      } catch (err) {
+        log.debug('webrtc.sfu.signal.parse_error', { error: String(err) });
+      }
+    };
+    signal.onclose = () => {
+      resetSfuState();
+      sfuPendingRef.current.forEach((handler) =>
+        handler({ error: 'signal closed' })
+      );
+      sfuPendingRef.current.clear();
+      setConnectionState((prev) => (prev === 'idle' ? prev : 'error'));
+    };
+
+    const waitForSignal = new Promise<void>((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        reject(new Error('SFU signaling timeout'));
+      }, 8000);
+      signal.onopen = () => {
+        window.clearTimeout(timeoutId);
+        resolve();
+      };
+      signal.onerror = () => {
+        window.clearTimeout(timeoutId);
+        reject(new Error('SFU signaling error'));
+      };
+      signal.onclose = () => {
+        window.clearTimeout(timeoutId);
+        reject(new Error('SFU signaling closed'));
+      };
+    });
+
+    try {
+      await waitForSignal;
+      const offer = await pubPc.createOffer();
+      await pubPc.setLocalDescription(offer);
+      const answer = await rpcCall('join', {
+        sid: sfuSettings.sessionId,
+        uid: sfuSettings.clientId,
+        offer: serializeDescription(offer),
+        config: {
+          no_subscribe: false,
+          no_publish: false,
+          no_auto_subscribe: false,
+        },
+      });
+      await pubPc.setRemoteDescription(new RTCSessionDescription(answer));
+      log.info('webrtc.sfu.joined', {
+        sessionId: sfuSettings.sessionId,
+        clientId: sfuSettings.clientId,
+      });
+    } catch (err) {
+      setConnectionState('error');
+      setErrorReason(String(err));
+      log.error('webrtc.sfu.connect.failed', { error: String(err) });
+      resetSfuState();
+      pcRef.current = null;
+    }
+  }, [sfuSettings, autoPlay, log, resetSfuState]);
+
+  const connect = useCallback(async () => {
+    if (resolvedMode === 'ion-sfu') {
+      await connectSfu();
+      return;
+    }
+    await connectDirect();
+  }, [resolvedMode, connectDirect, connectSfu]);
+
   const disconnect = useCallback(() => {
     const pc = pcRef.current;
     log.info('webrtc.disconnect');
+    resetSfuState();
     if (pc) {
       try {
         pc.getReceivers().forEach((r) => r.track && (r.track.enabled = false));
@@ -192,7 +464,7 @@ export function useWebRTCPlayer({
       window.clearInterval(statsPollRef.current);
       statsPollRef.current = null;
     }
-  }, [log]);
+  }, [log, resetSfuState]);
 
   const togglePlayPause = useCallback(async () => {
     if (connectionState !== 'connected') {

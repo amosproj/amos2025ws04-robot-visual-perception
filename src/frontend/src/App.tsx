@@ -29,6 +29,9 @@ function App() {
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.3);
   const prevAnalyzerConnectedRef = useRef(false);
   const autoSelectedClassesRef = useRef<Set<number>>(new Set());
+  const env: any = (import.meta as any)?.env ?? {};
+  const preferredMode = env?.VITE_WEBRTC_MODE?.toLowerCase?.();
+  const useSfu = preferredMode === 'ion-sfu';
 
   // WebRTC connection to webcam service (for raw video)
   const {
@@ -42,7 +45,20 @@ function App() {
     togglePlayPause,
     enterFullscreen,
   } = useWebRTCPlayer({
-    signalingEndpoint: 'http://localhost:8000', // Webcam service
+    signalingEndpoint:
+      useSfu === true
+        ? undefined
+        : (env?.VITE_SIGNALING_URL ??
+          env?.VITE_BACKEND_URL ??
+          'http://localhost:8000'),
+    transportMode: useSfu ? 'ion-sfu' : 'direct',
+    sfuConfig: useSfu
+      ? {
+          url: env?.VITE_SFU_URL,
+          sessionId: env?.VITE_SFU_SESSION,
+          clientId: env?.VITE_SFU_CLIENT_ID,
+        }
+      : undefined,
     autoPlay: true,
     containerRef: videoContainerRef,
   });
@@ -55,7 +71,7 @@ function App() {
     connect: connectAnalyzer,
     disconnect: disconnectAnalyzer,
   } = useAnalyzerWebSocket({
-    endpoint: 'ws://localhost:8001/ws', // Analyzer service
+    endpoint: env?.VITE_ANALYZER_WS_URL ?? 'ws://localhost:8001/ws',
     autoConnect: false, // Manual control for proper disconnect
     onBeforeDisconnect: () => {
       // Clear selections before disconnect to remove bounding boxes smoothly
