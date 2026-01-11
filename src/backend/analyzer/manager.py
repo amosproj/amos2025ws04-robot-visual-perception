@@ -357,7 +357,7 @@ class AnalyzerWebSocketManager:
         state: ProcessingState,
         detector: ObjectDetector,
         estimator: DepthEstimator,
-    ) -> tuple[list[Detection], list[float]]:
+    ) -> tuple[list[Detection], list[float], list[bool]]:
         with self._measure_time(
             self._detection_duration, labels={"backend": config.DETECTOR_BACKEND}
         ):
@@ -365,7 +365,7 @@ class AnalyzerWebSocketManager:
             raw_detections = await detector.infer(frame_small)
 
         if not raw_detections:
-            return [], []
+            return [], [], []
 
         with self._measure_time(
             self._depth_estimation_duration,
@@ -397,23 +397,32 @@ class AnalyzerWebSocketManager:
                 active_track_ids.add(track_id)
 
         track_ids_to_exclude = updated_track_ids | active_track_ids
-        interpolated_detections, interpolated_distances = (
-            self._tracking_manager.get_interpolated_detections_and_distances(
-                state.frame_id,
-                state.last_fps_time,
-                track_ids_to_exclude=track_ids_to_exclude,
+
+        # Interpolation is optional based on config
+        if config.ENABLE_INTERPOLATION:
+            interpolated_detections, interpolated_distances = (
+                self._tracking_manager.get_interpolated_detections_and_distances(
+                    state.frame_id,
+                    state.last_fps_time,
+                    track_ids_to_exclude=track_ids_to_exclude,
+                )
             )
-        )
+        else:
+            interpolated_detections, interpolated_distances = [], []
 
         self._record_detection_count(filtered_detections, interpolated_detections)
 
         all_detections = filtered_detections + interpolated_detections
         all_distances = filtered_distances + interpolated_distances
+        # Track which detections are interpolated (False for real, True for interpolated)
+        is_interpolated = [False] * len(filtered_detections) + [True] * len(
+            interpolated_detections
+        )
 
         # cleanup every frame, regardless of detections
         self._tracking_manager._remove_stale_tracks(state.frame_id)
 
-        return all_detections, all_distances
+        return all_detections, all_distances, is_interpolated
 
     async def _run_inference_pipeline(
         self,
@@ -437,7 +446,11 @@ class AnalyzerWebSocketManager:
             return
 
         try:
-            all_detections, all_distances = await self._process_detection(
+            (
+                all_detections,
+                all_distances,
+                is_interpolated,
+            ) = await self._process_detection(
                 frame_small=frame_small,
                 state=state,
                 detector=detector,
@@ -446,7 +459,12 @@ class AnalyzerWebSocketManager:
 
             if all_detections:
                 await self._send_frame_metadata(
-                    frame_small, all_detections, all_distances, current_time, state
+                    frame_small,
+                    all_detections,
+                    all_distances,
+                    is_interpolated,
+                    current_time,
+                    state,
                 )
 
         except Exception as e:
@@ -472,6 +490,7 @@ class AnalyzerWebSocketManager:
         frame_rgb: np.ndarray,
         detections: list[Detection],
         distances: list[float],
+        is_interpolated: list[bool],
         timestamp: float,
         frame_id: int,
         current_fps: float,
@@ -495,7 +514,7 @@ class AnalyzerWebSocketManager:
             self._intrinsics_logged = True
 
         det_payload = []
-        for det, dist_m in zip(detections, distances):
+        for det, dist_m, is_interp in zip(detections, distances, is_interpolated):
             box_w = max(0.0, float(det.x2 - det.x1))
             box_h = max(0.0, float(det.y2 - det.y1))
             if box_w <= 0 or box_h <= 0:
@@ -523,6 +542,7 @@ class AnalyzerWebSocketManager:
                     "confidence": float(det.confidence),
                     "distance": float(dist_m),
                     "position": {"x": pos_x, "y": pos_y, "z": pos_z},
+                    "interpolated": is_interp,
                 }
             )
 
@@ -538,6 +558,7 @@ class AnalyzerWebSocketManager:
         frame_small: np.ndarray,
         detections: list[Detection],
         distances: list[float],
+        is_interpolated: list[bool],
         current_time: float,
         state: ProcessingState,
     ) -> None:
@@ -546,6 +567,7 @@ class AnalyzerWebSocketManager:
             frame_rgb=frame_small,
             detections=detections,
             distances=distances,
+            is_interpolated=is_interpolated,
             timestamp=current_time,
             frame_id=state.frame_id,
             current_fps=state.current_fps,

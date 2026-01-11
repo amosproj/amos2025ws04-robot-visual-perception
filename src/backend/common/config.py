@@ -113,6 +113,12 @@ class Config:
     ]
 
     # Tracking/interpolation settings
+    # Enable interpolation for missing detections
+    ENABLE_INTERPOLATION: bool = os.getenv("ENABLE_INTERPOLATION", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     # Minimum IoU to match detection to track
     TRACKING_IOU_THRESHOLD: float = float(os.getenv("TRACKING_IOU_THRESHOLD", "0.1"))
     # Frames before removing stale tracks
@@ -130,7 +136,7 @@ class Config:
     # Size for history of each tracked object
     TRACKING_MAX_HISTORY_SIZE: int = int(os.getenv("TRACKING_MAX_HISTORY_SIZE", "5"))
     # Minimum detections before a track becomes active/sent
-    DETECTION_THRESHOLD: int = int(os.getenv("DETECTION_THRESHOLD", "2"))
+    DETECTION_THRESHOLD: int = int(os.getenv("DETECTION_THRESHOLD", "0"))
 
 
 config = Config()
