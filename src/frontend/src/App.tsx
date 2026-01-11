@@ -10,10 +10,8 @@ import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 import { logger } from './lib/logger';
 
 import Header from './components/Header';
-import ConnectionControls from './components/ConnectionControls';
 import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
-import MetadataWidget from './components/MetadataWidget';
-import ObjectFilter from './components/ObjectFilter';
+import UnifiedInfoPanel from './components/UnifiedInfoPanel';
 
 function App() {
   const log = useMemo(() => logger.child({ component: 'App' }), []);
@@ -21,13 +19,10 @@ function App() {
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
   const [overlayFps, setOverlayFps] = useState<number>(0);
-  const [isMetadataWidgetOpen, setIsMetadataWidgetOpen] = useState(true);
-  const [isObjectFilterOpen, setIsObjectFilterOpen] = useState(true);
   const [selectedClasses, setSelectedClasses] = useState<Set<number>>(
     new Set()
   );
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.3);
-  const prevAnalyzerConnectedRef = useRef(false);
   const autoSelectedClassesRef = useRef<Set<number>>(new Set());
 
   // WebRTC connection to webcam service (for raw video)
@@ -125,7 +120,6 @@ function App() {
       setSelectedClasses(new Set());
       autoSelectedClassesRef.current = new Set(); // Reset for next connection
     }
-    prevAnalyzerConnectedRef.current = analyzerConnected;
   }, [analyzerConnected]);
 
   // Auto-select any newly detected classes (default "select all" behavior)
@@ -192,22 +186,6 @@ function App() {
     });
   };
 
-  const handleToggleObjectFilter = () => {
-    setIsObjectFilterOpen((prev) => {
-      const next = !prev;
-      log.info('ui.filter.toggle', { isOpen: next });
-      return next;
-    });
-  };
-
-  const handleToggleMetadataWidget = () => {
-    setIsMetadataWidgetOpen((prev) => {
-      const next = !prev;
-      log.info('ui.metadata.toggle', { isOpen: next });
-      return next;
-    });
-  };
-
   return (
     <div className="font-sans max-w-[1200px] mx-auto p-5 bg-theme-bg-primary text-theme-text-primary min-h-screen">
       <Header
@@ -218,45 +196,35 @@ function App() {
         overlayFps={overlayFps || 0}
         objectCount={filteredMetadata?.detections.length || 0}
       />
-      <ConnectionControls
-        videoState={videoState}
-        analyzerConnected={analyzerConnected}
-        onConnectVideo={connectVideo}
-        onDisconnectVideo={disconnectVideo}
-        onConnectAnalyzer={connectAnalyzer}
-        onDisconnectAnalyzer={disconnectAnalyzer}
-        onClearOverlay={handleClearOverlay}
-      />
-      <ObjectFilter
-        detections={thresholdedDetections}
-        selectedClasses={selectedClasses}
-        onSelectionChange={handleSelectionChange}
-        confidenceThreshold={confidenceThreshold}
-        onConfidenceThresholdChange={setConfidenceThreshold}
-        isOpen={isObjectFilterOpen}
-        onToggle={handleToggleObjectFilter}
-        isAnalyzerConnected={analyzerConnected}
-        isVideoConnected={videoState === 'connected'}
-      />
-      <VideoPlayer
-        ref={videoPlayerRef}
-        videoRef={videoRef}
-        containerRef={videoContainerRef}
-        videoState={videoState}
-        isPaused={isPaused}
-        onTogglePlay={togglePlayPause}
-        onFullscreen={enterFullscreen}
-        onOverlayFpsUpdate={setOverlayFps}
-        metadataWidget={
-          <MetadataWidget
-            streamMetadata={stats}
-            detectionMetadata={latestMetadata}
-            defaultGrouped={false}
-            isOpen={isMetadataWidgetOpen}
-            onToggle={handleToggleMetadataWidget}
-          />
-        }
-      />
+      <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)] items-start">
+        <UnifiedInfoPanel
+          videoState={videoState}
+          analyzerConnected={analyzerConnected}
+          onConnectVideo={connectVideo}
+          onDisconnectVideo={disconnectVideo}
+          onConnectAnalyzer={connectAnalyzer}
+          onDisconnectAnalyzer={disconnectAnalyzer}
+          onClearOverlay={handleClearOverlay}
+          detections={thresholdedDetections}
+          selectedClasses={selectedClasses}
+          onSelectionChange={handleSelectionChange}
+          confidenceThreshold={confidenceThreshold}
+          onConfidenceThresholdChange={setConfidenceThreshold}
+          isVideoConnected={videoState === 'connected'}
+          streamMetadata={stats}
+          detectionMetadata={latestMetadata}
+        />
+        <VideoPlayer
+          ref={videoPlayerRef}
+          videoRef={videoRef}
+          containerRef={videoContainerRef}
+          videoState={videoState}
+          isPaused={isPaused}
+          onTogglePlay={togglePlayPause}
+          onFullscreen={enterFullscreen}
+          onOverlayFpsUpdate={setOverlayFps}
+        />
+      </div>
     </div>
   );
 }

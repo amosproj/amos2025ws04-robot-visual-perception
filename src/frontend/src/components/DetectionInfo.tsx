@@ -25,6 +25,7 @@ export interface Position {
 export interface DetectionInfoProps {
   detections: Detection[];
   showGrouped?: boolean;
+  variant?: 'card' | 'section';
 }
 
 interface GroupedDetection {
@@ -39,6 +40,7 @@ interface GroupedDetection {
 function DetectionInfo({
   detections,
   showGrouped = false,
+  variant = 'card',
 }: DetectionInfoProps) {
   const { t, language } = useI18n();
   const resolveLabel = useCallback(
@@ -78,6 +80,18 @@ function DetectionInfo({
   if (!detections || detections.length === 0) {
     return null;
   }
+
+  const containerClass =
+    variant === 'card'
+      ? 'bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card'
+      : '';
+  const titleClass =
+    variant === 'card'
+      ? 'my-0 mb-4 text-theme-accent text-xl'
+      : 'my-0 mb-3 text-theme-accent text-lg font-semibold';
+  const listClass = variant === 'card' ? 'max-h-96 overflow-y-auto' : '';
+  const groupedListClass =
+    variant === 'card' ? 'max-h-96 overflow-y-auto space-y-2' : 'space-y-2';
 
   // Sort detections by first-seen order (stable sorting)
   const sortedDetections = useMemo(() => {
@@ -140,11 +154,11 @@ function DetectionInfo({
 
   if (showGrouped) {
     return (
-      <div className="bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card">
-        <h3 className="my-0 mb-4 text-theme-accent text-xl">
+      <div className={containerClass}>
+        <h3 className={titleClass}>
           {t('detectionsTitleGrouped', { count: detections.length })}
         </h3>
-        <div className="max-h-96 overflow-y-auto space-y-2">
+        <div className={groupedListClass}>
           {groupedDetections.map((group) => (
             <GroupedDetectionCard key={group.label} group={group} />
           ))}
@@ -154,11 +168,11 @@ function DetectionInfo({
   }
 
   return (
-    <div className="bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card">
-      <h3 className="my-0 mb-4 text-theme-accent text-xl">
+    <div className={containerClass}>
+      <h3 className={titleClass}>
         {t('detectionsTitleLatest', { count: detections.length })}
       </h3>
-      <div className="max-h-96 overflow-y-auto">
+      <div className={listClass}>
         <div className="flex flex-wrap gap-2.5">
           {sortedDetections.map((detection) => (
             <DetectionCard

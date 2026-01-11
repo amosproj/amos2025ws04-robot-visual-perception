@@ -14,6 +14,7 @@ export interface StreamInfoProps {
   bitrate?: number;
   framesReceived?: number;
   framesDecoded?: number;
+  variant?: 'card' | 'section';
 }
 
 function StreamInfo({
@@ -23,14 +24,21 @@ function StreamInfo({
   bitrate,
   framesReceived,
   framesDecoded,
+  variant = 'card',
 }: StreamInfoProps) {
   const { t } = useI18n();
+  const containerClass =
+    variant === 'card'
+      ? 'bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card'
+      : '';
+  const titleClass =
+    variant === 'card'
+      ? 'my-0 mb-4 text-theme-accent text-xl'
+      : 'my-0 mb-3 text-theme-accent text-lg font-semibold';
 
   return (
-    <div className="bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card">
-      <h3 className="my-0 mb-4 text-theme-accent text-xl">
-        {t('streamInfoTitle')}
-      </h3>
+    <div className={containerClass}>
+      <h3 className={titleClass}>{t('streamInfoTitle')}</h3>
 
       <div className="space-y-3">
         {/* Video Resolution */}
