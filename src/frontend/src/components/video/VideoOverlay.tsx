@@ -363,7 +363,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           clearCanvas();
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-          metadata.detections.forEach((detection, index) => {
+          metadata.detections.forEach((detection) => {
             const { box, label, confidence, distance } = detection;
 
             const rawX = box.x * canvasWidth;
@@ -383,17 +383,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             }
 
             // Color scheme
-            const colors = [
-              '#00d4ff',
-              '#00ff88',
-              '#ff6b9d',
-              '#ffd93d',
-              '#ff8c42',
-              '#a8e6cf',
-              '#b4a5ff',
-              '#ffb347',
-            ];
-            const color = colors[index % colors.length];
+            const color = '#22c55e';
 
             // Draw bounding box using calculated coordinates
             ctx.shadowColor = color;

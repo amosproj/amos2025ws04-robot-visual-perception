@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+import { useState } from 'react';
 import DetectionInfo from './DetectionInfo';
 import StreamInfo, { type StreamInfoProps } from './StreamInfo';
 import { ObjectFilterSection } from './ObjectFilter';
@@ -49,6 +50,8 @@ function UnifiedInfoPanel({
   onClearAll,
 }: UnifiedInfoPanelProps) {
   const { t } = useI18n();
+  const [showGroupedDetections, setShowGroupedDetections] =
+    useState<boolean>(false);
   const detectionCount = detectionMetadata?.detections.length ?? 0;
   const hasDetections = detectionCount > 0;
   const showDetections = analyzerConnected || detectionMetadata != null;
@@ -88,11 +91,25 @@ function UnifiedInfoPanel({
         {showDetections && (
           <div className="border-t border-theme-border-subtle pt-4">
             {hasDetections ? (
-              <DetectionInfo
-                detections={detectionMetadata?.detections ?? []}
-                showGrouped={false}
-                variant="section"
-              />
+              <div className="space-y-3">
+                <div className="flex justify-end">
+                  <button
+                    onClick={() =>
+                      setShowGroupedDetections(!showGroupedDetections)
+                    }
+                    className="text-xs px-3 py-1.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover text-theme-accent rounded border border-theme-border transition-colors"
+                  >
+                    {showGroupedDetections
+                      ? t('metadataShowDetails')
+                      : t('metadataGroupByType')}
+                  </button>
+                </div>
+                <DetectionInfo
+                  detections={detectionMetadata?.detections ?? []}
+                  showGrouped={showGroupedDetections}
+                  variant="section"
+                />
+              </div>
             ) : (
               <div>
                 <h3 className="my-0 mb-3 text-theme-accent text-lg font-semibold">

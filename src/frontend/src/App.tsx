@@ -8,21 +8,24 @@ import { useRef, useEffect, useState, useMemo } from 'react';
 import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 import { logger } from './lib/logger';
+import { useI18n } from './i18n';
 
 import Header from './components/Header';
 import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
 import { GameOverlay } from './components/ui/GameOverlay';
-import { StatusPanel } from './components/ui/StatusPanel';
 import { ObjectFilterSection } from './components/ObjectFilter';
 import StreamInfo from './components/StreamInfo';
 import DetectionInfo from './components/DetectionInfo';
 
 function App() {
   const log = useMemo(() => logger.child({ component: 'App' }), []);
+  const { t } = useI18n();
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
   const [overlayFps, setOverlayFps] = useState<number>(0);
+  const [showGroupedDetections, setShowGroupedDetections] =
+    useState<boolean>(false);
   const [selectedClasses, setSelectedClasses] = useState<Set<number>>(
     new Set()
   );
@@ -216,24 +219,39 @@ function App() {
           />
         }
         streamInfoPanel={
-          <StreamInfo {...(stats ?? {})} variant="section" />
-        }
-        statusPanel={
-          <StatusPanel
-            videoState={videoState}
-            latencyMs={latencyMs}
-            analyzerFps={analyzerFps || 0}
-            overlayFps={overlayFps}
-            objectCount={filteredMetadata?.detections.length || 0}
+          <StreamInfo
+            {...(stats ?? {})}
+            statusPanelProps={{
+              videoState,
+              latencyMs,
+              analyzerFps: analyzerFps || 0,
+              overlayFps,
+              objectCount: filteredMetadata?.detections.length || 0,
+            }}
+            variant="section"
           />
         }
         detectionPanel={
           latestMetadata?.detections && latestMetadata.detections.length > 0 ? (
-            <DetectionInfo
-              detections={latestMetadata.detections}
-              showGrouped={false}
-              variant="section"
-            />
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <button
+                  onClick={() =>
+                    setShowGroupedDetections(!showGroupedDetections)
+                  }
+                  className="text-xs px-3 py-1.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover text-theme-accent rounded border border-theme-border transition-colors"
+                >
+                  {showGroupedDetections
+                    ? t('metadataShowDetails')
+                    : t('metadataGroupByType')}
+                </button>
+              </div>
+              <DetectionInfo
+                detections={latestMetadata.detections}
+                showGrouped={showGroupedDetections}
+                variant="section"
+              />
+            </div>
           ) : undefined
         }
       >

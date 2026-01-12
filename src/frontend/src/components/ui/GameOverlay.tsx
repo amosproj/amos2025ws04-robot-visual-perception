@@ -36,7 +36,7 @@ export interface GameOverlayProps {
   /** Stream info panel content */
   streamInfoPanel: ReactNode;
   /** Status panel content (Video, Latency, FPS, Objects) */
-  statusPanel: ReactNode;
+  statusPanel?: ReactNode;
   /** Detection info panel content */
   detectionPanel?: ReactNode;
 }
@@ -146,12 +146,14 @@ export function GameOverlay({
         />
       </div>
 
-      {/* Right side - Status panel (always visible) */}
-      <div className="fixed right-4 top-20 z-40 w-56">
-        <div className="bg-theme-bg-secondary/95 backdrop-blur-sm border border-theme-border-subtle rounded-lg shadow-xl p-3">
-          {statusPanel}
+      {/* Right side - Status panel */}
+      {statusPanel && (
+        <div className="fixed right-4 top-20 z-40 w-56">
+          <div className="bg-theme-bg-secondary/95 backdrop-blur-sm border border-theme-border-subtle rounded-lg shadow-xl p-3">
+            {statusPanel}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Bottom right - Fullscreen button only */}
       <div className="fixed right-4 bottom-4 z-50">
