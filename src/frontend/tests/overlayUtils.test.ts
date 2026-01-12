@@ -71,8 +71,12 @@ describe('getDetectionColor', () => {
   });
 
   it('wraps around after all colors are used', () => {
-    expect(getDetectionColor(DETECTION_COLORS.length)).toBe(DETECTION_COLORS[0]);
-    expect(getDetectionColor(DETECTION_COLORS.length + 1)).toBe(DETECTION_COLORS[1]);
+    expect(getDetectionColor(DETECTION_COLORS.length)).toBe(
+      DETECTION_COLORS[0]
+    );
+    expect(getDetectionColor(DETECTION_COLORS.length + 1)).toBe(
+      DETECTION_COLORS[1]
+    );
   });
 
   it('handles large indices', () => {
@@ -172,14 +176,26 @@ describe('computeDisplayedVideoRect', () => {
 
   describe('scale-down', () => {
     it('scales down like contain when video is larger', () => {
-      const result = computeDisplayedVideoRect(1920, 1080, 800, 600, 'scale-down');
+      const result = computeDisplayedVideoRect(
+        1920,
+        1080,
+        800,
+        600,
+        'scale-down'
+      );
       // Same as contain when scaling down
       expect(result.width).toBe(800);
       expect(result.height).toBe(450);
     });
 
     it('uses intrinsic size when video is smaller (no scaling up)', () => {
-      const result = computeDisplayedVideoRect(400, 300, 800, 600, 'scale-down');
+      const result = computeDisplayedVideoRect(
+        400,
+        300,
+        800,
+        600,
+        'scale-down'
+      );
       // scale would be 2, but min(1, 2) = 1
       expect(result.width).toBe(400);
       expect(result.height).toBe(300);
@@ -204,8 +220,20 @@ describe('computeDisplayedVideoRect', () => {
     });
 
     it('defaults to contain for unknown objectFit', () => {
-      const result = computeDisplayedVideoRect(1920, 1080, 800, 600, 'unknown' as any);
-      const resultDefault = computeDisplayedVideoRect(1920, 1080, 800, 600, 'contain');
+      const result = computeDisplayedVideoRect(
+        1920,
+        1080,
+        800,
+        600,
+        'unknown' as any
+      );
+      const resultDefault = computeDisplayedVideoRect(
+        1920,
+        1080,
+        800,
+        600,
+        'contain'
+      );
       expect(result).toEqual(resultDefault);
     });
   });
@@ -371,43 +399,106 @@ describe('calculateLabelPosition', () => {
   const padding = 6;
 
   it('positions label above box when there is room', () => {
-    const result = calculateLabelPosition(100, 100, 200, textHeight, padding, 100, canvasWidth, canvasHeight);
+    const result = calculateLabelPosition(
+      100,
+      100,
+      200,
+      textHeight,
+      padding,
+      100,
+      canvasWidth,
+      canvasHeight
+    );
     expect(result.y).toBe(96); // bboxY - 4
     expect(result.x).toBe(100);
   });
 
   it('positions label below box when no room above', () => {
-    const result = calculateLabelPosition(100, 10, 200, textHeight, padding, 100, canvasWidth, canvasHeight);
+    const result = calculateLabelPosition(
+      100,
+      10,
+      200,
+      textHeight,
+      padding,
+      100,
+      canvasWidth,
+      canvasHeight
+    );
     // 10 is not > 18 + 6 = 24, so label goes below
     expect(result.y).toBe(232); // bboxY + bboxHeight + textHeight + 4 = 10 + 200 + 18 + 4
     expect(result.x).toBe(100);
   });
 
   it('clamps label X to keep within canvas', () => {
-    const result = calculateLabelPosition(950, 100, 200, textHeight, padding, 100, canvasWidth, canvasHeight);
+    const result = calculateLabelPosition(
+      950,
+      100,
+      200,
+      textHeight,
+      padding,
+      100,
+      canvasWidth,
+      canvasHeight
+    );
     expect(result.x).toBe(900); // canvasWidth - labelWidth
   });
 
   it('handles label at left edge', () => {
-    const result = calculateLabelPosition(0, 100, 200, textHeight, padding, 100, canvasWidth, canvasHeight);
+    const result = calculateLabelPosition(
+      0,
+      100,
+      200,
+      textHeight,
+      padding,
+      100,
+      canvasWidth,
+      canvasHeight
+    );
     expect(result.x).toBe(0);
   });
 
   it('limits label Y to canvas height', () => {
-    const result = calculateLabelPosition(100, 10, 780, textHeight, padding, 100, canvasWidth, canvasHeight);
+    const result = calculateLabelPosition(
+      100,
+      10,
+      780,
+      textHeight,
+      padding,
+      100,
+      canvasWidth,
+      canvasHeight
+    );
     // Below position would be: 10 + 780 + 18 + 4 = 812, but clamped to 798
     expect(result.y).toBe(798); // canvasHeight - 2
   });
 
   it('handles box at exact threshold for above/below', () => {
     // Threshold is textHeight + padding = 24
-    const result = calculateLabelPosition(100, 24, 200, textHeight, padding, 100, canvasWidth, canvasHeight);
+    const result = calculateLabelPosition(
+      100,
+      24,
+      200,
+      textHeight,
+      padding,
+      100,
+      canvasWidth,
+      canvasHeight
+    );
     // 24 is NOT > 24, so label goes below
     expect(result.y).toBe(246); // 24 + 200 + 18 + 4
   });
 
   it('handles box just above threshold', () => {
-    const result = calculateLabelPosition(100, 25, 200, textHeight, padding, 100, canvasWidth, canvasHeight);
+    const result = calculateLabelPosition(
+      100,
+      25,
+      200,
+      textHeight,
+      padding,
+      100,
+      canvasWidth,
+      canvasHeight
+    );
     // 25 > 24, so label goes above
     expect(result.y).toBe(21); // 25 - 4
   });
@@ -502,13 +593,21 @@ describe('findBestMetadataMatch', () => {
   it('handles edge case just beyond tolerance boundary', () => {
     const buffer = [{ timestamp: 1000, frameId: 1 }];
     // Delta beyond METADATA_TOLERANCE_MS should be rejected
-    const result = findBestMetadataMatch(buffer, 1000 + METADATA_TOLERANCE_MS + 1, 0);
+    const result = findBestMetadataMatch(
+      buffer,
+      1000 + METADATA_TOLERANCE_MS + 1,
+      0
+    );
     expect(result).toBeNull();
   });
 
   it('accepts match at tolerance boundary', () => {
     const buffer = [{ timestamp: 1000, frameId: 1 }];
-    const result = findBestMetadataMatch(buffer, 1000 + METADATA_TOLERANCE_MS, 0);
+    const result = findBestMetadataMatch(
+      buffer,
+      1000 + METADATA_TOLERANCE_MS,
+      0
+    );
     expect(result).not.toBeNull();
   });
 });

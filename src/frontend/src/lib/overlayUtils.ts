@@ -287,8 +287,7 @@ export function findBestMetadataMatch(
   if (!buffer.length) return null;
 
   // Calculate effective time offset
-  const effectiveOffset =
-    timeOffset ?? buffer[0].timestamp - mediaTimeMs;
+  const effectiveOffset = timeOffset ?? buffer[0].timestamp - mediaTimeMs;
 
   let bestIndex = -1;
   let bestDelta = Number.POSITIVE_INFINITY;
@@ -381,8 +380,20 @@ export function sanitizeTimestamp(
  * @returns Object indicating if size and/or position changed
  */
 export function hasLayoutChanged(
-  current: { width: number; height: number; top: number; left: number; dpr: number },
-  previous: { width: number; height: number; top: number; left: number; dpr: number },
+  current: {
+    width: number;
+    height: number;
+    top: number;
+    left: number;
+    dpr: number;
+  },
+  previous: {
+    width: number;
+    height: number;
+    top: number;
+    left: number;
+    dpr: number;
+  },
   threshold: number = 0.5
 ): { sizeChanged: boolean; positionChanged: boolean } {
   const sizeChanged =

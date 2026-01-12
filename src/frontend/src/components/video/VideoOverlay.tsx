@@ -113,7 +113,9 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       const elementWidth = videoRect.width;
       const elementHeight = videoRect.height;
       const objectFit =
-        (window.getComputedStyle(video).objectFit?.toLowerCase() as ObjectFit) || 'contain';
+        (window
+          .getComputedStyle(video)
+          .objectFit?.toLowerCase() as ObjectFit) || 'contain';
 
       return computeDisplayedVideoRect(
         intrinsicWidth,
@@ -294,7 +296,13 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
 
         // If no fresh metadata, try to reuse last rendered frame within a short window
         if (!metadata && lastRenderedRef.current) {
-          if (isHeldFrameValid(mediaTimeMs, lastRenderedRef.current.mediaTimeMs, HOLD_LAST_MS)) {
+          if (
+            isHeldFrameValid(
+              mediaTimeMs,
+              lastRenderedRef.current.mediaTimeMs,
+              HOLD_LAST_MS
+            )
+          ) {
             metadata = lastRenderedRef.current.metadata;
           }
         }
@@ -312,14 +320,23 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             const { box, label, confidence, distance } = detection;
 
             // Calculate pixel coordinates using utility function
-            const pixelBox = calculateBoundingBoxPixels(box, canvasWidth, canvasHeight);
+            const pixelBox = calculateBoundingBoxPixels(
+              box,
+              canvasWidth,
+              canvasHeight
+            );
 
             // Skip if box has no visible area
             if (!pixelBox) {
               return;
             }
 
-            const { x: bboxX, y: bboxY, width: bboxWidth, height: bboxHeight } = pixelBox;
+            const {
+              x: bboxX,
+              y: bboxY,
+              width: bboxWidth,
+              height: bboxHeight,
+            } = pixelBox;
 
             // Get color for this detection
             const color = getDetectionColor(index);
@@ -334,7 +351,12 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             ctx.shadowBlur = 0;
 
             // Format label text using utility function
-            const fullText = formatDetectionLabel(label, confidence, distance, labelResolver);
+            const fullText = formatDetectionLabel(
+              label,
+              confidence,
+              distance,
+              labelResolver
+            );
 
             ctx.font = 'bold 14px "SF Pro Display", -apple-system, sans-serif';
             const textMetrics = ctx.measureText(fullText);
@@ -378,8 +400,16 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             ctx.fillStyle = '#000000';
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 3;
-            ctx.strokeText(fullText, labelPos.x + padding, labelPos.y - padding / 2);
-            ctx.fillText(fullText, labelPos.x + padding, labelPos.y - padding / 2);
+            ctx.strokeText(
+              fullText,
+              labelPos.x + padding,
+              labelPos.y - padding / 2
+            );
+            ctx.fillText(
+              fullText,
+              labelPos.x + padding,
+              labelPos.y - padding / 2
+            );
           });
 
           // Remember what we rendered to soften flicker across small gaps
