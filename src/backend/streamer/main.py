@@ -6,6 +6,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 
+from aiortc.mediastreams import MediaStreamTrack
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,7 +18,7 @@ from streamer.routes import router, on_shutdown
 from streamer.tracks import CameraVideoTrack, VideoFileTrack
 
 _sfu_client: IonSfuClient | None = None
-_sfu_track = None
+_sfu_track: MediaStreamTrack | None = None
 _sfu_logger = logging.getLogger("streamer.sfu")
 _camera_acquired = False
 
@@ -37,13 +38,15 @@ async def _start_sfu_publisher() -> None:
     )
     client = IonSfuClient(settings=settings, logger=_sfu_logger)
     try:
+        track: MediaStreamTrack
         if config.VIDEO_SOURCE_TYPE == "file":
-            _sfu_track = VideoFileTrack(config.VIDEO_FILE_PATH)
+            track = VideoFileTrack(config.VIDEO_FILE_PATH)
         else:
             await _shared_cam.acquire()
             _camera_acquired = True
-            _sfu_track = CameraVideoTrack()
-        client.add_publisher_track(_sfu_track)
+            track = CameraVideoTrack()
+        client.add_publisher_track(track)
+        _sfu_track = track
         await client.connect()
         _sfu_client = client
         _sfu_logger.info(

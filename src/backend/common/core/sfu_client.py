@@ -9,6 +9,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, Optional
 
+from aioice import Candidate
 import websockets
 from aiortc import (
     RTCConfiguration,
@@ -18,6 +19,8 @@ from aiortc import (
     RTCSessionDescription,
 )
 from aiortc.mediastreams import MediaStreamTrack
+from aiortc.rtcicetransport import candidate_from_aioice, candidate_to_aioice
+from websockets.client import WebSocketClientProtocol
 
 JsonDict = Dict[str, Any]
 
@@ -32,8 +35,9 @@ def _serialize_description(desc: RTCSessionDescription) -> JsonDict:
 
 def _serialize_candidate(candidate: RTCIceCandidate) -> JsonDict:
     """Convert an ICE candidate to the JSON format expected by ion-sfu."""
+    sdp_candidate = candidate_to_aioice(candidate).to_sdp()
     return {
-        "candidate": candidate.candidate,
+        "candidate": sdp_candidate,
         "sdpMid": candidate.sdpMid,
         "sdpMLineIndex": candidate.sdpMLineIndex,
     }
@@ -41,11 +45,14 @@ def _serialize_candidate(candidate: RTCIceCandidate) -> JsonDict:
 
 def _candidate_from_json(data: JsonDict) -> RTCIceCandidate:
     """Create an ICE candidate from ion-sfu JSON payload."""
-    return RTCIceCandidate(
-        candidate=data.get("candidate"),
-        sdpMid=data.get("sdpMid"),
-        sdpMLineIndex=data.get("sdpMLineIndex"),
-    )
+    sdp_candidate = data.get("candidate")
+    if sdp_candidate is None:
+        raise ValueError("Missing ICE candidate in payload")
+
+    rtc_candidate = candidate_from_aioice(Candidate.from_sdp(sdp_candidate))
+    rtc_candidate.sdpMid = data.get("sdpMid")
+    rtc_candidate.sdpMLineIndex = data.get("sdpMLineIndex")
+    return rtc_candidate
 
 
 @dataclass
@@ -79,7 +86,7 @@ class IonSfuClient:
 
         self._pub_pc: RTCPeerConnection | None = None
         self._sub_pc: RTCPeerConnection | None = None
-        self._ws: websockets.WebSocketClientProtocol | None = None
+        self._ws: WebSocketClientProtocol | None = None
         self._recv_task: asyncio.Task[None] | None = None
         self._pending: dict[str, asyncio.Future[JsonDict]] = {}
         self._track_future: asyncio.Future[MediaStreamTrack] | None = None
