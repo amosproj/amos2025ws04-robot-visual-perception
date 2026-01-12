@@ -9,8 +9,8 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, Optional
 
-from aioice import Candidate
 import websockets
+from aioice import Candidate
 from aiortc import (
     RTCConfiguration,
     RTCIceCandidate,
@@ -20,7 +20,7 @@ from aiortc import (
 )
 from aiortc.mediastreams import MediaStreamTrack
 from aiortc.rtcicetransport import candidate_from_aioice, candidate_to_aioice
-from websockets.client import WebSocketClientProtocol
+from websockets.asyncio.client import ClientConnection
 
 JsonDict = Dict[str, Any]
 
@@ -86,7 +86,7 @@ class IonSfuClient:
 
         self._pub_pc: RTCPeerConnection | None = None
         self._sub_pc: RTCPeerConnection | None = None
-        self._ws: WebSocketClientProtocol | None = None
+        self._ws: ClientConnection | None = None
         self._recv_task: asyncio.Task[None] | None = None
         self._pending: dict[str, asyncio.Future[JsonDict]] = {}
         self._track_future: asyncio.Future[MediaStreamTrack] | None = None
