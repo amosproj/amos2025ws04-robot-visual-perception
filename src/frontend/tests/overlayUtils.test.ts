@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   clamp,
   getDetectionColor,
@@ -204,7 +204,7 @@ describe('computeDisplayedVideoRect', () => {
     });
 
     it('defaults to contain for unknown objectFit', () => {
-      const result = computeDisplayedVideoRect(1920, 1080, 800, 600, 'contain');
+      const result = computeDisplayedVideoRect(1920, 1080, 800, 600, 'unknown' as any);
       const resultDefault = computeDisplayedVideoRect(1920, 1080, 800, 600, 'contain');
       expect(result).toEqual(resultDefault);
     });
@@ -499,9 +499,9 @@ describe('findBestMetadataMatch', () => {
     expect(result!.delta).toBe(0);
   });
 
-  it('handles edge case at exact tolerance boundary', () => {
+  it('handles edge case just beyond tolerance boundary', () => {
     const buffer = [{ timestamp: 1000, frameId: 1 }];
-    // Delta of exactly METADATA_TOLERANCE_MS should be rejected
+    // Delta beyond METADATA_TOLERANCE_MS should be rejected
     const result = findBestMetadataMatch(buffer, 1000 + METADATA_TOLERANCE_MS + 1, 0);
     expect(result).toBeNull();
   });
@@ -578,11 +578,9 @@ describe('sanitizeTimestamp', () => {
   });
 
   it('uses Date.now() as default fallback', () => {
-    const before = Date.now();
-    const result = sanitizeTimestamp(undefined);
-    const after = Date.now();
-    expect(result).toBeGreaterThanOrEqual(before);
-    expect(result).toBeLessThanOrEqual(after);
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(123456);
+    expect(sanitizeTimestamp(undefined)).toBe(123456);
+    nowSpy.mockRestore();
   });
 });
 
