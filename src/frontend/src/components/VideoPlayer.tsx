@@ -165,7 +165,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
 
       let rvfcHandle: number | undefined;
 
-      const processVideoFrame = (_now: number, _frameMetadata: any) => {
+      const processVideoFrame = () => {
         // Increment sequence number for each frame
         sequenceNumberRef.current++;
         const sequenceNumber = sequenceNumberRef.current;
@@ -256,8 +256,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           console.warn('[VideoPlayer] requestVideoFrameCallback not supported');
           return;
         }
-        rvfcHandle = video.requestVideoFrameCallback((now: number, metadata: any) => {
-          processVideoFrame(now, metadata);
+        rvfcHandle = video.requestVideoFrameCallback(() => {
+          processVideoFrame();
           // Note: scheduleRvfC is now called from processVideoFrame only after successful render
         });
       };
