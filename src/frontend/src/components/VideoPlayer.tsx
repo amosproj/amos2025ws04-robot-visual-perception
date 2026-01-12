@@ -64,11 +64,14 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     const displayCanvasRef = useRef<HTMLCanvasElement>(null);
     const [showControls, setShowControls] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
-  
+
     // frame synchronization state
     const metadataBufferRef = useRef<Map<number, any>>(new Map()); // frameId -> metadata
     const sequenceNumberRef = useRef<number>(0); // local frame counter
-    const currentVideoFrameRef = useRef<{ imageData: ImageData | null; sequenceNumber: number }>({ imageData: null, sequenceNumber: -1 });
+    const currentVideoFrameRef = useRef<{
+      imageData: ImageData | null;
+      sequenceNumber: number;
+    }>({ imageData: null, sequenceNumber: -1 });
     const scheduleNextFrameRef = useRef<(() => void) | null>(null);
     const { language, t } = useI18n();
     const unknownLabel = useCallback(
@@ -86,7 +89,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       updateOverlay: (metadata: any) => {
         const tsMs = Number(metadata?.timestamp);
         if (!Number.isFinite(tsMs)) {
-          console.warn('[VideoPlayer] Dropping metadata without valid timestamp:', metadata);
+          console.warn(
+            '[VideoPlayer] Dropping metadata without valid timestamp:',
+            metadata
+          );
           return;
         }
 
@@ -101,15 +107,17 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
 
         // Keep only last 30 metadata entries
         if (metadataBufferRef.current.size > 30) {
-          const sortedKeys = Array.from(metadataBufferRef.current.keys()).sort((a, b) => a - b);
+          const sortedKeys = Array.from(metadataBufferRef.current.keys()).sort(
+            (a, b) => a - b
+          );
           const toDelete = sortedKeys.slice(0, sortedKeys.length - 30);
-          toDelete.forEach(k => metadataBufferRef.current.delete(k));
+          toDelete.forEach((k) => metadataBufferRef.current.delete(k));
         }
 
-        console.log('[VideoPlayer] Metadata received', { 
+        console.log('[VideoPlayer] Metadata received', {
           frameId,
           bufferSize: metadataBufferRef.current.size,
-          detectionsCount: metadata.detections?.length || 0
+          detectionsCount: metadata.detections?.length || 0,
         });
 
         // Trigger next frame processing if we're waiting for metadata
@@ -170,13 +178,17 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         sequenceNumberRef.current++;
         const sequenceNumber = sequenceNumberRef.current;
 
-        console.log('[VideoPlayer] Video frame received', { 
+        console.log('[VideoPlayer] Video frame received', {
           sequenceNumber,
-          slotFree: currentVideoFrameRef.current.imageData === null
+          slotFree: currentVideoFrameRef.current.imageData === null,
         });
 
         // Step 1: Capture current video frame and store it with its sequence number (only if slot is free)
-        if (currentVideoFrameRef.current.imageData === null && video.videoWidth && video.videoHeight) {
+        if (
+          currentVideoFrameRef.current.imageData === null &&
+          video.videoWidth &&
+          video.videoHeight
+        ) {
           // Create temporary canvas to capture current video frame
           const tempCanvas = document.createElement('canvas');
           tempCanvas.width = video.videoWidth;
@@ -188,16 +200,21 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
             tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
 
             // Store the frame data with its sequence number
-            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const imageData = tempCtx.getImageData(
+              0,
+              0,
+              tempCanvas.width,
+              tempCanvas.height
+            );
             currentVideoFrameRef.current = {
               imageData,
-              sequenceNumber
+              sequenceNumber,
             };
 
             console.log('[VideoPlayer] Video frame captured', {
               sequenceNumber,
               videoSize: `${video.videoWidth}x${video.videoHeight}`,
-              metadataBufferSize: metadataBufferRef.current.size
+              metadataBufferSize: metadataBufferRef.current.size,
             });
           }
         }
@@ -206,8 +223,12 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         const storedFrame = currentVideoFrameRef.current;
         if (storedFrame.imageData && storedFrame.sequenceNumber >= 0) {
           // Find metadata with frameId matching or close to sequence number
-          const availableFrameIds = Array.from(metadataBufferRef.current.keys()).sort((a, b) => a - b);
-          const matchingFrameId = availableFrameIds.find(id => id >= storedFrame.sequenceNumber);
+          const availableFrameIds = Array.from(
+            metadataBufferRef.current.keys()
+          ).sort((a, b) => a - b);
+          const matchingFrameId = availableFrameIds.find(
+            (id) => id >= storedFrame.sequenceNumber
+          );
 
           if (matchingFrameId !== undefined) {
             const metadata = metadataBufferRef.current.get(matchingFrameId)!;
@@ -225,25 +246,29 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
               metadataFrameId: matchingFrameId,
               videoSize: `${canvas.width}x${canvas.height}`,
               detectionsCount: metadata.detections?.length || 0,
-              backendTimestamp: metadata.timestamp
+              backendTimestamp: metadata.timestamp,
             });
 
             // Remove used metadata
             metadataBufferRef.current.delete(matchingFrameId);
 
             // Reset stored frame so we capture a new one next time
-            currentVideoFrameRef.current = { imageData: null, sequenceNumber: -1 };
+            currentVideoFrameRef.current = {
+              imageData: null,
+              sequenceNumber: -1,
+            };
 
             // Continue with next frame
             scheduleRvfC();
           } else {
             // No matching metadata yet - DON'T schedule next callback, wait for metadata
-            if (sequenceNumber % 30 === 0) { // Log every 30 frames only
+            if (sequenceNumber % 30 === 0) {
+              // Log every 30 frames only
               console.log('[VideoPlayer] Waiting for metadata', {
                 storedSequenceNumber: storedFrame.sequenceNumber,
                 currentSequenceNumber: sequenceNumber,
                 availableMetadata: availableFrameIds,
-                bufferSize: metadataBufferRef.current.size
+                bufferSize: metadataBufferRef.current.size,
               });
             }
             // Don't call scheduleRvfC() - we'll be triggered by metadata arrival
@@ -315,13 +340,13 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         console.log('[VideoPlayer] Canvas size updated', {
           videoResolution: `${video.videoWidth}x${video.videoHeight}`,
           displaySize: `${canvas.style.width}x${canvas.style.height}`,
-          isFullscreen
+          isFullscreen,
         });
       };
 
       video.addEventListener('loadedmetadata', updateCanvasSize);
       video.addEventListener('play', scheduleRvfC);
-      
+
       // Watch for container size changes (important for fullscreen)
       const container = containerRef.current;
       let resizeObserver: ResizeObserver | null = null;
@@ -331,13 +356,16 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         });
         resizeObserver.observe(container);
       }
-      
+
       // Update canvas size when fullscreen changes
       updateCanvasSize();
       scheduleRvfC();
 
       return () => {
-        if (rvfcHandle !== undefined && typeof video.cancelVideoFrameCallback === 'function') {
+        if (
+          rvfcHandle !== undefined &&
+          typeof video.cancelVideoFrameCallback === 'function'
+        ) {
           video.cancelVideoFrameCallback(rvfcHandle);
         }
         video.removeEventListener('loadedmetadata', updateCanvasSize);
@@ -347,7 +375,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         }
       };
     }, [videoRef, containerRef, isFullscreen]);
-
 
     return (
       <div
@@ -359,13 +386,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         onMouseLeave={() => setShowControls(false)}
       >
         {/* Hidden video element for playback */}
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="hidden"
-        />
+        <video ref={videoRef} autoPlay playsInline muted className="hidden" />
 
         <canvas
           ref={displayCanvasRef}

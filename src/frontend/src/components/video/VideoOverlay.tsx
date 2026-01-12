@@ -74,7 +74,17 @@ export interface VideoOverlayHandle {
  * - In production: call updateMetadata() with real backend data
  */
 const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
-  ({ videoRef, displayCanvasRef, isPaused, onFrameProcessed, labelResolver, style }, ref) => {
+  (
+    {
+      videoRef,
+      displayCanvasRef,
+      isPaused,
+      onFrameProcessed,
+      labelResolver,
+      style,
+    },
+    ref
+  ) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const metadataBufferRef = useRef<MetadataFrame[]>([]);
     const animationFrameRef = useRef<number>();
@@ -164,7 +174,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       ctx: CanvasRenderingContext2D
     ) => {
       const videoRect = referenceElement.getBoundingClientRect();
-      const containerRect = referenceElement.parentElement?.getBoundingClientRect();
+      const containerRect =
+        referenceElement.parentElement?.getBoundingClientRect();
       const { width, height, offsetX, offsetY } = computeDisplayedVideoRect(
         referenceElement as HTMLVideoElement,
         videoRect
@@ -314,7 +325,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       if (!ctx) return;
 
       // Update canvas on video load or resize
-      const updateCanvasSize = () => syncCanvasLayout(canvas, referenceElement, ctx);
+      const updateCanvasSize = () =>
+        syncCanvasLayout(canvas, referenceElement, ctx);
       referenceElement.addEventListener('loadedmetadata', updateCanvasSize);
 
       // Watch for any changes to video element or container
@@ -507,7 +519,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           cancelAnimationFrame(animationFrameRef.current);
         if (
           videoFrameCallbackRef.current &&
-          typeof (referenceElement as any).cancelVideoFrameCallback === 'function'
+          typeof (referenceElement as any).cancelVideoFrameCallback ===
+            'function'
         ) {
           (referenceElement as any).cancelVideoFrameCallback(
             videoFrameCallbackRef.current
@@ -515,7 +528,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         }
         resizeObserver.disconnect();
         window.removeEventListener('resize', handleWindowResize);
-        referenceElement.removeEventListener('loadedmetadata', updateCanvasSize);
+        referenceElement.removeEventListener(
+          'loadedmetadata',
+          updateCanvasSize
+        );
       };
     }, [videoRef, displayCanvasRef, onFrameProcessed, isPaused, labelResolver]);
 
