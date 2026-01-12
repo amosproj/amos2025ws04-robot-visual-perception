@@ -11,7 +11,11 @@ import { logger } from './lib/logger';
 
 import Header from './components/Header';
 import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
-import UnifiedInfoPanel from './components/UnifiedInfoPanel';
+import { GameOverlay } from './components/ui/GameOverlay';
+import { StatusPanel } from './components/ui/StatusPanel';
+import { ObjectFilterSection } from './components/ObjectFilter';
+import StreamInfo from './components/StreamInfo';
+import DetectionInfo from './components/DetectionInfo';
 
 function App() {
   const log = useMemo(() => logger.child({ component: 'App' }), []);
@@ -187,44 +191,66 @@ function App() {
   };
 
   return (
-    <div className="font-sans max-w-[1200px] mx-auto p-5 bg-theme-bg-primary text-theme-text-primary min-h-screen">
-      <Header
+    <div className="font-sans bg-theme-bg-primary text-theme-text-primary min-h-screen">
+      <Header minimal />
+
+      <GameOverlay
         videoState={videoState}
-        latencyMs={latencyMs}
         analyzerConnected={analyzerConnected}
-        analyzerFps={analyzerFps || 0}
-        overlayFps={overlayFps || 0}
-        objectCount={filteredMetadata?.detections.length || 0}
-      />
-      <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)] items-start">
-        <UnifiedInfoPanel
-          videoState={videoState}
-          analyzerConnected={analyzerConnected}
-          onConnectVideo={connectVideo}
-          onDisconnectVideo={disconnectVideo}
-          onConnectAnalyzer={connectAnalyzer}
-          onDisconnectAnalyzer={disconnectAnalyzer}
-          onClearOverlay={handleClearOverlay}
-          detections={thresholdedDetections}
-          selectedClasses={selectedClasses}
-          onSelectionChange={handleSelectionChange}
-          confidenceThreshold={confidenceThreshold}
-          onConfidenceThresholdChange={setConfidenceThreshold}
-          isVideoConnected={videoState === 'connected'}
-          streamMetadata={stats}
-          detectionMetadata={latestMetadata}
-        />
-        <VideoPlayer
-          ref={videoPlayerRef}
-          videoRef={videoRef}
-          containerRef={videoContainerRef}
-          videoState={videoState}
-          isPaused={isPaused}
-          onTogglePlay={togglePlayPause}
-          onFullscreen={enterFullscreen}
-          onOverlayFpsUpdate={setOverlayFps}
-        />
-      </div>
+        onConnectVideo={connectVideo}
+        onDisconnectVideo={disconnectVideo}
+        onConnectAnalyzer={connectAnalyzer}
+        onDisconnectAnalyzer={disconnectAnalyzer}
+        onFullscreen={enterFullscreen}
+        filterPanel={
+          <ObjectFilterSection
+            detections={thresholdedDetections}
+            selectedClasses={selectedClasses}
+            onSelectionChange={handleSelectionChange}
+            confidenceThreshold={confidenceThreshold}
+            onConfidenceThresholdChange={setConfidenceThreshold}
+            isAnalyzerConnected={analyzerConnected}
+            isVideoConnected={videoState === 'connected'}
+            onClearAll={handleClearOverlay}
+            variant="section"
+          />
+        }
+        streamInfoPanel={
+          <StreamInfo {...(stats ?? {})} variant="section" />
+        }
+        statusPanel={
+          <StatusPanel
+            videoState={videoState}
+            latencyMs={latencyMs}
+            analyzerFps={analyzerFps || 0}
+            overlayFps={overlayFps}
+            objectCount={filteredMetadata?.detections.length || 0}
+          />
+        }
+        detectionPanel={
+          latestMetadata?.detections && latestMetadata.detections.length > 0 ? (
+            <DetectionInfo
+              detections={latestMetadata.detections}
+              showGrouped={false}
+              variant="section"
+            />
+          ) : undefined
+        }
+      >
+        {/* Main video player - fullscreen background */}
+        <div className="fixed inset-0 pt-12">
+          <VideoPlayer
+            ref={videoPlayerRef}
+            videoRef={videoRef}
+            containerRef={videoContainerRef}
+            videoState={videoState}
+            isPaused={isPaused}
+            onTogglePlay={togglePlayPause}
+            onFullscreen={enterFullscreen}
+            onOverlayFpsUpdate={setOverlayFps}
+          />
+        </div>
+      </GameOverlay>
     </div>
   );
 }
