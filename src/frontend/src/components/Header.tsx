@@ -29,7 +29,11 @@ export default function Header({ minimal = false }: HeaderProps) {
             className="bg-[#2d3436] text-white border border-theme-border px-3 py-1.5 rounded text-sm cursor-pointer shadow-lg"
           >
             {languageOptions.map((option) => (
-              <option key={option.value} value={option.value} className="bg-[#2d3436] text-white">
+              <option
+                key={option.value}
+                value={option.value}
+                className="bg-[#2d3436] text-white"
+              >
                 {option.label}
               </option>
             ))}

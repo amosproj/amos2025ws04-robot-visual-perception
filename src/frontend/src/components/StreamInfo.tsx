@@ -56,9 +56,7 @@ function StreamInfo({
       {statusPanelProps && (
         <div
           className={
-            hasStreamMetrics
-              ? 'pb-4 border-b border-theme-border-subtle'
-              : ''
+            hasStreamMetrics ? 'pb-4 border-b border-theme-border-subtle' : ''
           }
         >
           <StatusPanel {...statusPanelProps} />

@@ -7,13 +7,7 @@
 import { ReactNode, useState } from 'react';
 import { IconButton } from './IconButton';
 import { TabbedWidgetPanel, Tab } from './TabbedWidgetPanel';
-import {
-  Video,
-  VideoOff,
-  Activity,
-  Filter,
-  Maximize,
-} from '../video/Icons';
+import { Video, VideoOff, Activity, Filter, Maximize } from '../video/Icons';
 import { useI18n } from '../../i18n';
 
 export interface GameOverlayProps {

@@ -91,7 +91,9 @@ export function StatusPanel({
       {/* Objects */}
       <div className="flex items-center justify-between">
         <span className="text-theme-text-secondary">{t('objectsLabel')}</span>
-        <span className={`text-xs px-2 py-0.5 rounded ${objectCount > 0 ? 'bg-theme-accent text-white' : 'bg-theme-bg-tertiary text-theme-text-muted border border-theme-border'}`}>
+        <span
+          className={`text-xs px-2 py-0.5 rounded ${objectCount > 0 ? 'bg-theme-accent text-white' : 'bg-theme-bg-tertiary text-theme-text-muted border border-theme-border'}`}
+        >
           {objectCount}
         </span>
       </div>

@@ -48,7 +48,9 @@ export function ConnectionButtonGroup({
   const btnBase =
     variant === 'panel' ? buttonStyles.basePanel : buttonStyles.basePage;
   const containerClass =
-    variant === 'panel' ? 'grid gap-2' : 'flex justify-center gap-4 mb-8 flex-wrap';
+    variant === 'panel'
+      ? 'grid gap-2'
+      : 'flex justify-center gap-4 mb-8 flex-wrap';
 
   return (
     <div className={containerClass}>

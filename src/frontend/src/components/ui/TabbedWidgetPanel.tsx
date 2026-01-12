@@ -17,7 +17,10 @@ export interface TabbedWidgetPanelProps {
   defaultTab?: string;
 }
 
-export function TabbedWidgetPanel({ tabs, defaultTab }: TabbedWidgetPanelProps) {
+export function TabbedWidgetPanel({
+  tabs,
+  defaultTab,
+}: TabbedWidgetPanelProps) {
   const [activeTab, setActiveTab] = useState(defaultTab || tabs[0]?.id);
 
   const activeContent = tabs.find((tab) => tab.id === activeTab)?.content;
