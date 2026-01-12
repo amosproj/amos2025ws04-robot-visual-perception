@@ -13,7 +13,7 @@ export interface BoundingBox {
   /** Unique identifier for this detection */
   id: string;
   /** Object class/label (e.g., "person", "chair", "robot") */
-  label: string;
+  label: string | number;
   /** Confidence score (0-1) */
   confidence: number;
   /** Bounding box in normalized coordinates (0-1) */
@@ -54,6 +54,8 @@ interface VideoOverlayProps {
   isPaused?: boolean;
   /** Callback when metadata frame is processed (for debugging/stats) */
   onFrameProcessed?: (fps: number) => void;
+  /** Optional label resolver for class IDs */
+  labelResolver?: (label: string | number) => string;
   /** Optional: custom styling for the container */
   style?: React.CSSProperties;
 }
@@ -72,7 +74,7 @@ export interface VideoOverlayHandle {
  * - In production: call updateMetadata() with real backend data
  */
 const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
-  ({ videoRef, displayCanvasRef, isPaused, onFrameProcessed, style }, ref) => {
+  ({ videoRef, displayCanvasRef, isPaused, onFrameProcessed, labelResolver, style }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const metadataBufferRef = useRef<MetadataFrame[]>([]);
     const animationFrameRef = useRef<number>();
@@ -333,6 +335,9 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       };
 
+      const resolveLabel =
+        labelResolver ?? ((value: string | number) => String(value));
+
       const renderOverlay = (mediaTimeMs: number, perfTimeMs: number) => {
         // Keep canvas aligned with the actually drawn video area (handles zoom/fullscreen/object-fit)
         updateCanvasSize();
@@ -404,7 +409,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             ctx.shadowBlur = 0;
 
             // Label + distance
-            const labelText = `${label} ${
+            const labelText = `${resolveLabel(label)} ${
               confidence !== undefined ? (confidence * 100).toFixed(0) : '?'
             }%`;
             const distanceText = distance ? ` | ${distance.toFixed(2)}m` : '';
@@ -512,7 +517,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         window.removeEventListener('resize', handleWindowResize);
         referenceElement.removeEventListener('loadedmetadata', updateCanvasSize);
       };
-    }, [videoRef, displayCanvasRef, onFrameProcessed, isPaused]);
+    }, [videoRef, displayCanvasRef, onFrameProcessed, isPaused, labelResolver]);
 
     return (
       <canvas

@@ -209,7 +209,7 @@ function App() {
   };
 
   return (
-    <div className="font-sans max-w-[1200px] mx-auto p-5 bg-[#1a1a1a] text-[#e0e0e0] min-h-screen">
+    <div className="font-sans max-w-[1200px] mx-auto p-5 bg-theme-bg-primary text-theme-text-primary min-h-screen">
       <Header
         videoState={videoState}
         latencyMs={latencyMs}

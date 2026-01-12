@@ -5,6 +5,7 @@
  */
 
 import { memo } from 'react';
+import { useI18n } from '../i18n';
 
 export interface StreamInfoProps {
   videoResolution?: { width: number; height: number };
@@ -23,17 +24,21 @@ function StreamInfo({
   framesReceived,
   framesDecoded,
 }: StreamInfoProps) {
+  const { t } = useI18n();
+
   return (
-    <div className="bg-[#2a2a2a] border border-[#404040] p-5 rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
-      <h3 className="my-0 mb-4 text-[#00d4ff] text-xl">Stream Info</h3>
+    <div className="bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card">
+      <h3 className="my-0 mb-4 text-theme-accent text-xl">
+        {t('streamInfoTitle')}
+      </h3>
 
       <div className="space-y-3">
         {/* Video Resolution */}
         {videoResolution && (
           <InfoRow
-            label="Resolution"
-            value={`${videoResolution.width} × ${videoResolution.height}`}
-            valueClass="text-[#00d4ff]"
+            label={t('streamInfoResolution')}
+            value={`${videoResolution.width} x ${videoResolution.height}`}
+            valueClass="text-theme-accent"
           />
         )}
 
@@ -42,27 +47,27 @@ function StreamInfo({
           jitter !== undefined ||
           bitrate !== undefined) && (
           <>
-            <div className="text-[#888] text-xs font-semibold uppercase mt-4 mb-2">
-              Network Quality
+            <div className="text-theme-text-muted text-xs font-semibold uppercase mt-4 mb-2">
+              {t('streamInfoNetworkQuality')}
             </div>
 
             {packetLoss !== undefined && (
               <InfoRow
-                label="Packet Loss"
+                label={t('streamInfoPacketLoss')}
                 value={`${packetLoss.toFixed(2)}%`}
                 valueClass={
                   packetLoss < 1
-                    ? 'text-[#00d4aa]'
+                    ? 'text-theme-success'
                     : packetLoss < 5
-                      ? 'text-[#fdcb6e]'
-                      : 'text-[#fd79a8]'
+                      ? 'text-theme-warning'
+                      : 'text-theme-error'
                 }
               />
             )}
 
             {jitter !== undefined && (
               <InfoRow
-                label="Jitter"
+                label={t('streamInfoJitter')}
                 value={`${jitter.toFixed(1)} ms`}
                 valueClass="text-[#a29bfe]"
               />
@@ -70,9 +75,9 @@ function StreamInfo({
 
             {bitrate !== undefined && (
               <InfoRow
-                label="Bitrate"
+                label={t('streamInfoBitrate')}
                 value={`${bitrate.toFixed(2)} Mbps`}
-                valueClass="text-[#00d4ff]"
+                valueClass="text-theme-accent"
               />
             )}
           </>
@@ -81,23 +86,23 @@ function StreamInfo({
         {/* Video Quality */}
         {(framesReceived !== undefined || framesDecoded !== undefined) && (
           <>
-            <div className="text-[#888] text-xs font-semibold uppercase mt-4 mb-2">
-              Video Quality
+            <div className="text-theme-text-muted text-xs font-semibold uppercase mt-4 mb-2">
+              {t('streamInfoVideoQuality')}
             </div>
 
             {framesReceived !== undefined && (
               <InfoRow
-                label="Frames Received"
+                label={t('streamInfoFramesReceived')}
                 value={framesReceived.toString()}
-                valueClass="text-[#888]"
+                valueClass="text-theme-text-muted"
               />
             )}
 
             {framesDecoded !== undefined && (
               <InfoRow
-                label="Frames Decoded"
+                label={t('streamInfoFramesDecoded')}
                 value={framesDecoded.toString()}
-                valueClass="text-[#888]"
+                valueClass="text-theme-text-muted"
               />
             )}
           </>
@@ -120,7 +125,7 @@ const InfoRow = memo(
   }) => {
     return (
       <div className="flex justify-between items-center">
-        <span className="text-[#b0b0b0] text-sm">{label}:</span>
+        <span className="text-theme-text-secondary text-sm">{label}:</span>
         <span className={`font-semibold text-sm ${valueClass}`}>{value}</span>
       </div>
     );

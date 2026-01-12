@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+import { useI18n } from '../i18n';
+
 export interface ConnectionControlsProps {
   videoState: string;
   analyzerConnected: boolean;
@@ -23,6 +25,7 @@ export default function ConnectionControls({
   onDisconnectAnalyzer,
   onClearOverlay,
 }: ConnectionControlsProps) {
+  const { t } = useI18n();
   const btnBase =
     'px-5 py-2.5 border-none rounded-md text-sm font-medium cursor-pointer transition-all duration-200 min-w-[140px]';
   const btnPrimary =
@@ -43,21 +46,23 @@ export default function ConnectionControls({
         disabled={videoState === 'connecting'}
       >
         {videoState === 'connecting'
-          ? 'Connecting...'
+          ? t('connectionConnecting')
           : videoState === 'connected'
-            ? 'Disconnect Video'
-            : 'Connect Video'}
+            ? t('connectionDisconnectVideo')
+            : t('connectionConnectVideo')}
       </button>
 
       <button
         onClick={analyzerConnected ? onDisconnectAnalyzer : onConnectAnalyzer}
         className={`${btnBase} ${analyzerConnected ? btnDanger : btnPrimary}`}
       >
-        {analyzerConnected ? 'Disconnect Analyzer' : 'Connect Analyzer'}
+        {analyzerConnected
+          ? t('connectionDisconnectAnalyzer')
+          : t('connectionConnectAnalyzer')}
       </button>
 
       <button onClick={onClearOverlay} className={`${btnBase} ${btnSecondary}`}>
-        Clear Overlay
+        {t('connectionClearOverlay')}
       </button>
     </div>
   );

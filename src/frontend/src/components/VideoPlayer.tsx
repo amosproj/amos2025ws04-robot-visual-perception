@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   useEffect,
+  useCallback,
   RefObject,
   forwardRef,
   useImperativeHandle,
@@ -15,6 +16,8 @@ import {
 } from 'react';
 import VideoOverlay, { VideoOverlayHandle } from './video/VideoOverlay';
 import { PlayerControls } from './video/PlayerControls';
+import { getCocoLabel } from '../constants/cocoLabels';
+import { useI18n } from '../i18n';
 
 export interface VideoPlayerProps {
   /** Reference to the video element */
@@ -67,6 +70,18 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     const sequenceNumberRef = useRef<number>(0); // local frame counter
     const currentVideoFrameRef = useRef<{ imageData: ImageData | null; sequenceNumber: number }>({ imageData: null, sequenceNumber: -1 });
     const scheduleNextFrameRef = useRef<(() => void) | null>(null);
+    const { language, t } = useI18n();
+    const unknownLabel = useCallback(
+      (value: string | number) => t('labelUnknown', { id: value }),
+      [t]
+    );
+    const labelResolver = useCallback(
+      (label: string | number) =>
+        getCocoLabel(label, language, { unknownLabel }),
+      [language, unknownLabel]
+    );
+
+    // Expose methods via ref
     useImperativeHandle(ref, () => ({
       updateOverlay: (metadata: any) => {
         const tsMs = Number(metadata?.timestamp);
@@ -367,6 +382,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           displayCanvasRef={displayCanvasRef}
           isPaused={isPaused}
           onFrameProcessed={onOverlayFpsUpdate}
+          labelResolver={labelResolver}
         />
 
         <PlayerControls
