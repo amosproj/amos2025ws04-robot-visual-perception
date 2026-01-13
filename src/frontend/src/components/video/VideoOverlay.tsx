@@ -4,7 +4,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import {
+  useEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+  useCallback,
+} from 'react';
 
 /**
  * Metadata for a single detected object with bounding box
@@ -14,6 +20,8 @@ export interface BoundingBox {
   id: string;
   /** Object class/label (e.g., "person", "chair", "robot") */
   label: string | number;
+  /** Human-readable label text supplied by backend */
+  labelText?: string;
   /** Confidence score (0-1) */
   confidence: number;
   /** Bounding box in normalized coordinates (0-1) */
@@ -55,7 +63,7 @@ interface VideoOverlayProps {
   /** Callback when metadata frame is processed (for debugging/stats) */
   onFrameProcessed?: (fps: number) => void;
   /** Optional label resolver for class IDs */
-  labelResolver?: (label: string | number) => string;
+  labelResolver?: (label: string | number, labelText?: string) => string;
   /** Optional: custom styling for the container */
   style?: React.CSSProperties;
 }
@@ -298,6 +306,22 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       return match;
     };
 
+    const resolveLabel = useCallback(
+      (value: string | number, providedLabelText?: string) => {
+        if (labelResolver) {
+          return labelResolver(value, providedLabelText);
+        }
+        if (
+          typeof providedLabelText === 'string' &&
+          providedLabelText.trim().length > 0
+        ) {
+          return providedLabelText;
+        }
+        return String(value);
+      },
+      [labelResolver]
+    );
+
     // Main render loop driven by video frames (with RAF fallback)
     useEffect(() => {
       const canvas = canvasRef.current;
@@ -333,9 +357,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       };
 
-      const resolveLabel =
-        labelResolver ?? ((value: string | number) => String(value));
-
       const renderOverlay = (mediaTimeMs: number, perfTimeMs: number) => {
         // Keep canvas aligned with the actually drawn video area (handles zoom/fullscreen/object-fit)
         updateCanvasSize();
@@ -366,8 +387,14 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
           metadata.detections.forEach((detection) => {
-            const { box, label, confidence, distance, interpolated } =
-              detection;
+            const {
+              box,
+              label,
+              labelText: detectionLabelText,
+              confidence,
+              distance,
+              interpolated,
+            } = detection;
 
             const rawX = box.x * canvasWidth;
             const rawY = box.y * canvasHeight;
@@ -419,7 +446,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             ctx.shadowBlur = 0;
 
             // Label + distance
-            const labelText = `${resolveLabel(label)} ${
+            const labelText = `${resolveLabel(label, detectionLabelText)} ${
               confidence !== undefined ? (confidence * 100).toFixed(0) : '?'
             }%`;
             const distanceText = distance ? ` | ${distance.toFixed(2)}m` : '';
@@ -524,7 +551,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         window.removeEventListener('resize', handleWindowResize);
         video.removeEventListener('loadedmetadata', updateCanvasSize);
       };
-    }, [videoRef, onFrameProcessed, isPaused, labelResolver]);
+    }, [videoRef, onFrameProcessed, isPaused, resolveLabel]);
 
     return (
       <canvas
