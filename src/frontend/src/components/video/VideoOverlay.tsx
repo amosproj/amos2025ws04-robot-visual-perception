@@ -365,7 +365,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           clearCanvas();
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-          metadata.detections.forEach((detection, index) => {
+          metadata.detections.forEach((detection) => {
             const { box, label, confidence, distance, interpolated } =
               detection;
 
