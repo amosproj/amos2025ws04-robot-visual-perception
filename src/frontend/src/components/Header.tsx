@@ -25,7 +25,6 @@ export interface HeaderProps {
   /** Panel state */
   showPanel?: boolean;
   onTogglePanel?: () => void;
-
 }
 
 export default function Header(props: HeaderProps) {

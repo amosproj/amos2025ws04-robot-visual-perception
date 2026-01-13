@@ -35,9 +35,6 @@ export function GameOverlay({
 }: GameOverlayProps) {
   const { t } = useI18n();
 
-
-
-
   // Tabs for the widget panel
   const tabs: Tab[] = [
     {
@@ -62,13 +59,9 @@ export function GameOverlay({
   }
 
   return (
-    <div
-      className="relative w-full h-full min-h-screen bg-theme-bg-primary"
-    >
+    <div className="relative w-full h-full min-h-screen bg-theme-bg-primary">
       {/* Main content area (video) */}
       <div className="w-full h-full">{children}</div>
-
-
 
       {/* Left side - Tabbed widget panel */}
       {showPanel && (
@@ -76,7 +69,6 @@ export function GameOverlay({
           <TabbedWidgetPanel tabs={tabs} defaultTab="filter" />
         </div>
       )}
-
 
       {/* Right side - Status panel */}
       {statusPanel && (
@@ -86,9 +78,6 @@ export function GameOverlay({
           </div>
         </div>
       )}
-
-
-
     </div>
   );
 }

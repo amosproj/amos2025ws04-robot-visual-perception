@@ -22,8 +22,9 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
 }) => {
   return (
     <div
-      className={`absolute inset-0 pointer-events-none flex flex-col justify-end p-4 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'
-        }`}
+      className={`absolute inset-0 pointer-events-none flex flex-col justify-end p-4 transition-opacity duration-300 ${
+        showControls ? 'opacity-100' : 'opacity-0'
+      }`}
     >
       <div className="flex justify-between items-end w-full">
         {/* Left side - Play/Pause */}
