@@ -223,6 +223,7 @@ def test_build_metadata_message_maps_label_to_text(
         timestamp=1.0,
         frame_id=1,
         current_fps=30.0,
+        is_interpolated=[False],
     )
 
     assert metadata.detections[0]["label"] == cls_id
@@ -243,7 +244,7 @@ async def test_process_detection_applies_detection_threshold(
     estimator = MagicMock()
     estimator.estimate_distance_m = MagicMock(return_value=[1.0])
 
-    detections, distances = await manager._process_detection(
+    detections, distances, interpoalted_flags = await manager._process_detection(
         MagicMock(),
         ProcessingState(frame_id=2, current_fps=20.0, last_fps_time=1.0),
         detector,
@@ -252,3 +253,4 @@ async def test_process_detection_applies_detection_threshold(
 
     assert detections == []
     assert distances == []
+    assert interpoalted_flags == []

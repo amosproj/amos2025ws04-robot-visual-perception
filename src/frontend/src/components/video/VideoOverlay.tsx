@@ -39,6 +39,8 @@ export interface BoundingBox {
     y: number;
     z: number;
   };
+  /** Optional: Whether this detection is interpolated (vs real detection) */
+  interpolated?: boolean;
 }
 
 /**
@@ -384,13 +386,14 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           clearCanvas();
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-          metadata.detections.forEach((detection, index) => {
+          metadata.detections.forEach((detection) => {
             const {
               box,
               label,
               labelText: detectionLabelText,
               confidence,
               distance,
+              interpolated,
             } = detection;
 
             const rawX = box.x * canvasWidth;
@@ -409,18 +412,29 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
               return;
             }
 
-            // Color scheme
-            const colors = [
-              '#00d4ff',
-              '#00ff88',
-              '#ff6b9d',
-              '#ffd93d',
-              '#ff8c42',
-              '#a8e6cf',
-              '#b4a5ff',
-              '#ffb347',
-            ];
-            const color = colors[index % colors.length];
+            // Color scheme - use black for interpolated detections
+            // For real detections, use color based on class ID for consistency
+            let color: string;
+            if (interpolated) {
+              color = '#808080'; // Black for interpolated
+            } else {
+              const colors = [
+                '#00d4ff',
+                '#00ff88',
+                '#ff6b9d',
+                '#ffd93d',
+                '#ff8c42',
+                '#a8e6cf',
+                '#b4a5ff',
+                '#ffb347',
+              ];
+              // Use label (class ID) for consistent colors per class
+              const labelNum =
+                typeof label === 'number'
+                  ? label
+                  : parseInt(String(label), 10) || 0;
+              color = colors[labelNum % colors.length];
+            }
 
             // Draw bounding box using calculated coordinates
             ctx.shadowColor = color;
