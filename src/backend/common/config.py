@@ -130,7 +130,7 @@ class Config:
     # Size for history of each tracked object
     TRACKING_MAX_HISTORY_SIZE: int = int(os.getenv("TRACKING_MAX_HISTORY_SIZE", "5"))
     # Minimum detections before a track becomes active/sent
-    DETECTION_THRESHOLD: int = int(os.getenv("DETECTION_THRESHOLD", "0"))
+    DETECTION_THRESHOLD: int = int(os.getenv("DETECTION_THRESHOLD", "2"))
 
 
 config = Config()
