@@ -31,8 +31,10 @@ from common.metrics import (
 from common.utils.geometry import (
     compute_camera_intrinsics,
     unproject_bbox_center_to_camera,
+    normalize_bbox_coordinates,
 )
-from common.utils.image import resize_frame
+from common.utils.image import resize_frame, calculate_adaptive_scale
+
 
 logger = logging.getLogger("manager")
 
@@ -330,15 +332,12 @@ class AnalyzerWebSocketManager:
             state.fps_counter = 0
             state.last_fps_time = current_time
 
-            if state.current_fps < 10:
-                state.target_scale -= self.smooth_factor
-            elif state.current_fps < 18:
-                state.target_scale -= self.smooth_factor * 0.5
-            else:
-                state.target_scale += self.smooth_factor * 0.8
-
-            state.target_scale = max(
-                self.min_scale, min(self.max_scale, state.target_scale)
+            state.target_scale = calculate_adaptive_scale(
+                current_fps=state.current_fps,
+                current_scale=state.target_scale,
+                smooth_factor=self.smooth_factor,
+                min_scale=self.min_scale,
+                max_scale=self.max_scale,
             )
 
             logger.info(
@@ -496,15 +495,9 @@ class AnalyzerWebSocketManager:
 
         det_payload = []
         for det, dist_m in zip(detections, distances):
-            box_w = max(0.0, float(det.x2 - det.x1))
-            box_h = max(0.0, float(det.y2 - det.y1))
-            if box_w <= 0 or box_h <= 0:
-                continue
-
-            norm_x = max(0.0, min(1.0, det.x1 / w))
-            norm_y = max(0.0, min(1.0, det.y1 / h))
-            norm_w = max(0.0, min(1.0, box_w / w))
-            norm_h = max(0.0, min(1.0, box_h / h))
+            norm_x, norm_y, norm_w, norm_h = normalize_bbox_coordinates(
+                det.x1, det.y1, det.x2, det.y2, w, h
+            )
 
             pos_x, pos_y, pos_z = unproject_bbox_center_to_camera(
                 det.x1, det.y1, det.x2, det.y2, dist_m, fx, fy, cx, cy

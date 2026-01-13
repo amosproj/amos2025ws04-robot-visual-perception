@@ -4,7 +4,7 @@
 import numpy as np
 import pytest
 
-from common.utils.image import resize_frame
+from common.utils.image import resize_frame, calculate_adaptive_scale
 
 
 @pytest.fixture
@@ -64,3 +64,28 @@ def test_resize_frame_different_dimensions(
 
     assert result.shape == expected_shape
     assert result.dtype == np.uint8
+
+
+@pytest.mark.parametrize(
+    "fps, current_scale, smooth_factor, min_scale, max_scale, expected",
+    [
+        (5.0, 0.8, 0.1, 0.4, 1.0, 0.7),
+        (12.0, 0.8, 0.1, 0.4, 1.0, 0.75),
+        (20.0, 0.8, 0.1, 0.4, 1.0, 0.88),
+        (5.0, 0.4, 0.1, 0.4, 1.0, 0.4),
+        (30.0, 1.0, 0.1, 0.4, 1.0, 1.0),
+    ],
+    ids=["very_low_fps", "low_fps", "good_fps", "at_min_bound", "at_max_bound"],
+)
+def test_calculate_adaptive_scale(
+    fps: float,
+    current_scale: float,
+    smooth_factor: float,
+    min_scale: float,
+    max_scale: float,
+    expected: float,
+) -> None:    
+    result = calculate_adaptive_scale(
+        fps, current_scale, smooth_factor, min_scale, max_scale
+    )
+    assert result == pytest.approx(expected, abs=0.01)

@@ -4,7 +4,7 @@
 import numpy as np
 import pytest
 
-from common.utils.geometry import get_detections, draw_detections, calculate_iou
+from common.utils.geometry import get_detections, draw_detections, calculate_iou, normalize_bbox_coordinates
 from common.core.contracts import Detection
 from tests.test_utils import DummyResult, DummyBoxes
 
@@ -97,3 +97,26 @@ def test_calculate_iou(
 ) -> None:
     result = calculate_iou(box1, box2)
     assert result == pytest.approx(expected_iou, abs=0.01)
+
+
+@pytest.mark.parametrize(
+    "x1, y1, x2, y2, width, height, expected",
+    [
+        (10, 20, 50, 80, 100, 100, (0.1, 0.2, 0.4, 0.6)),
+        (0, 0, 50, 50, 100, 100, (0.0, 0.0, 0.5, 0.5)),
+        (50, 50, 150, 150, 100, 100, (0.5, 0.5, 1.0, 1.0)),
+        (50, 50, 50, 100, 100, 100, (0.0, 0.0, 0.0, 0.0)),
+    ],
+    ids=["normal", "at_origin", "exceeds_bounds", "invalid_box"],
+)
+def test_normalize_bbox_coordinates(
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    width: int,
+    height: int,
+    expected: tuple[float, float, float, float],
+) -> None:
+    result = normalize_bbox_coordinates(x1, y1, x2, y2, width, height)
+    assert result == expected

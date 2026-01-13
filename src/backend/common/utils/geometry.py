@@ -181,3 +181,29 @@ def calculate_iou(
         return 0.0
 
     return inter_area / union_area
+
+
+def normalize_bbox_coordinates(
+    x1: float, y1: float, x2: float, y2: float, frame_width: int, frame_height: int
+) -> tuple[float, float, float, float]:
+    """Normalize bounding box coordinates to [0, 1] range.
+
+    Args:
+        x1, y1, x2, y2: Box coordinates in pixels
+        frame_width, frame_height: Frame dimensions
+
+    Returns:
+        Tuple of (norm_x, norm_y, norm_width, norm_height)
+    """
+    box_w = max(0.0, float(x2 - x1))
+    box_h = max(0.0, float(y2 - y1))
+
+    if box_w <= 0 or box_h <= 0:
+        return 0.0, 0.0, 0.0, 0.0
+
+    norm_x = max(0.0, min(1.0, x1 / frame_width))
+    norm_y = max(0.0, min(1.0, y1 / frame_height))
+    norm_w = max(0.0, min(1.0, box_w / frame_width))
+    norm_h = max(0.0, min(1.0, box_h / frame_height))
+
+    return norm_x, norm_y, norm_w, norm_h

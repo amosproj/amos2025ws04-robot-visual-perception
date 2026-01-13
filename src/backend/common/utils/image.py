@@ -63,3 +63,31 @@ def resize_frame(frame: np.ndarray, scale: float) -> np.ndarray:
         new_h = int(frame.shape[0] * scale)
         return cv2.resize(frame, (new_w, new_h))
     return frame
+
+
+def calculate_adaptive_scale(
+    current_fps: float,
+    current_scale: float,
+    smooth_factor: float,
+    min_scale: float,
+    max_scale: float,
+) -> float:
+    """Calculate adaptive scaling based on FPS.
+
+    Args:
+        current_fps: Current frames per second
+        current_scale: Current scale factor
+        smooth_factor: Smoothing factor for scale adjustments
+        min_scale, max_scale: Scale bounds
+
+    Returns:
+        New scale factor
+    """
+    if current_fps < 10:
+        new_scale = current_scale - smooth_factor
+    elif current_fps < 18:
+        new_scale = current_scale - smooth_factor * 0.5
+    else:
+        new_scale = current_scale + smooth_factor * 0.8
+
+    return max(min_scale, min(max_scale, new_scale))
