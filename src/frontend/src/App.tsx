@@ -179,6 +179,8 @@ function App() {
     connectAnalyzer(); // Manual connect to analyzer
   }, [connectVideo, connectAnalyzer]);
 
+  const [showPanel, setShowPanel] = useState(true);
+
   const handleClearOverlay = () => {
     setSelectedClasses(new Set());
     log.info('ui.overlay.cleared');
@@ -195,16 +197,20 @@ function App() {
 
   return (
     <div className="font-sans bg-theme-bg-primary text-theme-text-primary min-h-screen">
-      <Header minimal />
-
-      <GameOverlay
+      <Header
+        minimal
         videoState={videoState}
         analyzerConnected={analyzerConnected}
         onConnectVideo={connectVideo}
         onDisconnectVideo={disconnectVideo}
         onConnectAnalyzer={connectAnalyzer}
         onDisconnectAnalyzer={disconnectAnalyzer}
-        onFullscreen={enterFullscreen}
+        showPanel={showPanel}
+        onTogglePanel={() => setShowPanel(!showPanel)}
+      />
+
+      <GameOverlay
+        showPanel={showPanel}
         filterPanel={
           <ObjectFilterSection
             detections={thresholdedDetections}
@@ -256,7 +262,7 @@ function App() {
         }
       >
         {/* Main video player - fullscreen background */}
-        <div className="fixed inset-0 pt-12">
+        <div className="fixed inset-0 pt-14">
           <VideoPlayer
             ref={videoPlayerRef}
             videoRef={videoRef}

@@ -8,23 +8,39 @@ import { useTheme } from '../context/ThemeContext';
 
 interface ThemeToggleProps {
   className?: string;
+  size?: 'sm' | 'md' | 'lg';
 }
 
-export default function ThemeToggle({ className = '' }: ThemeToggleProps) {
+export default function ThemeToggle({
+  className = '',
+  size = 'md',
+}: ThemeToggleProps) {
   const { resolvedTheme, toggleTheme } = useTheme();
+
+  const sizeClass = {
+    sm: 'p-1.5',
+    md: 'p-2',
+    lg: 'p-3',
+  }[size];
+
+  const iconSize = {
+    sm: 16,
+    md: 20,
+    lg: 24,
+  }[size];
 
   return (
     <button
       onClick={toggleTheme}
-      className={`p-2 rounded-lg bg-theme-bg-tertiary hover:bg-theme-bg-hover text-theme-accent border border-theme-border transition-colors ${className}`}
+      className={`${sizeClass} rounded-lg bg-theme-bg-tertiary hover:bg-theme-bg-hover text-theme-accent border border-theme-border transition-colors ${className}`}
       aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
       title={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
     >
       {resolvedTheme === 'dark' ? (
         // Sun icon for switching to light mode
         <svg
-          width="20"
-          height="20"
+          width={iconSize}
+          height={iconSize}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -45,8 +61,8 @@ export default function ThemeToggle({ className = '' }: ThemeToggleProps) {
       ) : (
         // Moon icon for switching to dark mode
         <svg
-          width="20"
-          height="20"
+          width={iconSize}
+          height={iconSize}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"

@@ -6,20 +6,48 @@
 
 import { useI18n } from '../i18n';
 import ThemeToggle from './ThemeToggle';
+import { IconButton } from './ui/IconButton';
+import { Video, VideoOff, Activity, Filter } from './video/Icons';
 
 export interface HeaderProps {
   /** Whether to show in minimal/game mode */
   minimal?: boolean;
+  /** Video connection state */
+  videoState?: string;
+  /** Whether analyzer is connected */
+  analyzerConnected?: boolean;
+  /** Video connection handlers */
+  onConnectVideo?: () => void;
+  onDisconnectVideo?: () => void;
+  /** Analyzer connection handlers */
+  onConnectAnalyzer?: () => void;
+  onDisconnectAnalyzer?: () => void;
+  /** Panel state */
+  showPanel?: boolean;
+  onTogglePanel?: () => void;
+
 }
 
-export default function Header({ minimal = false }: HeaderProps) {
+export default function Header(props: HeaderProps) {
+  const { minimal = false } = props;
   const { t, language, setLanguage, languageOptions } = useI18n();
 
   if (minimal) {
     return (
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2 pointer-events-none">
         {/* Language selector - top left */}
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto flex items-center gap-2">
+          {props.onTogglePanel && (
+            <IconButton
+              size="sm"
+              icon={<Filter size={16} />}
+              tooltip={props.showPanel ? 'Hide Panel' : 'Show Panel'}
+              onClick={props.onTogglePanel}
+              active={props.showPanel}
+              variant={props.showPanel ? 'success' : 'default'}
+              tooltipPosition="bottom"
+            />
+          )}
           <select
             id="language-select"
             value={language}
@@ -45,9 +73,67 @@ export default function Header({ minimal = false }: HeaderProps) {
           {t('appTitle')}
         </h1>
 
-        {/* Theme toggle - top right */}
-        <div className="pointer-events-auto">
-          <ThemeToggle />
+        {/* Controls - top right */}
+        <div className="pointer-events-auto flex items-center gap-2">
+          {/* Connection Controls (only if props provided) */}
+          {props.onConnectVideo && (
+            <>
+              {/* Video connection button */}
+              <IconButton
+                size="sm"
+                icon={
+                  props.videoState === 'connected' ? (
+                    <Video size={16} />
+                  ) : (
+                    <VideoOff size={16} />
+                  )
+                }
+                tooltip={
+                  props.videoState === 'connecting'
+                    ? t('connectionConnecting')
+                    : props.videoState === 'connected'
+                      ? t('connectionDisconnectVideo')
+                      : t('connectionConnectVideo')
+                }
+                onClick={
+                  props.videoState === 'connected'
+                    ? props.onDisconnectVideo
+                    : props.onConnectVideo
+                }
+                disabled={props.videoState === 'connecting'}
+                variant={
+                  props.videoState === 'connecting'
+                    ? 'warning'
+                    : props.videoState === 'connected'
+                      ? 'success'
+                      : 'default'
+                }
+                tooltipPosition="bottom"
+              />
+
+              {/* Analyzer connection button */}
+              <IconButton
+                size="sm"
+                icon={<Activity size={16} />}
+                tooltip={
+                  props.analyzerConnected
+                    ? t('connectionDisconnectAnalyzer')
+                    : t('connectionConnectAnalyzer')
+                }
+                onClick={
+                  props.analyzerConnected
+                    ? props.onDisconnectAnalyzer
+                    : props.onConnectAnalyzer
+                }
+                variant={props.analyzerConnected ? 'success' : 'default'}
+                tooltipPosition="bottom"
+              />
+
+              <div className="w-px h-6 bg-theme-border mx-1" />
+            </>
+          )}
+
+          <ThemeToggle size="sm" />
         </div>
       </header>
     );

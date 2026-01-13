@@ -118,9 +118,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     return (
       <div
         ref={containerRef}
-        className={`relative flex justify-center items-center ${
-          isFullscreen ? 'w-full h-full bg-black' : 'w-full h-full'
-        }`}
+        className={`relative flex justify-center items-center ${isFullscreen ? 'w-full h-full bg-black' : 'w-full h-full'
+          }`}
         onMouseEnter={() => setShowControls(true)}
         onMouseLeave={() => setShowControls(false)}
       >
@@ -129,11 +128,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           autoPlay
           playsInline
           muted
-          className={`block bg-[#636e72] ${
-            isFullscreen
+          className={`block ${isFullscreen
               ? 'w-full h-full object-contain'
-              : 'w-full h-full max-w-[calc(100vw-2rem)] max-h-[calc(100vh-4rem)] object-contain rounded-lg'
-          }`}
+              : 'w-full h-full object-contain'
+            }`}
         />
 
         <VideoOverlay
