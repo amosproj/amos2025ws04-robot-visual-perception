@@ -94,6 +94,7 @@ export function useAnalyzerWebSocket({
               box: det.box,
               distance: det.distance,
               position: det.position,
+              interpolated: det.interpolated,
             })),
           };
 

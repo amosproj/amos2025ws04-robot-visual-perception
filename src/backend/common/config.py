@@ -113,12 +113,6 @@ class Config:
     ]
 
     # Tracking/interpolation settings
-    # Enable interpolation for missing detections
-    ENABLE_INTERPOLATION: bool = os.getenv("ENABLE_INTERPOLATION", "false").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
     # Minimum IoU to match detection to track
     TRACKING_IOU_THRESHOLD: float = float(os.getenv("TRACKING_IOU_THRESHOLD", "0.1"))
     # Frames before removing stale tracks

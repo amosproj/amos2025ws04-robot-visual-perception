@@ -397,18 +397,13 @@ class AnalyzerWebSocketManager:
                 active_track_ids.add(track_id)
 
         track_ids_to_exclude = updated_track_ids | active_track_ids
-
-        # Interpolation is optional based on config
-        if config.ENABLE_INTERPOLATION:
-            interpolated_detections, interpolated_distances = (
-                self._tracking_manager.get_interpolated_detections_and_distances(
-                    state.frame_id,
-                    state.last_fps_time,
-                    track_ids_to_exclude=track_ids_to_exclude,
-                )
+        interpolated_detections, interpolated_distances = (
+            self._tracking_manager.get_interpolated_detections_and_distances(
+                state.frame_id,
+                state.last_fps_time,
+                track_ids_to_exclude=track_ids_to_exclude,
             )
-        else:
-            interpolated_detections, interpolated_distances = [], []
+        )
 
         self._record_detection_count(filtered_detections, interpolated_detections)
 

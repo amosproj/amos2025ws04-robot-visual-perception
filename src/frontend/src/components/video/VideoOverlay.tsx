@@ -385,29 +385,18 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
               return;
             }
 
-            // Color scheme - use black for interpolated detections
-            // For real detections, use color based on class ID for consistency
-            let color: string;
-            if (interpolated) {
-              color = '#000000';
-            } else {
-              const colors = [
-                '#00d4ff',
-                '#00ff88',
-                '#ff6b9d',
-                '#ffd93d',
-                '#ff8c42',
-                '#a8e6cf',
-                '#b4a5ff',
-                '#ffb347',
-              ];
-              // Use label (class ID) for consistent colors per class
-              const labelNum =
-                typeof label === 'number'
-                  ? label
-                  : parseInt(String(label), 10) || 0;
-              color = colors[labelNum % colors.length];
-            }
+            // Color scheme
+            const colors = [
+              '#00d4ff',
+              '#00ff88',
+              '#ff6b9d',
+              '#ffd93d',
+              '#ff8c42',
+              '#a8e6cf',
+              '#b4a5ff',
+              '#ffb347',
+            ];
+            const color = colors[index % colors.length];
 
             // Draw bounding box using calculated coordinates
             ctx.shadowColor = color;
