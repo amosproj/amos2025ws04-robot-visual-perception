@@ -389,7 +389,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             // For real detections, use color based on class ID for consistency
             let color: string;
             if (interpolated) {
-              color = '#000000'; // Black for interpolated
+              color = '#808080'; // Black for interpolated
             } else {
               const colors = [
                 '#00d4ff',

@@ -409,7 +409,6 @@ class AnalyzerWebSocketManager:
 
         all_detections = filtered_detections + interpolated_detections
         all_distances = filtered_distances + interpolated_distances
-        # Track which detections are interpolated (False for real, True for interpolated)
         is_interpolated = [False] * len(filtered_detections) + [True] * len(
             interpolated_detections
         )
