@@ -80,6 +80,21 @@ class Config:
     # WebRTC settings
     STUN_SERVER: str = os.getenv("STUN_SERVER", "stun:stun.l.google.com:19302")
     ICE_GATHERING_TIMEOUT: float = float(os.getenv("ICE_GATHERING_TIMEOUT", "5.0"))
+    WEBRTC_MODE: str = os.getenv("WEBRTC_MODE", os.getenv("RTC_MODE", "direct")).lower()
+    SFU_SIGNALING_URL: str = os.getenv("SFU_SIGNALING_URL", "ws://localhost:7000/ws")
+    SFU_SESSION_ID: str = os.getenv("SFU_SESSION_ID", "optibot")
+    SFU_PUBLISHER_ID: str = os.getenv("SFU_PUBLISHER_ID", "streamer")
+    SFU_SUBSCRIBER_ID: str = os.getenv("SFU_SUBSCRIBER_ID", "analyzer")
+    SFU_NO_AUTO_SUBSCRIBE: bool = os.getenv(
+        "SFU_NO_AUTO_SUBSCRIBE", "false"
+    ).lower() in ("1", "true", "yes")
+    SFU_ICE_SERVERS: list[str] = [
+        server.strip()
+        for server in os.getenv(
+            "SFU_ICE_SERVERS", os.getenv("STUN_SERVER", "stun:stun.l.google.com:19302")
+        ).split(",")
+        if server.strip()
+    ]
 
     # Analyzer mode (for analyzer.py)
     STREAMER_OFFER_URL: str = os.getenv(

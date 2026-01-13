@@ -66,6 +66,24 @@ make run-frontend-local
 ```
 Open the shown URL in your console.
 
+## Use Ion-SFU for WebRTC
+To route video through an ion-sfu instance instead of direct peer connections, set the following environment variables:
+
+**Backend (streamer + analyzer)**
+- `WEBRTC_MODE=ion-sfu`
+- `SFU_SIGNALING_URL` (e.g. `ws://localhost:7000/ws`)
+- `SFU_SESSION_ID` (room name, default `optibot`)
+- `SFU_PUBLISHER_ID` / `SFU_SUBSCRIBER_ID` (optional identifiers)
+- `SFU_ICE_SERVERS` (comma-separated STUN/TURN URLs, defaults to the STUN value)
+
+**Frontend**
+- `VITE_WEBRTC_MODE=ion-sfu`
+- `VITE_SFU_URL` and `VITE_SFU_SESSION`
+- `VITE_SFU_CLIENT_ID` (optional override, otherwise a random id is used)
+- `VITE_ANALYZER_WS_URL` (metadata still delivered via WebSocket)
+
+Leaving `WEBRTC_MODE`/`VITE_WEBRTC_MODE` unset keeps the existing direct `/offer` flow.
+
 ## Model Management
 ```bash
 # Download default models (YOLO pt, MiDaS cache)

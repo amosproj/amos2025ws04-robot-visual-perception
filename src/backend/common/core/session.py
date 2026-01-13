@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 import asyncio
 import contextlib
+import logging
 from typing import Optional
 
 import httpx
@@ -15,6 +16,7 @@ from aiortc import (
 from aiortc.mediastreams import MediaStreamTrack
 
 from common.config import config
+from common.core.sfu_client import IonSfuClient, IonSfuSettings
 
 
 class WebcamSession:
@@ -30,8 +32,15 @@ class WebcamSession:
         self._offer_url = offer_url
         self._pc: Optional[RTCPeerConnection] = None
         self._track: Optional[MediaStreamTrack] = None
+        self._sfu_client: IonSfuClient | None = None
 
     async def connect(self) -> MediaStreamTrack:
+        """Connect using configured WebRTC mode."""
+        if config.WEBRTC_MODE == "ion-sfu":
+            return await self._connect_via_sfu()
+        return await self._connect_direct()
+
+    async def _connect_direct(self) -> MediaStreamTrack:
         """Establish a WebRTC connection and retrieve the video track.
 
         Creates an SDP offer, sends it to the configured webcam service, and waits
@@ -85,6 +94,22 @@ class WebcamSession:
         self._track = await track_future
         return self._track
 
+    async def _connect_via_sfu(self) -> MediaStreamTrack:
+        """Establish a WebRTC connection through ion-sfu and return the video track."""
+        settings = IonSfuSettings(
+            signaling_url=config.SFU_SIGNALING_URL,
+            session_id=config.SFU_SESSION_ID,
+            client_id=config.SFU_SUBSCRIBER_ID,
+            ice_servers=config.SFU_ICE_SERVERS,
+            no_subscribe=False,
+            no_auto_subscribe=config.SFU_NO_AUTO_SUBSCRIBE,
+        )
+        logger = logging.getLogger("ion_sfu.subscriber")
+        self._sfu_client = IonSfuClient(settings=settings, logger=logger)
+        await self._sfu_client.connect()
+        self._track = await self._sfu_client.wait_for_track(kind="video")
+        return self._track
+
     async def close(self) -> None:
         """Close the peer connection and release resources.
 
@@ -99,3 +124,7 @@ class WebcamSession:
             with contextlib.suppress(Exception):
                 await self._pc.close()
             self._pc = None
+        if self._sfu_client is not None:
+            with contextlib.suppress(Exception):
+                await self._sfu_client.close()
+            self._sfu_client = None
