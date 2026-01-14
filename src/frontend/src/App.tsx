@@ -25,7 +25,7 @@ function App() {
   const { t } = useI18n();
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
 
   const [overlayFps, setOverlayFps] = useState<number>(0);
   const [showGroupedDetections, setShowGroupedDetections] =

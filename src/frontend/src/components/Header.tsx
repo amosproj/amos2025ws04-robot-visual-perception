@@ -28,7 +28,7 @@ export interface HeaderProps {
   onTogglePanel?: () => void;
 }
 
-const Header = forwardRef<HTMLElement, HeaderProps>((props, ref) => {
+const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
   const { minimal = false } = props;
   const { t, language, setLanguage, languageOptions } = useI18n();
 
