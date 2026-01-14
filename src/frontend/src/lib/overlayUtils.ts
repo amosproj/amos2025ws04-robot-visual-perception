@@ -24,6 +24,11 @@ export const DETECTION_COLORS = [
 ] as const;
 
 /**
+ * Color for interpolated detections
+ */
+export const INTERPOLATED_COLOR = '#808080';
+
+/**
  * Tolerance window for metadata timestamp matching (in milliseconds)
  */
 export const METADATA_TOLERANCE_MS = 120;
@@ -43,8 +48,18 @@ export function clamp(value: number, min: number, max: number): number {
 /**
  * Get the color for a detection based on its index
  */
-export function getDetectionColor(index: number): string {
-  return DETECTION_COLORS[index % DETECTION_COLORS.length];
+export function getDetectionColor(
+  label: string | number,
+  interpolated: boolean = false
+): string {
+  // Use label (class ID) for consistent colors per class
+  const index =
+    typeof label === 'number' ? label : parseInt(String(label), 10) || 0;
+
+  // Color scheme - use black for interpolated detections
+  // For real detections, use color based on class ID for consistency
+  if (interpolated) return INTERPOLATED_COLOR;
+  else return DETECTION_COLORS[index % DETECTION_COLORS.length];
 }
 
 /**
@@ -195,21 +210,32 @@ export function calculateBoundingBoxPixels(
  * @param label - The detection label (class name or ID)
  * @param confidence - Confidence score (0-1)
  * @param distance - Optional distance in meters
- * @param labelResolver - Optional function to resolve label to display string
+ * @param resolveLabel - Optional function to resolve label to display string
  * @returns Formatted label string
  */
 export function formatDetectionLabel(
   label: string | number,
-  confidence: number | undefined,
-  distance: number | undefined,
-  labelResolver?: (label: string | number) => string
+  confidence?: number,
+  distance?: number,
+  resolveLabel?: (
+    value: string | number,
+    providedLabelText?: string | undefined
+  ) => string,
+  labelText?: string
 ): string {
-  const resolvedLabel = labelResolver ? labelResolver(label) : String(label);
-  const confidenceText =
-    confidence !== undefined ? (confidence * 100).toFixed(0) : '?';
+  const getActualLabel = () => {
+    if (resolveLabel) return resolveLabel(label, labelText);
+    if (labelText) return labelText;
+    return String(label);
+  };
+
+  // Label + distance
+  const resolvedLabelText = `${getActualLabel()} ${
+    confidence !== undefined ? (confidence * 100).toFixed(0) : '?'
+  }%`;
   const distanceText = distance ? ` | ${distance.toFixed(2)}m` : '';
 
-  return `${resolvedLabel} ${confidenceText}%${distanceText}`;
+  return resolvedLabelText + distanceText;
 }
 
 /**
