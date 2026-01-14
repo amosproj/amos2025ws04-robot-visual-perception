@@ -11,6 +11,7 @@ import { useI18n } from '../i18n';
 export interface Detection {
   id: string;
   label: string | number;
+  labelText?: string;
   confidence: number;
   distance?: number;
   position: Position;
@@ -44,10 +45,15 @@ function DetectionInfo({
 }: DetectionInfoProps) {
   const { t, language } = useI18n();
   const resolveLabel = useCallback(
-    (value: string | number) =>
-      getCocoLabel(value, language, {
+    (det: Detection) => {
+      if (det.labelText && det.labelText.trim().length > 0) {
+        return det.labelText;
+      }
+
+      return getCocoLabel(det.label, language, {
         unknownLabel: (id) => t('labelUnknown', { id }),
-      }),
+      });
+    },
     [language, t]
   );
   // Track the order in which labels were first seen for stable sorting
@@ -56,7 +62,7 @@ function DetectionInfo({
 
   // Update first-seen order for new labels
   useMemo(() => {
-    const currentLabels = new Set(detections.map((d) => resolveLabel(d.label)));
+    const currentLabels = new Set(detections.map((d) => resolveLabel(d)));
 
     // Add new labels with next available order
     currentLabels.forEach((label) => {
@@ -96,8 +102,8 @@ function DetectionInfo({
   // Sort detections by first-seen order (stable sorting)
   const sortedDetections = useMemo(() => {
     return [...detections].sort((a, b) => {
-      const labelA = resolveLabel(a.label);
-      const labelB = resolveLabel(b.label);
+      const labelA = resolveLabel(a);
+      const labelB = resolveLabel(b);
 
       const orderA =
         firstSeenOrderRef.current.get(labelA) ?? Number.MAX_SAFE_INTEGER;
@@ -113,7 +119,7 @@ function DetectionInfo({
     const groups = new Map<string, GroupedDetection>();
 
     sortedDetections.forEach((det) => {
-      const labelName = resolveLabel(det.label);
+      const labelName = resolveLabel(det);
       const existing = groups.get(labelName);
 
       if (existing) {
@@ -194,9 +200,9 @@ const DetectionCard = memo(
     resolveLabel,
   }: {
     detection: Detection;
-    resolveLabel: (value: string | number) => string;
+    resolveLabel: (det: Detection) => string;
   }) => {
-    const labelName = resolveLabel(detection.label);
+    const labelName = resolveLabel(detection);
 
     return (
       <div className="flex flex-col items-center gap-2 px-4 py-3 bg-theme-bg-tertiary w-full rounded-md border-l-[3px] border-l-theme-accent border border-theme-border">
