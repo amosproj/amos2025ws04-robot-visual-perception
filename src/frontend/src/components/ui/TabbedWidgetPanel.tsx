@@ -34,7 +34,7 @@ export function TabbedWidgetPanel({
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`
-              flex-1 px-4 py-2 text-xs font-semibold uppercase tracking-wider
+              flex-1 px-6 py-4 text-2xl font-semibold uppercase tracking-wider
               transition-colors duration-200
               ${
                 activeTab === tab.id
@@ -49,7 +49,7 @@ export function TabbedWidgetPanel({
       </div>
 
       {/* Tab content */}
-      <div className="p-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+      <div className="p-9 max-h-[calc(100vh-200px)] overflow-y-auto">
         {activeContent}
       </div>
     </div>

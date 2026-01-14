@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+import { forwardRef } from 'react';
 import { useI18n } from '../i18n';
 import ThemeToggle from './ThemeToggle';
 import { IconButton } from './ui/IconButton';
@@ -27,19 +28,23 @@ export interface HeaderProps {
   onTogglePanel?: () => void;
 }
 
-export default function Header(props: HeaderProps) {
+const Header = forwardRef<HTMLElement, HeaderProps>((props, ref) => {
   const { minimal = false } = props;
   const { t, language, setLanguage, languageOptions } = useI18n();
 
   if (minimal) {
+    const headerIconSize = 40;
     return (
-      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2 pointer-events-none">
+      <header
+        ref={ref}
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-10 py-4 pointer-events-none"
+      >
         {/* Language selector - top left */}
         <div className="pointer-events-auto flex items-center gap-2">
           {props.onTogglePanel && (
             <IconButton
-              size="sm"
-              icon={<Filter size={16} />}
+              size="lg"
+              icon={<Filter size={headerIconSize} />}
               tooltip={props.showPanel ? 'Hide Panel' : 'Show Panel'}
               onClick={props.onTogglePanel}
               active={props.showPanel}
@@ -53,7 +58,7 @@ export default function Header(props: HeaderProps) {
             onChange={(event) =>
               setLanguage(event.target.value as typeof language)
             }
-            className="bg-[#2d3436] text-white border border-theme-border px-3 py-1.5 rounded text-sm cursor-pointer shadow-lg"
+            className="bg-[#2d3436] text-white border border-theme-border px-6 py-3 rounded text-xl cursor-pointer shadow-lg"
           >
             {languageOptions.map((option) => (
               <option
@@ -68,7 +73,7 @@ export default function Header(props: HeaderProps) {
         </div>
 
         {/* Title - center */}
-        <h1 className="my-0 text-theme-accent text-xl md:text-2xl font-light">
+        <h1 className="my-0 text-theme-accent text-4xl md:text-5xl font-light">
           {t('appTitle')}
         </h1>
 
@@ -79,12 +84,12 @@ export default function Header(props: HeaderProps) {
             <>
               {/* Video connection button */}
               <IconButton
-                size="sm"
+                size="lg"
                 icon={
                   props.videoState === 'connected' ? (
-                    <Video size={16} />
+                    <Video size={headerIconSize} />
                   ) : (
-                    <VideoOff size={16} />
+                    <VideoOff size={headerIconSize} />
                   )
                 }
                 tooltip={
@@ -112,8 +117,8 @@ export default function Header(props: HeaderProps) {
 
               {/* Analyzer connection button */}
               <IconButton
-                size="sm"
-                icon={<Activity size={16} />}
+                size="lg"
+                icon={<Activity size={headerIconSize} />}
                 tooltip={
                   props.analyzerConnected
                     ? t('connectionDisconnectAnalyzer')
@@ -128,11 +133,11 @@ export default function Header(props: HeaderProps) {
                 tooltipPosition="bottom"
               />
 
-              <div className="w-px h-6 bg-theme-border mx-1" />
+              <div className="w-px h-10 bg-theme-border mx-3" />
             </>
           )}
 
-          <ThemeToggle size="sm" />
+          <ThemeToggle size="lg" />
         </div>
       </header>
     );
@@ -140,7 +145,7 @@ export default function Header(props: HeaderProps) {
 
   // Original header for non-game mode (kept for backwards compatibility)
   return (
-    <div className="text-center mb-8">
+    <div ref={ref} className="text-center mb-8">
       <div className="flex justify-between items-center mb-5">
         <div className="w-10" />
         <h1 className="my-0 text-theme-accent text-[2.5rem] font-light shadow-accent-glow">
@@ -172,4 +177,8 @@ export default function Header(props: HeaderProps) {
       </div>
     </div>
   );
-}
+});
+
+Header.displayName = 'Header';
+
+export default Header;

@@ -401,10 +401,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             const distanceText = distance ? ` | ${distance.toFixed(2)}m` : '';
             const fullText = labelText + distanceText;
 
-            ctx.font = 'bold 14px "SF Pro Display", -apple-system, sans-serif';
+            ctx.font = 'bold 24px "SF Pro Display", -apple-system, sans-serif';
             const textMetrics = ctx.measureText(fullText);
-            const textHeight = 18;
-            const padding = 6;
+            const textHeight = 30;
+            const padding = 10;
             const labelY =
               bboxY > textHeight + padding
                 ? bboxY - 4

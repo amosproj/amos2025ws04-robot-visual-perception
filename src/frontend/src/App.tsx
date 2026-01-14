@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, useLayoutEffect } from 'react';
 import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 import { logger } from './lib/logger';
@@ -17,11 +17,15 @@ import { ObjectFilterSection } from './components/ObjectFilter';
 import StreamInfo from './components/StreamInfo';
 import DetectionInfo from './components/DetectionInfo';
 
+const clampValue = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
 function App() {
   const log = useMemo(() => logger.child({ component: 'App' }), []);
   const { t } = useI18n();
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
 
   const [overlayFps, setOverlayFps] = useState<number>(0);
   const [showGroupedDetections, setShowGroupedDetections] =
@@ -31,6 +35,76 @@ function App() {
   );
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.3);
   const autoSelectedClassesRef = useRef<Set<number>>(new Set());
+  const [videoZoom, setVideoZoom] = useState(1);
+
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    const root = document.documentElement;
+    const updateHeaderHeight = () => {
+      const height = header.getBoundingClientRect().height;
+      root.style.setProperty('--ui-header-height', `${Math.ceil(height)}px`);
+    };
+
+    updateHeaderHeight();
+
+    const resizeObserver = new ResizeObserver(updateHeaderHeight);
+    resizeObserver.observe(header);
+
+    window.addEventListener('resize', updateHeaderHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateHeaderHeight);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleWheel = (event: WheelEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      event.preventDefault();
+
+      const direction = Math.sign(event.deltaY);
+      if (!direction) return;
+
+      const step = direction > 0 ? -0.1 : 0.1;
+      setVideoZoom((prev) => clampValue(prev + step, 1, 3));
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+
+      if (event.key === '+' || event.key === '=') {
+        event.preventDefault();
+        setVideoZoom((prev) => clampValue(prev + 0.1, 1, 3));
+        return;
+      }
+
+      if (event.key === '-' || event.key === '_') {
+        event.preventDefault();
+        setVideoZoom((prev) => clampValue(prev - 0.1, 1, 3));
+        return;
+      }
+
+      if (event.key === '0') {
+        event.preventDefault();
+        setVideoZoom(1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // WebRTC connection to webcam service (for raw video)
   const {
@@ -198,6 +272,7 @@ function App() {
   return (
     <div className="font-sans bg-theme-bg-primary text-theme-text-primary min-h-screen">
       <Header
+        ref={headerRef}
         minimal
         videoState={videoState}
         analyzerConnected={analyzerConnected}
@@ -262,13 +337,14 @@ function App() {
         }
       >
         {/* Main video player - fullscreen background */}
-        <div className="fixed inset-0 pt-14">
+        <div className="fixed inset-0 pt-[var(--ui-header-height)]">
           <VideoPlayer
             ref={videoPlayerRef}
             videoRef={videoRef}
             containerRef={videoContainerRef}
             videoState={videoState}
             isPaused={isPaused}
+            zoomLevel={videoZoom}
             onTogglePlay={togglePlayPause}
             onFullscreen={enterFullscreen}
             onOverlayFpsUpdate={setOverlayFps}
