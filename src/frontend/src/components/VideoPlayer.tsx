@@ -28,6 +28,8 @@ export interface VideoPlayerProps {
   videoState: string;
   /** Whether video is paused */
   isPaused: boolean;
+  /** Current zoom level for the video stream */
+  zoomLevel?: number;
   /** Toggle play/pause function */
   onTogglePlay: () => void;
   /** Enter fullscreen function */
@@ -53,6 +55,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       containerRef,
       videoState,
       isPaused,
+      zoomLevel = 1,
       onTogglePlay,
       onFullscreen,
       onOverlayFpsUpdate,
@@ -122,8 +125,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     return (
       <div
         ref={containerRef}
-        className={`relative flex justify-center ${
-          isFullscreen ? 'w-full h-full items-center bg-black mb-0' : 'mb-8'
+        className={`relative flex justify-center items-center overflow-hidden ${
+          isFullscreen ? 'w-full h-full bg-black' : 'w-full h-full'
         }`}
         onMouseEnter={() => setShowControls(true)}
         onMouseLeave={() => setShowControls(false)}
@@ -133,10 +136,14 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           autoPlay
           playsInline
           muted
-          className={`block bg-black ${
+          style={{
+            transform: `scale(${zoomLevel})`,
+            transformOrigin: 'center center',
+          }}
+          className={`block ${
             isFullscreen
               ? 'w-full h-full object-contain'
-              : 'max-w-full w-[640px] h-auto rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.15)]'
+              : 'w-full h-full object-contain'
           }`}
         />
 

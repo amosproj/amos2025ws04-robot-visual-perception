@@ -26,6 +26,7 @@ export interface Position {
 export interface DetectionInfoProps {
   detections: Detection[];
   showGrouped?: boolean;
+  variant?: 'card' | 'section';
 }
 
 interface GroupedDetection {
@@ -40,6 +41,7 @@ interface GroupedDetection {
 function DetectionInfo({
   detections,
   showGrouped = false,
+  variant = 'card',
 }: DetectionInfoProps) {
   const { t, language } = useI18n();
   const resolveLabel = useCallback(
@@ -84,6 +86,18 @@ function DetectionInfo({
   if (!detections || detections.length === 0) {
     return null;
   }
+
+  const containerClass =
+    variant === 'card'
+      ? 'bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card'
+      : '';
+  const titleClass =
+    variant === 'card'
+      ? 'my-0 mb-4 text-theme-accent text-xl'
+      : 'my-0 mb-3 text-theme-accent text-3xl font-semibold';
+  const listClass = variant === 'card' ? 'max-h-96 overflow-y-auto' : '';
+  const groupedListClass =
+    variant === 'card' ? 'max-h-96 overflow-y-auto space-y-2' : 'space-y-2';
 
   // Sort detections by first-seen order (stable sorting)
   const sortedDetections = useMemo(() => {
@@ -146,11 +160,11 @@ function DetectionInfo({
 
   if (showGrouped) {
     return (
-      <div className="bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card">
-        <h3 className="my-0 mb-4 text-theme-accent text-xl">
+      <div className={containerClass}>
+        <h3 className={titleClass}>
           {t('detectionsTitleGrouped', { count: detections.length })}
         </h3>
-        <div className="max-h-96 overflow-y-auto space-y-2">
+        <div className={groupedListClass}>
           {groupedDetections.map((group) => (
             <GroupedDetectionCard key={group.label} group={group} />
           ))}
@@ -160,11 +174,11 @@ function DetectionInfo({
   }
 
   return (
-    <div className="bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card">
-      <h3 className="my-0 mb-4 text-theme-accent text-xl">
+    <div className={containerClass}>
+      <h3 className={titleClass}>
         {t('detectionsTitleLatest', { count: detections.length })}
       </h3>
-      <div className="max-h-96 overflow-y-auto">
+      <div className={listClass}>
         <div className="flex flex-wrap gap-2.5">
           {sortedDetections.map((detection) => (
             <DetectionCard
@@ -191,19 +205,19 @@ const DetectionCard = memo(
     const labelName = resolveLabel(detection);
 
     return (
-      <div className="flex flex-col items-center gap-2 px-3 py-2 bg-theme-bg-tertiary w-full rounded-md border-l-[3px] border-l-theme-accent border border-theme-border">
-        <span className="font-semibold text-theme-text-primary">
+      <div className="flex flex-col items-center gap-2 px-4 py-3 bg-theme-bg-tertiary w-full rounded-md border-l-[3px] border-l-theme-accent border border-theme-border">
+        <span className="font-semibold text-theme-text-primary text-xl">
           {labelName}
         </span>
-        <span className="bg-gradient-to-br from-theme-primary to-theme-primary-secondary text-white px-2 py-0.5 rounded text-xs font-semibold font-mono shadow-[0_2px_4px_rgba(116,185,255,0.3)]">
+        <span className="bg-gradient-to-br from-theme-primary to-theme-primary-secondary text-white px-3 py-1 rounded text-lg font-semibold font-mono shadow-[0_2px_4px_rgba(116,185,255,0.3)]">
           {(detection.confidence * 100).toFixed(1)}%
         </span>
         {detection.distance !== undefined && (
-          <span className="bg-gradient-to-br from-theme-success to-theme-success-secondary text-white px-2 py-0.5 rounded text-xs font-semibold font-mono shadow-success-glow">
+          <span className="bg-gradient-to-br from-theme-success to-theme-success-secondary text-white px-3 py-1 rounded text-lg font-semibold font-mono shadow-success-glow">
             {detection.distance.toFixed(2)}m
           </span>
         )}
-        <span className="bg-gradient-to-br from-orange-700 to-orange-800 text-white px-2 py-0.5 rounded text-xs font-semibold font-mono shadow-[0_2px_4px_rgba(116,185,255,0.3)]">
+        <span className="bg-gradient-to-br from-orange-700 to-orange-800 text-white px-3 py-1 rounded text-lg font-semibold font-mono shadow-[0_2px_4px_rgba(116,185,255,0.3)]">
           x={detection.position.x.toFixed(1)}m,y=
           {detection.position.y.toFixed(1)}m,z=
           {detection.position.z.toFixed(1)}m
@@ -222,20 +236,20 @@ const GroupedDetectionCard = memo(({ group }: { group: GroupedDetection }) => {
   return (
     <div className="flex items-center justify-between px-4 py-3 bg-theme-bg-tertiary rounded-md border-l-[3px] border-l-theme-accent border border-theme-border">
       <div className="flex items-center gap-3">
-        <span className="font-semibold text-theme-text-primary text-lg">
+        <span className="font-semibold text-theme-text-primary text-3xl">
           {t('detectionsGroupedItem', {
             count: group.count,
             label: group.label,
           })}
         </span>
-        <span className="text-theme-text-muted text-xs">
+        <span className="text-theme-text-muted text-lg">
           {group.minConfidence === group.maxConfidence
             ? `${(group.minConfidence * 100).toFixed(1)}%`
             : `${(group.minConfidence * 100).toFixed(1)}%-${(group.maxConfidence * 100).toFixed(1)}%`}
         </span>
       </div>
       {group.minDistance !== undefined && (
-        <span className="bg-gradient-to-br from-theme-success to-theme-success-secondary text-white px-3 py-1 rounded text-sm font-semibold shadow-success-glow">
+        <span className="bg-gradient-to-br from-theme-success to-theme-success-secondary text-white px-3 py-1 rounded text-xl font-semibold shadow-success-glow">
           {group.minDistance === group.maxDistance
             ? `${group.minDistance.toFixed(2)}m`
             : `${group.minDistance.toFixed(2)}-${group.maxDistance!.toFixed(2)}m`}

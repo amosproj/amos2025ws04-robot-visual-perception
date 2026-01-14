@@ -4,31 +4,107 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, useLayoutEffect } from 'react';
 import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 import { logger } from './lib/logger';
+import { useI18n } from './i18n';
 
 import Header from './components/Header';
-import ConnectionControls from './components/ConnectionControls';
 import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
-import MetadataWidget from './components/MetadataWidget';
-import ObjectFilter from './components/ObjectFilter';
+import { GameOverlay } from './components/ui/GameOverlay';
+import { ObjectFilterSection } from './components/ObjectFilter';
+import StreamInfo from './components/StreamInfo';
+import DetectionInfo from './components/DetectionInfo';
+
+const clampValue = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
 
 function App() {
   const log = useMemo(() => logger.child({ component: 'App' }), []);
+  const { t } = useI18n();
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
 
   const [overlayFps, setOverlayFps] = useState<number>(0);
-  const [isMetadataWidgetOpen, setIsMetadataWidgetOpen] = useState(true);
-  const [isObjectFilterOpen, setIsObjectFilterOpen] = useState(true);
+  const [showGroupedDetections, setShowGroupedDetections] =
+    useState<boolean>(false);
   const [selectedClasses, setSelectedClasses] = useState<Set<number>>(
     new Set()
   );
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.3);
-  const prevAnalyzerConnectedRef = useRef(false);
   const autoSelectedClassesRef = useRef<Set<number>>(new Set());
+  const [videoZoom, setVideoZoom] = useState(1);
+
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    const root = document.documentElement;
+    const updateHeaderHeight = () => {
+      const height = header.getBoundingClientRect().height;
+      root.style.setProperty('--ui-header-height', `${Math.ceil(height)}px`);
+    };
+
+    updateHeaderHeight();
+
+    const resizeObserver = new ResizeObserver(updateHeaderHeight);
+    resizeObserver.observe(header);
+
+    window.addEventListener('resize', updateHeaderHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateHeaderHeight);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleWheel = (event: WheelEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      event.preventDefault();
+
+      const direction = Math.sign(event.deltaY);
+      if (!direction) return;
+
+      const step = direction > 0 ? -0.1 : 0.1;
+      setVideoZoom((prev) => clampValue(prev + step, 1, 3));
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+
+      if (event.key === '+' || event.key === '=') {
+        event.preventDefault();
+        setVideoZoom((prev) => clampValue(prev + 0.1, 1, 3));
+        return;
+      }
+
+      if (event.key === '-' || event.key === '_') {
+        event.preventDefault();
+        setVideoZoom((prev) => clampValue(prev - 0.1, 1, 3));
+        return;
+      }
+
+      if (event.key === '0') {
+        event.preventDefault();
+        setVideoZoom(1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // WebRTC connection to webcam service (for raw video)
   const {
@@ -125,7 +201,6 @@ function App() {
       setSelectedClasses(new Set());
       autoSelectedClassesRef.current = new Set(); // Reset for next connection
     }
-    prevAnalyzerConnectedRef.current = analyzerConnected;
   }, [analyzerConnected]);
 
   // Auto-select any newly detected classes (default "select all" behavior)
@@ -178,6 +253,8 @@ function App() {
     connectAnalyzer(); // Manual connect to analyzer
   }, [connectVideo, connectAnalyzer]);
 
+  const [showPanel, setShowPanel] = useState(true);
+
   const handleClearOverlay = () => {
     setSelectedClasses(new Set());
     log.info('ui.overlay.cleared');
@@ -192,71 +269,88 @@ function App() {
     });
   };
 
-  const handleToggleObjectFilter = () => {
-    setIsObjectFilterOpen((prev) => {
-      const next = !prev;
-      log.info('ui.filter.toggle', { isOpen: next });
-      return next;
-    });
-  };
-
-  const handleToggleMetadataWidget = () => {
-    setIsMetadataWidgetOpen((prev) => {
-      const next = !prev;
-      log.info('ui.metadata.toggle', { isOpen: next });
-      return next;
-    });
-  };
-
   return (
-    <div className="font-sans max-w-[1200px] mx-auto p-5 bg-theme-bg-primary text-theme-text-primary min-h-screen">
+    <div className="font-sans bg-theme-bg-primary text-theme-text-primary min-h-screen">
       <Header
-        videoState={videoState}
-        latencyMs={latencyMs}
-        analyzerConnected={analyzerConnected}
-        analyzerFps={analyzerFps || 0}
-        overlayFps={overlayFps || 0}
-        objectCount={filteredMetadata?.detections.length || 0}
-      />
-      <ConnectionControls
+        ref={headerRef}
+        minimal
         videoState={videoState}
         analyzerConnected={analyzerConnected}
         onConnectVideo={connectVideo}
         onDisconnectVideo={disconnectVideo}
         onConnectAnalyzer={connectAnalyzer}
         onDisconnectAnalyzer={disconnectAnalyzer}
-        onClearOverlay={handleClearOverlay}
+        showPanel={showPanel}
+        onTogglePanel={() => setShowPanel(!showPanel)}
       />
-      <ObjectFilter
-        detections={thresholdedDetections}
-        selectedClasses={selectedClasses}
-        onSelectionChange={handleSelectionChange}
-        confidenceThreshold={confidenceThreshold}
-        onConfidenceThresholdChange={setConfidenceThreshold}
-        isOpen={isObjectFilterOpen}
-        onToggle={handleToggleObjectFilter}
-        isAnalyzerConnected={analyzerConnected}
-        isVideoConnected={videoState === 'connected'}
-      />
-      <VideoPlayer
-        ref={videoPlayerRef}
-        videoRef={videoRef}
-        containerRef={videoContainerRef}
-        videoState={videoState}
-        isPaused={isPaused}
-        onTogglePlay={togglePlayPause}
-        onFullscreen={enterFullscreen}
-        onOverlayFpsUpdate={setOverlayFps}
-        metadataWidget={
-          <MetadataWidget
-            streamMetadata={stats}
-            detectionMetadata={latestMetadata}
-            defaultGrouped={false}
-            isOpen={isMetadataWidgetOpen}
-            onToggle={handleToggleMetadataWidget}
+
+      <GameOverlay
+        showPanel={showPanel}
+        filterPanel={
+          <ObjectFilterSection
+            detections={thresholdedDetections}
+            selectedClasses={selectedClasses}
+            onSelectionChange={handleSelectionChange}
+            confidenceThreshold={confidenceThreshold}
+            onConfidenceThresholdChange={setConfidenceThreshold}
+            isAnalyzerConnected={analyzerConnected}
+            isVideoConnected={videoState === 'connected'}
+            onClearAll={handleClearOverlay}
+            variant="section"
           />
         }
-      />
+        streamInfoPanel={
+          <StreamInfo
+            {...(stats ?? {})}
+            statusPanelProps={{
+              videoState,
+              latencyMs,
+              analyzerFps: analyzerFps || 0,
+              overlayFps,
+              objectCount: filteredMetadata?.detections.length || 0,
+            }}
+            variant="section"
+          />
+        }
+        detectionPanel={
+          latestMetadata?.detections && latestMetadata.detections.length > 0 ? (
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <button
+                  onClick={() =>
+                    setShowGroupedDetections(!showGroupedDetections)
+                  }
+                  className="text-xs px-3 py-1.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover text-theme-accent rounded border border-theme-border transition-colors"
+                >
+                  {showGroupedDetections
+                    ? t('metadataShowDetails')
+                    : t('metadataGroupByType')}
+                </button>
+              </div>
+              <DetectionInfo
+                detections={latestMetadata.detections}
+                showGrouped={showGroupedDetections}
+                variant="section"
+              />
+            </div>
+          ) : undefined
+        }
+      >
+        {/* Main video player - fullscreen background */}
+        <div className="fixed inset-0 pt-[var(--ui-header-height)]">
+          <VideoPlayer
+            ref={videoPlayerRef}
+            videoRef={videoRef}
+            containerRef={videoContainerRef}
+            videoState={videoState}
+            isPaused={isPaused}
+            zoomLevel={videoZoom}
+            onTogglePlay={togglePlayPause}
+            onFullscreen={enterFullscreen}
+            onOverlayFpsUpdate={setOverlayFps}
+          />
+        </div>
+      </GameOverlay>
     </div>
   );
 }
