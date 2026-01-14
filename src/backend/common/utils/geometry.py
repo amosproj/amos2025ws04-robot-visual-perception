@@ -20,7 +20,7 @@ def get_detections(
         inference_results (list[Results]): The list of YOLO results returned by model.predict().
 
     Returns:
-        list[Detection]: Each detection is (x1, y1, x2, y2, class_id, confidence).
+        list[Detection]: Each detection includes optional binary_mask if available from segmentation model.
     """
     if not inference_results:
         return []
@@ -33,19 +33,38 @@ def get_detections(
     class_ids = result.boxes.cls.cpu().numpy().astype(int)
     confidences = result.boxes.conf.cpu().numpy()
 
-    detections = [
-        Detection(
+    # Check if segmentation masks are available (YOLOv8-seg or similar)
+    has_masks = result.masks is not None and len(result.masks) > 0
+    masks = None
+    if has_masks:
+        # Get binary masks (H x W x N) and convert to individual masks
+        try:
+            masks = result.masks.data.cpu().numpy()
+            # masks shape: (N, H, W) where N is number of detections
+        except Exception:
+            masks = None
+
+    detections = []
+    for idx, ((x1, y1, x2, y2), class_id, confidence) in enumerate(
+        zip(bbox_coords, class_ids, confidences)
+    ):
+        # Extract individual mask if available
+        binary_mask = None
+        if masks is not None and idx < len(masks):
+            # Convert mask to boolean array (0.5 threshold for confidence)
+            mask_data = masks[idx]
+            binary_mask = (mask_data > 0.5).astype(np.uint8)
+
+        detection = Detection(
             x1=int(x1),
             y1=int(y1),
             x2=int(x2),
             y2=int(y2),
             cls_id=int(class_id),
             confidence=float(confidence),
+            binary_mask=binary_mask,
         )
-        for (x1, y1, x2, y2), class_id, confidence in zip(
-            bbox_coords, class_ids, confidences
-        )
-    ]
+        detections.append(detection)
 
     return detections
 

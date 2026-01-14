@@ -7,6 +7,7 @@ import numpy as np
 class DummyResult:
     def __init__(self, boxes):
         self.boxes = boxes
+        self.masks = None  # No masks for simplicity
 
 
 class DummyArray:

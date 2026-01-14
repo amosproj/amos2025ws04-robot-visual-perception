@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 import numpy as np
@@ -19,6 +19,8 @@ class Detection:
     y2: int
     cls_id: int
     confidence: float
+    binary_mask: np.ndarray | None = field(default=None, kw_only=True)
+    """Optional binary segmentation mask (H x W) where True = object pixel, False = background."""
 
 
 @runtime_checkable
