@@ -45,6 +45,7 @@ try:
         export_yolo_to_onnx,
         DEFAULT_MIDAS_MODEL,
         DEFAULT_MIDAS_REPO,
+        ensure_depth_pro_model_available,
     )
 except ImportError as e:
     logger.error("Failed to import backend modules: %s", e)
@@ -120,8 +121,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--models",
         type=str,
+
         default="yolo,midas",
-        help="Comma-separated list of models to process (yolo, midas, depth-anything)",
+        help="Comma-separated list of models to process (yolo, midas, depth-anything, depth-pro)",
     )
 
     return parser.parse_args()
@@ -213,8 +215,17 @@ def main() -> None:
 
         ensure_depth_anything_model_available(
             model_name=da_model,
+
             cache_dir=da_cache
         )
+
+
+    # --- Depth Pro Processing ---
+    if "depth-pro" in models_to_process:
+        logger.info("\n--- Processing Depth Pro ---")
+        
+        dp_cache = config.DEPTH_PRO_CACHE_DIR
+        ensure_depth_pro_model_available(cache_dir=dp_cache)
 
 
     logger.info("\n--- Done ---")

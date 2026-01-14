@@ -259,9 +259,17 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
 register_depth_backend("torch", MiDasDepthEstimator)
 register_depth_backend("onnx", OnnxMiDasDepthEstimator)
 
+
 try:
     from common.core.depth_anything import DepthAnythingV2Estimator
 
     register_depth_backend("depth_anything_v2", DepthAnythingV2Estimator)
 except ImportError:
     pass
+
+try:
+    from common.core.depth_pro import DepthProEstimator
+
+    register_depth_backend("depth_pro", DepthProEstimator)
+except ImportError as e:
+    logger.debug(f"Could not register 'depth_pro' backend: {e}")

@@ -38,6 +38,7 @@ inference = [
     "ultralytics==8.3.58",
     "timm==1.0.22",
     "transformers==4.49.0",  # for Depth Anything V2
+    "depth_pro @ git+https://github.com/apple/ml-depth-pro.git",
 ]
 
 onnx-tools = [
