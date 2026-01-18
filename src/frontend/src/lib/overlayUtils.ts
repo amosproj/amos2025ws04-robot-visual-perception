@@ -11,9 +11,6 @@
 
 import { clamp } from './mathUtils';
 
-// Re-export for backwards compatibility
-export { clamp };
-
 /**
  * Color palette for detection bounding boxes
  */
@@ -42,6 +39,21 @@ export const METADATA_TOLERANCE_MS = 120;
  * How long to hold last overlay frame to reduce flicker (in milliseconds)
  */
 export const HOLD_LAST_MS = 150;
+
+/**
+ * Calculate position relative to a container element
+ */
+export function getRelativePosition(
+  elementRect: DOMRect,
+  containerRect: DOMRect | undefined,
+  offset: { x: number; y: number } = { x: 0, y: 0 }
+): { top: number; left: number } {
+  const top =
+    (containerRect ? elementRect.top - containerRect.top : 0) + offset.y;
+  const left =
+    (containerRect ? elementRect.left - containerRect.left : 0) + offset.x;
+  return { top, left };
+}
 
 /**
  * Get the color for a detection based on its index
@@ -430,4 +442,18 @@ export function hasLayoutChanged(
     Math.abs(current.left - previous.left) > threshold;
 
   return { sizeChanged, positionChanged };
+}
+
+/**
+ * Convert a detection label into a numeric class ID.
+ *
+ * @param label - The detection label (string or number).
+ * @returns The numeric class ID parsed from the label.
+ *
+ * @example
+ * getClassId("3") // 3
+ * getClassId(7)   // 7
+ */
+export function getClassId(label: string | number): number {
+  return typeof label === 'string' ? parseInt(label, 10) : label;
 }

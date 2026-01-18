@@ -10,6 +10,7 @@ import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 import { logger } from './lib/logger';
 import { useI18n } from './i18n';
 import { clamp } from './lib/mathUtils';
+import { getClassId } from './lib/overlayUtils';
 
 import Header from './components/Header';
 import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
@@ -161,10 +162,7 @@ function App() {
     return {
       ...latestMetadata,
       detections: thresholdedDetections.filter((detection) => {
-        const classId =
-          typeof detection.label === 'string'
-            ? parseInt(detection.label, 10)
-            : detection.label;
+        const classId = getClassId(detection.label);
         return !isNaN(classId) && selectedClasses.has(classId);
       }),
     };
@@ -212,10 +210,7 @@ function App() {
       const newClassIds: number[] = [];
 
       thresholdedDetections.forEach((detection) => {
-        const classId =
-          typeof detection.label === 'string'
-            ? parseInt(detection.label, 10)
-            : detection.label;
+        const classId = getClassId(detection.label);
 
         if (!isNaN(classId) && !autoSelectedClassesRef.current.has(classId)) {
           autoSelectedClassesRef.current.add(classId);

@@ -29,3 +29,14 @@ export function exponentialBackoff(
 ): number {
   return Math.min(baseMs * Math.pow(2, attempt), maxMs);
 }
+
+/**
+ * Scale a value for device pixel ratio (DPR) for sharp canvas rendering
+ */
+export function scaleForDPR(
+  value: number,
+  dpr: number,
+  minValue: number = 1
+): number {
+  return Math.max(minValue, Math.round(value * dpr));
+}
