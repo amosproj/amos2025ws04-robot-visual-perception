@@ -7,7 +7,7 @@ import logging
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Iterator, Optional
+from typing import Iterator, Optional, TypedDict
 
 import numpy as np
 from aiortc import MediaStreamTrack
@@ -39,12 +39,27 @@ from common.utils.image import resize_frame, calculate_adaptive_scale
 logger = logging.getLogger("manager")
 
 
+# Strict typing for Metadata message because it's coupled with the frontend
+Box = TypedDict("Box", {"x": float, "y": float, "width": float, "height": float})
+Pos3D = TypedDict("Pos3D", {"x": float, "y": float, "z": float})
+
+
+class DetectionDict(TypedDict):
+    box: Box
+    position: Pos3D
+    label: int
+    label_text: str
+    confidence: float
+    distance: float
+    interpolated: bool
+
+
 class MetadataMessage(BaseModel):
     """Metadata message model."""
 
     timestamp: float
     frame_id: int
-    detections: list[dict]
+    detections: list[DetectionDict]
     fps: float | None = None
 
 
@@ -543,22 +558,21 @@ class AnalyzerWebSocketManager:
                 det.x1, det.y1, det.x2, det.y2, dist_m, fx, fy, cx, cy
             )
 
-            det_payload.append(
-                {
-                    "box": {
-                        "x": norm_x,
-                        "y": norm_y,
-                        "width": norm_w,
-                        "height": norm_h,
-                    },
-                    "label": det.cls_id,
-                    "label_text": get_coco_label(det.cls_id),
-                    "confidence": float(det.confidence),
-                    "distance": float(dist_m),
-                    "position": {"x": pos_x, "y": pos_y, "z": pos_z},
-                    "interpolated": is_interp,
-                }
-            )
+            detection_dic: DetectionDict = {
+                "box": {
+                    "x": norm_x,
+                    "y": norm_y,
+                    "width": norm_w,
+                    "height": norm_h,
+                },
+                "label": det.cls_id,
+                "label_text": get_coco_label(det.cls_id),
+                "confidence": float(det.confidence),
+                "distance": float(dist_m),
+                "position": {"x": pos_x, "y": pos_y, "z": pos_z},
+                "interpolated": is_interp,
+            }
+            det_payload.append(detection_dic)
 
         return MetadataMessage(
             timestamp=timestamp * 1000,  # milliseconds
