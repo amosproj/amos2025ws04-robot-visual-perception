@@ -134,3 +134,35 @@ def test_bbox_center(x1, y1, x2, y2, expected):
     """Test bounding box center calculation."""
     result = bbox_center(x1, y1, x2, y2)
     assert result == expected
+
+
+@pytest.mark.parametrize(
+    "x1,y1,x2,y2,depth_m,fx,fy,cx,cy,expected",
+    [
+        (45, 45, 55, 55, 2.0, 500.0, 500.0, 50.0, 50.0, (0.0, 0.0, 2.0)),
+        (90, 90, 110, 110, 2.0, 500.0, 500.0, 50.0, 50.0, (0.2, 0.2, 2.0)),
+        (0, 0, 20, 20, 5.0, 500.0, 500.0, 50.0, 50.0, (-0.4, -0.4, 5.0)),
+        (45, 45, 55, 55, 0.0, 500.0, 500.0, 50.0, 50.0, (0.0, 0.0, 0.0)),
+        (45, 45, 55, 55, -1.0, 500.0, 500.0, 50.0, 50.0, (0.0, 0.0, 0.0)),
+        (45, 45, 55, 55, 2.0, 0.0, 500.0, 50.0, 50.0, (0.0, 0.0, 2.0)),
+        (45, 45, 55, 55, 2.0, 500.0, 0.0, 50.0, 50.0, (0.0, 0.0, 2.0)),
+        (0, 0, 100, 100, 1.0, 100.0, 100.0, 50.0, 50.0, (0.0, 0.0, 1.0)),
+    ],
+    ids=[
+        "centered_box",
+        "offset_right_down",
+        "offset_left_up",
+        "zero_depth",
+        "negative_depth",
+        "zero_fx",
+        "zero_fy",
+        "large_box_centered",
+    ],
+)
+def test_unproject_bbox_center_to_camera(
+    x1, y1, x2, y2, depth_m, fx, fy, cx, cy, expected
+) -> None:
+    result = unproject_bbox_center_to_camera(x1, y1, x2, y2, depth_m, fx, fy, cx, cy)
+    assert result[0] == pytest.approx(expected[0], abs=0.01)
+    assert result[1] == pytest.approx(expected[1], abs=0.01)
+    assert result[2] == pytest.approx(expected[2], abs=0.01)
