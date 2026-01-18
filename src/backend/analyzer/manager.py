@@ -16,7 +16,6 @@ from prometheus_client import Histogram
 from pydantic import BaseModel
 
 from analyzer.tracker import TrackingManager
-from analyzer.tracked_object import TrackedObject
 
 from common.config import config
 from common.typing import Detection, DetectionPayload
@@ -93,8 +92,6 @@ class AnalyzerWebSocketManager:
         # adaptive frame dropping parameters
         self.fps_threshold = config.FPS_THRESHOLD
         # interpolation/ tracking params
-        self._tracked_objects: dict[int, TrackedObject] = {}
-        self._next_track_id = 0
         self._tracking_manager = TrackingManager(
             iou_threshold=config.TRACKING_IOU_THRESHOLD,
             max_frames_without_detection=config.TRACKING_MAX_FRAMES_WITHOUT_DETECTION,
