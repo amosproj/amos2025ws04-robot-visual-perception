@@ -11,7 +11,19 @@ from common.utils.detection import bbox_center
 def resize_to_frame(
     prediction: torch.Tensor | np.ndarray, output_shape: tuple[int, int]
 ) -> np.ndarray:
-    """Resize a depth map tensor/array to the target frame size."""
+    """Resize a depth map tensor/array to the target frame size.
+
+    Uses bicubic interpolation to resize the depth prediction to match
+    the original video frame dimensions.
+
+    Args:
+        prediction: Depth map from model, either as torch.Tensor or np.ndarray.
+            Expected shape is (H, W), (1, H, W), or (1, 1, H, W).
+        output_shape: Target (height, width) to resize to.
+
+    Returns:
+        Resized depth map as a numpy array with shape (height, width).
+    """
     tensor = (
         prediction
         if isinstance(prediction, torch.Tensor)

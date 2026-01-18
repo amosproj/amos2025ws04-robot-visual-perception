@@ -58,7 +58,26 @@ def unproject_bbox_center_to_camera(
     cx: float,
     cy: float,
 ) -> tuple[float, float, float]:
-    """Map a bounding box center and depth to camera-space XYZ (meters)."""
+    """Map a bounding box center and depth to camera-space XYZ coordinates.
+
+    Uses the pinhole camera model to convert 2D pixel coordinates plus depth
+    into 3D camera-space coordinates in meters.
+
+    Args:
+        x1: Left edge of bounding box in pixels.
+        y1: Top edge of bounding box in pixels.
+        x2: Right edge of bounding box in pixels.
+        y2: Bottom edge of bounding box in pixels.
+        depth_m: Depth (Z distance) in meters.
+        fx: Focal length in pixels (x-axis).
+        fy: Focal length in pixels (y-axis).
+        cx: Principal point x-coordinate in pixels.
+        cy: Principal point y-coordinate in pixels.
+
+    Returns:
+        Tuple of (x, y, z) coordinates in meters in camera space.
+        Returns (0.0, 0.0, depth_m) if depth or focal lengths are invalid.
+    """
     if depth_m <= 0 or fx <= 0 or fy <= 0:
         return 0.0, 0.0, float(max(depth_m, 0.0))
 
