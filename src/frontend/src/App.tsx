@@ -9,6 +9,7 @@ import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 import { logger } from './lib/logger';
 import { useI18n } from './i18n';
+import { clamp } from './lib/mathUtils';
 
 import Header from './components/Header';
 import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
@@ -16,9 +17,6 @@ import { GameOverlay } from './components/ui/GameOverlay';
 import { ObjectFilterSection } from './components/ObjectFilter';
 import StreamInfo from './components/StreamInfo';
 import DetectionInfo from './components/DetectionInfo';
-
-const clampValue = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
 
 function App() {
   const log = useMemo(() => logger.child({ component: 'App' }), []);
@@ -69,7 +67,7 @@ function App() {
       if (!direction) return;
 
       const step = direction > 0 ? -0.1 : 0.1;
-      setVideoZoom((prev) => clampValue(prev + step, 1, 3));
+      setVideoZoom((prev) => clamp(prev + step, 1, 3));
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false });
@@ -84,13 +82,13 @@ function App() {
 
       if (event.key === '+' || event.key === '=') {
         event.preventDefault();
-        setVideoZoom((prev) => clampValue(prev + 0.1, 1, 3));
+        setVideoZoom((prev) => clamp(prev + 0.1, 1, 3));
         return;
       }
 
       if (event.key === '-' || event.key === '_') {
         event.preventDefault();
-        setVideoZoom((prev) => clampValue(prev - 0.1, 1, 3));
+        setVideoZoom((prev) => clamp(prev - 0.1, 1, 3));
         return;
       }
 

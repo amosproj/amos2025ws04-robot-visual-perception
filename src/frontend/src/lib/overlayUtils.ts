@@ -9,6 +9,11 @@
  * These are pure functions extracted from VideoOverlay for testability
  */
 
+import { clamp } from './mathUtils';
+
+// Re-export for backwards compatibility
+export { clamp };
+
 /**
  * Color palette for detection bounding boxes
  */
@@ -37,13 +42,6 @@ export const METADATA_TOLERANCE_MS = 120;
  * How long to hold last overlay frame to reduce flicker (in milliseconds)
  */
 export const HOLD_LAST_MS = 150;
-
-/**
- * Clamp a value between min and max bounds
- */
-export function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
 
 /**
  * Get the color for a detection based on its index
