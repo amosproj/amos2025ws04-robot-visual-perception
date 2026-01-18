@@ -5,6 +5,7 @@ import numpy as np
 import torch
 
 from common.typing import Detection
+from common.utils.detection import bbox_center
 
 
 def resize_to_frame(
@@ -27,7 +28,7 @@ def resize_to_frame(
     return resized.cpu().numpy()
 
 
-def calculate_region_bounds(
+def _calculate_region_bounds(
     center_x: int,
     center_y: int,
     region_size: int,
@@ -57,20 +58,7 @@ def calculate_region_bounds(
     return x_start, x_end, y_start, y_end
 
 
-def bbox_center(x1: int, y1: int, x2: int, y2: int) -> tuple[int, int]:
-    """Calculate the center point of a bounding box.
-
-    Args:
-        x1, y1: Top-left corner
-        x2, y2: Bottom-right corner
-
-    Returns:
-        Tuple of (center_x, center_y) as integers
-    """
-    return int((x1 + x2) / 2), int((y1 + y2) / 2)
-
-
-def inverse_depth_to_distance(
+def _inverse_depth_to_distance(
     inverse_depth: float,
     scale_factor: float,
     min_depth: float = 1e-6,
@@ -111,13 +99,13 @@ def calculate_distances(
 
     for det in dets:
         cx, cy = bbox_center(det.x1, det.y1, det.x2, det.y2)
-        x_start, x_end, y_start, y_end = calculate_region_bounds(
+        x_start, x_end, y_start, y_end = _calculate_region_bounds(
             cx, cy, region_size, w, h
         )
 
         region = depth_map[y_start:y_end, x_start:x_end]
         inverse_depth = np.mean(region)
-        distance = inverse_depth_to_distance(inverse_depth, scale_factor)
+        distance = _inverse_depth_to_distance(inverse_depth, scale_factor)
         distances.append(distance)
 
     return distances

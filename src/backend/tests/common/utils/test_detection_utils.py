@@ -4,7 +4,16 @@
 import numpy as np
 import pytest
 
-from common.utils.detection import get_detections, calculate_iou, normalize_bbox_coordinates
+from common.utils.detection import (
+    get_detections,
+    calculate_iou,
+    normalize_bbox_coordinates,
+    unproject_bbox_center_to_camera,
+    xywh_to_xyxy,
+    non_maximum_supression,
+    _intersection_over_union,
+    bbox_center,
+)
 from common.typing import Detection
 from tests.test_utils import DummyResult, DummyBoxes
 
@@ -99,4 +108,29 @@ def test_normalize_bbox_coordinates(
     expected: tuple[float, float, float, float],
 ) -> None:
     result = normalize_bbox_coordinates(x1, y1, x2, y2, width, height)
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "x1,y1,x2,y2,expected",
+    [
+        (0, 0, 100, 100, (50, 50)),
+        (10, 20, 30, 40, (20, 30)),
+        (0, 0, 0, 0, (0, 0)),
+        (0, 0, 1, 1, (0, 0)),
+        (0, 0, 2, 2, (1, 1)),
+        (100, 200, 300, 400, (200, 300)),
+    ],
+    ids=[
+        "square_at_origin",
+        "offset_rectangle",
+        "zero_size_box",
+        "single_pixel_box",
+        "two_pixel_box",
+        "large_offset_box",
+    ],
+)
+def test_bbox_center(x1, y1, x2, y2, expected):
+    """Test bounding box center calculation."""
+    result = bbox_center(x1, y1, x2, y2)
     assert result == expected

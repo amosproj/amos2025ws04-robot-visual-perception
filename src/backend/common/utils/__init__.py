@@ -9,7 +9,6 @@ from common.utils.camera import (
 
 from common.utils.depth import (
     calculate_distances,
-    inverse_depth_to_distance,
     resize_to_frame,
 )
 
@@ -52,7 +51,6 @@ __all__ = [
     "read_frame",
     "compute_camera_intrinsics",
     "resize_to_frame",
-    "inverse_depth_to_distance",
     "calculate_distances",
     "get_detections",
     "unproject_bbox_center_to_camera",
