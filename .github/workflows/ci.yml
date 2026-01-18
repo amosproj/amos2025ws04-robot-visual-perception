@@ -216,15 +216,15 @@ jobs:
           curl -f http://localhost:8000/health
           curl -f http://localhost:8001/health
           curl -f http://localhost:8080
-      
-      - name: Show logs on failure
-        if: failure()
-        run: docker compose logs
-      
+            
       - name: Test service connectivity
         # Use Python instead of curl since analyzer container doesn't have curl installed
         run: docker compose exec -T analyzer python -c "import urllib.request; urllib.request.urlopen('http://streamer:8000/health')"
       
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
       - name: Cleanup
         if: always()
         run: docker compose down
