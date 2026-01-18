@@ -99,6 +99,10 @@ class AnalyzerWebSocketManager:
         self._depth_estimation_duration = get_depth_estimation_duration()
         self._detections_count = get_detections_count()
 
+        self._intrinsics_cache: dict[
+            tuple[int, int], tuple[float, float, float, float]
+        ] = {}
+
     async def connect(self, websocket: WebSocket) -> None:
         """Accept a new WebSocket connection."""
         await websocket.accept()
@@ -163,6 +167,29 @@ class AnalyzerWebSocketManager:
 
         # Clear tracking manager state when stopping
         self._tracking_manager.clear()
+
+        # Clear intrinsics cache when stopping
+        self._intrinsics_cache.clear()
+
+    def _get_compute_intrinsics(
+        self, width: int, height: int
+    ) -> tuple[float, float, float, float]:
+        """Get cached camera intrinsics for resolution or compute if new.
+
+        Camera intrinsics are resolution-dependent but constant for a given size.
+        This caches them to avoid redundant trigonometry calculations.
+
+        Args:
+            width: Frame width in pixels
+            height: Frame height in pixels
+
+        Returns:
+            Tuple of (fx, fy, cx, cy) camera intrinsic parameters
+        """
+        cache_key = (width, height)
+        if cache_key not in self._intrinsics_cache:
+            self._intrinsics_cache[cache_key] = compute_camera_intrinsics(width, height)
+        return self._intrinsics_cache[cache_key]
 
     async def shutdown(self) -> None:
         """Cleanup on service shutdown."""
@@ -477,7 +504,7 @@ class AnalyzerWebSocketManager:
     ) -> MetadataMessage:
         """Construct metadata message with normalized boxes and camera-space XYZ."""
         h, w = frame_rgb.shape[:2]
-        fx, fy, cx, cy = compute_camera_intrinsics(w, h)
+        fx, fy, cx, cy = self._get_compute_intrinsics(w, h)
 
         if not self._intrinsics_logged and getattr(config, "LOG_INTRINSICS", False):
             logger.info(

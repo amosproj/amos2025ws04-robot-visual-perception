@@ -1,9 +1,6 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-import cv2
-import numpy as np
-
 from common.config import config
 from common.core.contracts import Detection
 import math
@@ -14,13 +11,13 @@ from ultralytics.engine.results import Results  # type: ignore[import-untyped]
 def get_detections(
     inference_results: list[Results],
 ) -> list[Detection]:
-    """Convert YOLO inference output into structured detection tuples.
+    """Convert YOLO prediction output into a flat list of Detection objects.
 
     Args:
-        inference_results (list[Results]): The list of YOLO results returned by model.predict().
+        inference_results: Output of `model.predict(...)` (only the first item is used).
 
     Returns:
-        list[Detection]: Each detection is (x1, y1, x2, y2, class_id, confidence).
+        Detections with (x1, y1, x2, y2, cls_id, confidence). Empty if none found.
     """
     if not inference_results:
         return []
@@ -50,52 +47,31 @@ def get_detections(
     return detections
 
 
-def draw_detections(
-    frame: np.ndarray,
-    detections: list[Detection],
-    distances_m: list[float],
-) -> np.ndarray:
-    """Draw bounding boxes and annotate distance plus camera-space XYZ.
-
-    Args:
-        frame: Input frame as a NumPy array in RGB format.
-        detections: List of detections.
-        distances_m: Per-detection distance estimates (meters), aligned with detections.
-
-    Returns:
-        Frame with bounding boxes and annotated labels drawn on it.
-    """
-    h, w = frame.shape[:2]
-    fx, fy, cx, cy = compute_camera_intrinsics(w, h)
-
-    # Draw bounding boxes and labels for each detection
-    for det, dist_m in zip(detections, distances_m):
-        px, py, pz = unproject_bbox_center_to_camera(
-            det.x1, det.y1, det.x2, det.y2, dist_m, fx, fy, cx, cy
-        )
-        label = f"{det.cls_id}:{det.confidence:.2f} {dist_m:.1f}m X:{px:.2f} Y:{py:.2f} Z:{pz:.2f}"
-        # Draw bounding box
-        cv2.rectangle(frame, (det.x1, det.y1), (det.x2, det.y2), (0, 255, 0), 2)
-
-        # Draw label text
-        cv2.putText(
-            frame,
-            label,
-            (det.x1, max(0, det.y1 - 10)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1.2,
-            (0, 255, 0),
-            3,
-            cv2.LINE_AA,
-        )
-
-    return frame
-
-
 def compute_camera_intrinsics(
     width: int, height: int
 ) -> tuple[float, float, float, float]:
-    """Return fx, fy, cx, cy using overrides or FOV-based defaults."""
+    """Compute camera intrinsic parameters (fx, fy, cx, cy).
+
+    Calculates focal lengths and principal point using config values or FOV-based
+    fallbacks. Uses pinhole camera model: x_pixel = fx * (X/Z) + cx
+
+    Args:
+        width: Image width in pixels (min 1)
+        height: Image height in pixels (min 1)
+
+    Returns:
+        Tuple of (fx, fy, cx, cy) in pixels where:
+            fx, fy: Focal lengths
+            cx, cy: Principal point (defaults to image center)
+
+    Priority order:
+        1. Explicit config (CAMERA_FX, CAMERA_FY, CAMERA_CX, CAMERA_CY)
+        2. FOV-based calculation (CAMERA_FOV_X_DEG, CAMERA_FOV_Y_DEG)
+        3. Defaults (cx = width/2, cy = height/2, fy = fx)
+
+    Note:
+        If no fx/fy or FOV provided, focal lengths will be 0.0
+    """
     fx = getattr(config, "CAMERA_FX", 0.0)
     fy = getattr(config, "CAMERA_FY", 0.0)
     cx = getattr(config, "CAMERA_CX", 0.0)

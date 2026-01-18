@@ -4,7 +4,7 @@
 import numpy as np
 import pytest
 
-from common.utils.geometry import get_detections, draw_detections, calculate_iou, normalize_bbox_coordinates
+from common.utils.geometry import get_detections, calculate_iou, normalize_bbox_coordinates
 from common.core.contracts import Detection
 from tests.test_utils import DummyResult, DummyBoxes
 
@@ -51,26 +51,6 @@ def test_get_detections(xyxy, cls_ids, confs, expected) -> None:
     result = DummyResult(boxes=boxes)
     detections = get_detections([result])
     assert detections == expected
-
-
-@pytest.mark.parametrize(
-    "frame_input",
-    [(100, 640, 3)],
-)
-def test_draw_detections_runs_and_returns_same_shape(frame_input) -> None:
-    frame = np.zeros(frame_input, dtype=np.uint8)
-    detections = [Detection(x1=10, y1=20, x2=50, y2=60, cls_id=1, confidence=0.9)]
-    distances_m = [1]
-
-    result = draw_detections(
-        frame=frame.copy(),
-        detections=detections,
-        distances_m=distances_m,
-    )
-
-    assert result.shape == frame.shape
-    assert result.dtype == frame.dtype
-    assert not np.all(result == frame)
 
 
 @pytest.mark.parametrize(
