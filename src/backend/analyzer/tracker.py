@@ -4,8 +4,8 @@
 from collections import deque
 from typing import Optional
 
-from analyzer.tracking_models import TrackedObject, TrackedDetection
-from common.utils.geometry import calculate_iou
+from analyzer.tracked_object import TrackedObject, TrackedDetection
+from common.utils.detection import calculate_iou
 from common.core.contracts import Detection
 
 

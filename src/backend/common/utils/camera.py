@@ -1,33 +1,14 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-from fractions import Fraction
 from typing import Optional
 import sys
 
+import math
 import cv2
 import numpy as np
-from av import VideoFrame
 
-
-def numpy_to_video_frame(
-    frame: np.ndarray, pts: Optional[int], time_base: Optional[Fraction]
-) -> VideoFrame:
-    """
-    Convert a numpy array (RGB format) to a WebRTC VideoFrame.
-
-    Args:
-        frame: Input frame as numpy array in RGB format
-        pts: Presentation timestamp
-        time_base: Time base (Fraction)
-
-    Returns:
-        VideoFrame ready for WebRTC transmission
-    """
-    out = VideoFrame.from_ndarray(frame.astype(np.uint8), format="rgb24")
-    out.pts = pts
-    out.time_base = time_base
-    return out
+from common.config import config
 
 
 def open_camera(idx: int) -> cv2.VideoCapture:
@@ -86,3 +67,56 @@ def read_frame(cap: cv2.VideoCapture) -> tuple[bool, Optional[np.ndarray]]:
         indicates success, and the second is the captured frame (or None if failed).
     """
     return cap.read()
+
+
+def compute_camera_intrinsics(
+    width: int, height: int
+) -> tuple[float, float, float, float]:
+    """Compute camera intrinsic parameters (fx, fy, cx, cy).
+
+    Calculates focal lengths and principal point using config values or FOV-based
+    fallbacks. Uses pinhole camera model: x_pixel = fx * (X/Z) + cx
+
+    Args:
+        width: Image width in pixels (min 1)
+        height: Image height in pixels (min 1)
+
+    Returns:
+        Tuple of (fx, fy, cx, cy) in pixels where:
+            fx, fy: Focal lengths
+            cx, cy: Principal point (defaults to image center)
+
+    Priority order:
+        1. Explicit config (CAMERA_FX, CAMERA_FY, CAMERA_CX, CAMERA_CY)
+        2. FOV-based calculation (CAMERA_FOV_X_DEG, CAMERA_FOV_Y_DEG)
+        3. Defaults (cx = width/2, cy = height/2, fy = fx)
+
+    Note:
+        If no fx/fy or FOV provided, focal lengths will be 0.0
+    """
+    fx = getattr(config, "CAMERA_FX", 0.0)
+    fy = getattr(config, "CAMERA_FY", 0.0)
+    cx = getattr(config, "CAMERA_CX", 0.0)
+    cy = getattr(config, "CAMERA_CY", 0.0)
+    fov_x = getattr(config, "CAMERA_FOV_X_DEG", 0.0)
+    fov_y = getattr(config, "CAMERA_FOV_Y_DEG", 0.0)
+
+    width = max(1, int(width))
+    height = max(1, int(height))
+
+    # Derive fx/fy from field of view when not explicitly provided
+    if fx <= 0 and fov_x > 0:
+        fx = width / (2.0 * math.tan(math.radians(fov_x) / 2.0))
+    if fy <= 0:
+        if fov_y > 0:
+            fy = height / (2.0 * math.tan(math.radians(fov_y) / 2.0))
+        else:
+            fy = fx
+
+    # Principal point defaults to image center
+    if cx <= 0:
+        cx = width / 2.0
+    if cy <= 0:
+        cy = height / 2.0
+
+    return float(fx), float(fy), float(cx), float(cy)

@@ -11,7 +11,7 @@ import torch
 
 from common.config import config
 from common.core.contracts import DepthEstimator, Detection
-from common.core.depth_utils import calculate_distances, resize_to_frame
+from common.utils.depth import calculate_distances, resize_to_frame
 
 import logging
 

@@ -4,7 +4,7 @@
 import numpy as np
 import pytest
 
-from common.utils.geometry import get_detections, calculate_iou, normalize_bbox_coordinates
+from common.utils.detection import get_detections, calculate_iou, normalize_bbox_coordinates
 from common.core.contracts import Detection
 from tests.test_utils import DummyResult, DummyBoxes
 

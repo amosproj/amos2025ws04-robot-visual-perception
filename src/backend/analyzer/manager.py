@@ -16,7 +16,7 @@ from prometheus_client import Histogram
 from pydantic import BaseModel
 
 from analyzer.tracker import TrackingManager
-from analyzer.tracking_models import TrackedObject
+from analyzer.tracked_object import TrackedObject
 from common.config import config
 from common.core.contracts import DepthEstimator, Detection, ObjectDetector
 from common.core.depth import get_depth_estimator
@@ -28,12 +28,14 @@ from common.metrics import (
     get_detection_duration,
     get_detections_count,
 )
-from common.utils.geometry import (
-    compute_camera_intrinsics,
+from common.utils.detection import (
     unproject_bbox_center_to_camera,
     normalize_bbox_coordinates,
 )
-from common.utils.image import resize_frame, calculate_adaptive_scale
+from common.utils.camera import (
+    compute_camera_intrinsics,
+)
+from common.utils.transforms import resize_frame, calculate_adaptive_scale
 
 
 logger = logging.getLogger("manager")

@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-from __future__ import annotations
-
 import numpy as np
 import torch
 

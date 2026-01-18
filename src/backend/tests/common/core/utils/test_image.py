@@ -4,7 +4,7 @@
 import numpy as np
 import pytest
 
-from common.utils.image import resize_frame, calculate_adaptive_scale
+from common.utils.transforms import resize_frame, calculate_adaptive_scale
 
 
 @pytest.fixture

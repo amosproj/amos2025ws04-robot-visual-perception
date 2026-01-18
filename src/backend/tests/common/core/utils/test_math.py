@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 import pytest
-from common.utils.math import lerp, lerp_int, calculate_interpolation_factor
+from common.utils.transforms import lerp, lerp_int, calculate_interpolation_factor
 
 
 @pytest.mark.parametrize(
