@@ -14,13 +14,12 @@ from common.config import config
 from common.typing import Detection
 from common.protocols import ObjectDetectionBackend, ObjectDetector
 
-from common.utils import (
+from common.utils.detection import (
     get_detections,
     xywh_to_xyxy,
     non_maximum_supression,
-    letterbox,
-    scale_boxes,
 )
+from common.utils.transforms import letterbox, scale_boxes
 
 
 logger = logging.getLogger(__name__)

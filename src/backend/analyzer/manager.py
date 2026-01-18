@@ -34,10 +34,12 @@ from common.metrics import (
     get_detections_count,
 )
 
-from common.utils import (
+from common.utils.camera import compute_camera_intrinsics
+from common.utils.detection import (
     unproject_bbox_center_to_camera,
     normalize_bbox_coordinates,
-    compute_camera_intrinsics,
+)
+from common.utils.transforms import (
     resize_frame,
     calculate_adaptive_scale,
 )

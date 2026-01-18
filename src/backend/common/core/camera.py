@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 from common.config import config
-from common.utils import open_camera, read_frame
+from common.utils.camera import open_camera, read_frame
 
 
 class _SharedCamera:

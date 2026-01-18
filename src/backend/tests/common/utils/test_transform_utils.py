@@ -191,3 +191,70 @@ def test_letterbox_padding_color() -> None:
     if dh > 0:
         # Top padding row
         assert np.allclose(result[0, int(dw):int(200-dw), :], custom_color)
+
+
+@pytest.mark.parametrize(
+    "boxes,ratio,dwdh,original_hw,expected",
+    [
+        (
+            np.array([[50.0, 50.0, 150.0, 150.0]]),
+            1.0,
+            (0.0, 0.0),
+            (200, 200),
+            np.array([[50.0, 50.0, 150.0, 150.0]]),
+        ),
+        (
+            np.array([[60.0, 50.0, 160.0, 150.0]]),
+            1.0,
+            (10.0, 0.0),
+            (200, 200),
+            np.array([[50.0, 50.0, 150.0, 150.0]]),
+        ),
+        (
+            np.array([[100.0, 100.0, 200.0, 200.0]]),
+            2.0,
+            (0.0, 0.0),
+            (100, 100),
+            np.array([[50.0, 50.0, 99.0, 99.0]]),
+        ),
+        (
+            np.array([[10.0, 10.0, 90.0, 90.0]]),
+            0.5,
+            (5.0, 5.0),
+            (200, 200),
+            np.array([[10.0, 10.0, 170.0, 170.0]]),
+        ),
+        (
+            np.array([[-10.0, -10.0, 300.0, 300.0]]),
+            1.0,
+            (0.0, 0.0),
+            (100, 100),
+            np.array([[0.0, 0.0, 99.0, 99.0]]),
+        ),
+        (
+            np.zeros((0, 4)),
+            1.0,
+            (0.0, 0.0),
+            (100, 100),
+            np.zeros((0, 4)),
+        ),
+    ],
+    ids=[
+        "no_transform",
+        "with_x_offset",
+        "with_scale_and_clip",
+        "downscale_with_offset",
+        "clip_to_bounds",
+        "empty_boxes",
+    ],
+)
+def test_scale_boxes(
+    boxes: np.ndarray,
+    ratio: float,
+    dwdh: tuple[float, float],
+    original_hw: tuple[int, int],
+    expected: np.ndarray,
+) -> None:
+    """Test scaling boxes from letterboxed coordinates to original image."""
+    result = scale_boxes(boxes, ratio, dwdh, original_hw)
+    np.testing.assert_array_almost_equal(result, expected, decimal=1)
