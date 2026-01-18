@@ -166,3 +166,127 @@ def test_unproject_bbox_center_to_camera(
     assert result[0] == pytest.approx(expected[0], abs=0.01)
     assert result[1] == pytest.approx(expected[1], abs=0.01)
     assert result[2] == pytest.approx(expected[2], abs=0.01)
+
+
+@pytest.mark.parametrize(
+    "xywh,expected_xyxy",
+    [
+        (np.array([[50, 50, 20, 20]]), np.array([[40, 40, 60, 60]])),
+        (np.array([[100, 100, 50, 30]]), np.array([[75, 85, 125, 115]])),
+        (np.array([[0, 0, 10, 10]]), np.array([[-5, -5, 5, 5]])),
+        (
+            np.array([[50, 50, 20, 20], [100, 100, 40, 60]]),
+            np.array([[40, 40, 60, 60], [80, 70, 120, 130]]),
+        ),
+        (np.zeros((0, 4)), np.zeros((0, 4))),
+    ],
+    ids=[
+        "single_square_box",
+        "single_rectangle_box",
+        "box_at_origin",
+        "multiple_boxes",
+        "empty_array",
+    ],
+)
+def test_xywh_to_xyxy(xywh, expected_xyxy) -> None:
+    """Test conversion from center-wh format to corner format."""
+    result = xywh_to_xyxy(xywh)
+    np.testing.assert_array_almost_equal(result, expected_xyxy)
+
+
+@pytest.mark.parametrize(
+    "boxes,scores,iou_thres,expected_indices",
+    [
+        (
+            np.array([[10, 10, 50, 50], [12, 12, 48, 48], [100, 100, 150, 150]]),
+            np.array([0.9, 0.8, 0.7]),
+            0.5,
+            [0, 2],
+        ),
+        (
+            np.array([[10, 10, 50, 50], [100, 100, 150, 150]]),
+            np.array([0.9, 0.8]),
+            0.5,
+            [0, 1],
+        ),
+        (
+            np.array([[10, 10, 50, 50], [10, 10, 50, 50]]),
+            np.array([0.9, 0.95]),
+            0.5,
+            [1],
+        ),
+        (
+            np.array([[10, 10, 50, 50]]),
+            np.array([0.9]),
+            0.5,
+            [0],
+        ),
+        (
+            np.zeros((0, 4)),
+            np.array([]),
+            0.5,
+            [],
+        ),
+        (
+            np.array([[0, 0, 10, 10], [5, 5, 15, 15], [20, 20, 30, 30]]),
+            np.array([0.5, 0.9, 0.7]),
+            0.1,
+            [1, 2],
+        ),
+    ],
+    ids=[
+        "suppress_overlapping_keep_distant",
+        "no_overlap_keep_all",
+        "identical_boxes_keep_highest_score",
+        "single_box",
+        "empty_input",
+        "low_threshold_more_suppression",
+    ],
+)
+def test_non_maximum_supression(boxes, scores, iou_thres, expected_indices) -> None:
+    """Test non-maximum suppression on bounding boxes."""
+    result = non_maximum_supression(boxes, scores, iou_thres)
+    assert result == expected_indices
+
+
+@pytest.mark.parametrize(
+    "box,boxes,expected_ious",
+    [
+        (
+            np.array([10, 10, 50, 50]),
+            np.array([[10, 10, 50, 50]]),
+            np.array([1.0]),
+        ),
+        (
+            np.array([10, 10, 50, 50]),
+            np.array([[100, 100, 150, 150]]),
+            np.array([0.0]),
+        ),
+        (
+            np.array([10, 10, 50, 50]),
+            np.array([[10, 10, 50, 50], [100, 100, 150, 150], [30, 30, 70, 70]]),
+            np.array([1.0, 0.0, 0.143]),
+        ),
+        (
+            np.array([0, 0, 10, 10]),
+            np.zeros((0, 4)),
+            np.array([]),
+        ),
+        (
+            np.array([0, 0, 100, 100]),
+            np.array([[25, 25, 75, 75]]),
+            np.array([0.25]),
+        ),
+    ],
+    ids=[
+        "perfect_overlap",
+        "no_overlap",
+        "mixed_overlaps",
+        "empty_boxes_array",
+        "contained_box",
+    ],
+)
+def test_intersection_over_union(box, boxes, expected_ious) -> None:
+    """Test IoU computation between one box and multiple boxes."""
+    result = _intersection_over_union(box, boxes)
+    np.testing.assert_array_almost_equal(result, expected_ious, decimal=2)

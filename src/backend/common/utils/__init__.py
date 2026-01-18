@@ -23,19 +23,6 @@ from common.utils.detection import (
     xywh_to_xyxy,
 )
 
-from common.utils.model_downloader import (
-    DEFAULT_MIDAS_MODEL,
-    DEFAULT_MIDAS_REPO,
-    PYTORCH_HUB_CACHE,
-    ensure_depth_anything_model_available,
-    ensure_midas_model_available,
-    ensure_yolo_model_downloaded,
-    export_midas_to_onnx,
-    export_yolo_to_onnx,
-    get_midas_cache_dir,
-    get_midas_onnx_config,
-)
-
 from common.utils.transforms import (
     calculate_adaptive_scale,
     calculate_interpolation_factor,
@@ -60,16 +47,6 @@ __all__ = [
     "non_maximum_supression",
     "bbox_center",
     "calculate_region_bounds",
-    "ensure_yolo_model_downloaded",
-    "export_yolo_to_onnx",
-    "get_midas_cache_dir",
-    "ensure_midas_model_available",
-    "get_midas_onnx_config",
-    "export_midas_to_onnx",
-    "ensure_depth_anything_model_available",
-    "DEFAULT_MIDAS_MODEL",
-    "DEFAULT_MIDAS_REPO",
-    "PYTORCH_HUB_CACHE",
     "letterbox",
     "scale_boxes",
     "resize_frame",
