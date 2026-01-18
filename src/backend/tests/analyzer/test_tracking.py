@@ -5,8 +5,8 @@ import pytest
 from collections import deque
 
 from analyzer.tracker import TrackingManager
-from analyzer.tracking_models import TrackedObject, TrackedDetection
-from common.core.contracts import Detection
+from analyzer.tracked_object import TrackedObject, TrackedDetection
+from common.typing import Detection
 
 
 @pytest.fixture

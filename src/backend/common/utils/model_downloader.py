@@ -20,7 +20,9 @@ except ImportError:
     AutoImageProcessor = None  # type: ignore
     AutoModelForDepthEstimation = None  # type: ignore
 
+
 logger = logging.getLogger(__name__)
+
 
 # Constants
 DEFAULT_MIDAS_MODEL = "MiDaS_small"

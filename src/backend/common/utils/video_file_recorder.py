@@ -1,12 +1,13 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-
-import cv2
+from typing import Any
 import signal
 import sys
 import time
-from typing import Any
+
+import cv2
+
 
 # general settings
 OUTPUT_FILE = "video.mp4"

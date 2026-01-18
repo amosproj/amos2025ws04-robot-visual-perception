@@ -6,7 +6,6 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import {
-  clamp,
   getDetectionColor,
   computeDisplayedVideoRect,
   calculateBoundingBoxPixels,
@@ -18,46 +17,11 @@ import {
   isHeldFrameValid,
   sanitizeTimestamp,
   hasLayoutChanged,
+  getClassId,
   DETECTION_COLORS,
   METADATA_TOLERANCE_MS,
   HOLD_LAST_MS,
 } from '../src/lib/overlayUtils';
-
-describe('clamp', () => {
-  it('returns value when within bounds', () => {
-    expect(clamp(5, 0, 10)).toBe(5);
-    expect(clamp(0, 0, 10)).toBe(0);
-    expect(clamp(10, 0, 10)).toBe(10);
-  });
-
-  it('clamps to min when value is below', () => {
-    expect(clamp(-5, 0, 10)).toBe(0);
-    expect(clamp(-100, 0, 10)).toBe(0);
-  });
-
-  it('clamps to max when value is above', () => {
-    expect(clamp(15, 0, 10)).toBe(10);
-    expect(clamp(100, 0, 10)).toBe(10);
-  });
-
-  it('handles negative ranges', () => {
-    expect(clamp(-5, -10, -1)).toBe(-5);
-    expect(clamp(-15, -10, -1)).toBe(-10);
-    expect(clamp(0, -10, -1)).toBe(-1);
-  });
-
-  it('handles floating point values', () => {
-    expect(clamp(0.5, 0, 1)).toBe(0.5);
-    expect(clamp(1.5, 0, 1)).toBe(1);
-    expect(clamp(-0.5, 0, 1)).toBe(0);
-  });
-
-  it('handles edge case where min equals max', () => {
-    expect(clamp(5, 5, 5)).toBe(5);
-    expect(clamp(0, 5, 5)).toBe(5);
-    expect(clamp(10, 5, 5)).toBe(5);
-  });
-});
 
 describe('getDetectionColor', () => {
   it('returns first color for index 0', () => {
@@ -766,5 +730,46 @@ describe('constants', () => {
     expect(METADATA_TOLERANCE_MS).toBeLessThan(1000);
     expect(HOLD_LAST_MS).toBeGreaterThan(0);
     expect(HOLD_LAST_MS).toBeLessThan(1000);
+  });
+});
+
+describe('getClassId', () => {
+  it('returns number as-is', () => {
+    expect(getClassId(0)).toBe(0);
+    expect(getClassId(5)).toBe(5);
+    expect(getClassId(42)).toBe(42);
+  });
+
+  it('parses string to number', () => {
+    expect(getClassId('0')).toBe(0);
+    expect(getClassId('5')).toBe(5);
+    expect(getClassId('42')).toBe(42);
+  });
+
+  it('handles string with leading zeros', () => {
+    expect(getClassId('007')).toBe(7);
+    expect(getClassId('00')).toBe(0);
+  });
+
+  it('returns NaN for non-numeric string', () => {
+    expect(getClassId('person')).toBeNaN();
+    expect(getClassId('abc')).toBeNaN();
+    expect(getClassId('')).toBeNaN();
+  });
+
+  it('handles negative numbers', () => {
+    expect(getClassId(-1)).toBe(-1);
+    expect(getClassId('-5')).toBe(-5);
+  });
+
+  it('handles whitespace in string', () => {
+    expect(getClassId(' 5')).toBe(5);
+    expect(getClassId('5 ')).toBe(5);
+    expect(getClassId(' 5 ')).toBe(5);
+  });
+
+  it('truncates decimal strings to integer', () => {
+    expect(getClassId('3.14')).toBe(3);
+    expect(getClassId('99.9')).toBe(99);
   });
 });

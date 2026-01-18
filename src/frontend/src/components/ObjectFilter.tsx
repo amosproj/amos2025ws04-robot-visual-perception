@@ -8,6 +8,8 @@ import { useState, useMemo, useCallback, memo, useEffect } from 'react';
 import { getCocoLabel } from '../constants/cocoLabels';
 import { BoundingBox } from './video/VideoOverlay';
 import { useI18n } from '../i18n';
+import { clamp } from '../lib/mathUtils';
+import { getClassId } from '../lib/overlayUtils';
 
 export interface ObjectFilterSectionProps {
   /** Current detections from the latest frame */
@@ -149,10 +151,7 @@ export function ObjectFilterSection({
     const classMap = new Map<number, { count: number; label: string }>();
 
     detections.forEach((detection) => {
-      const classId =
-        typeof detection.label === 'string'
-          ? parseInt(detection.label, 10)
-          : detection.label;
+      const classId = getClassId(detection.label);
 
       if (!isNaN(classId)) {
         const resolvedLabel = resolveLabel(
@@ -224,7 +223,7 @@ export function ObjectFilterSection({
 
   const handleConfidenceChange = useCallback(
     (value: number) => {
-      const clamped = Math.min(1, Math.max(0, value));
+      const clamped = clamp(value, 0, 1);
       onConfidenceThresholdChange(clamped);
     },
     [onConfidenceThresholdChange]

@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from analyzer import main as analyzer_main
 from common.core import depth as depth_mod
 from common.core import detector as det
-from common.core.contracts import DepthEstimator
+from common.protocols import DepthEstimator
 
 
 class _DummyDetector(det._DetectorEngine):

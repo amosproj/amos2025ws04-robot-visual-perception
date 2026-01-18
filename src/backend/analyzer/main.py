@@ -29,6 +29,7 @@ from common.core.detector import get_detector
 from common.core.depth import get_depth_estimator
 from analyzer.routes import router, on_shutdown
 
+
 # Silence upstream deprecation noise from timm until upstream fixes imports
 warnings.filterwarnings(
     "ignore",

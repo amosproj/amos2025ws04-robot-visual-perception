@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from common.core.model_downloader import (
+from common.utils.model_downloader import (
     ensure_midas_model_available,
     ensure_yolo_model_downloaded,
     get_midas_cache_dir,
@@ -24,7 +24,7 @@ def tmp_models_dir(tmp_path):
 @pytest.fixture
 def mock_yolo():
     """Mock YOLO model."""
-    with patch("common.core.model_downloader.YOLO") as mock_yolo_cls:
+    with patch("common.utils.model_downloader.YOLO") as mock_yolo_cls:
         mock_model = MagicMock()
         mock_yolo_cls.return_value = mock_model
         mock_model.ckpt_path = "/tmp/yolo11n.pt"
@@ -35,7 +35,7 @@ def mock_yolo():
 @pytest.fixture
 def mock_torch():
     """Mock torch for MiDaS model loading."""
-    with patch("common.core.model_downloader.torch") as mock_torch:
+    with patch("common.utils.model_downloader.torch") as mock_torch:
         mock_torch.hub.load.return_value = MagicMock()
         yield mock_torch
 
@@ -67,7 +67,7 @@ def test_ensure_yolo_model_downloaded_uses_cached_model(tmp_models_dir):
     assert result.exists()
 
 
-@patch("common.core.model_downloader.YOLO")
+@patch("common.utils.model_downloader.YOLO")
 def test_ensure_yolo_model_downloaded_downloads_if_not_cached(
     mock_yolo, tmp_models_dir
 ):

@@ -9,7 +9,7 @@ import pytest
 import torch
 
 import common.core.depth as depth
-from common.core.contracts import Detection
+from common.typing import Detection
 from .conftest import DummySession, DummySessionOptions
 
 

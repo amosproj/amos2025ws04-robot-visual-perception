@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type { MetadataFrame } from '../components/video/VideoOverlay';
 import { logger } from '../lib/logger';
+import { roundToDecimals, exponentialBackoff } from '../lib/mathUtils';
 
 interface AnalyzerWebSocketOptions {
   endpoint?: string;
@@ -103,7 +104,7 @@ export function useAnalyzerWebSocket({
 
           // Update FPS if available
           if (data.fps !== null && data.fps !== undefined) {
-            setFps(Math.round(data.fps * 10) / 10); // Round to 1 decimal
+            setFps(roundToDecimals(data.fps, 1)); // Round to 1 decimal
           }
           log.debug('analyzer.message.received', {
             frameId: metadata.frameId,
@@ -132,10 +133,7 @@ export function useAnalyzerWebSocket({
           !manualDisconnectRef.current &&
           reconnectAttempts.current < 10
         ) {
-          const delay = Math.min(
-            1000 * Math.pow(2, reconnectAttempts.current),
-            30000
-          );
+          const delay = exponentialBackoff(reconnectAttempts.current);
           reconnectAttempts.current++;
           log.info('analyzer.reconnect.scheduled', {
             attempt: reconnectAttempts.current,
