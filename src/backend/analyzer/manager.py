@@ -7,7 +7,8 @@ import logging
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Iterator, Optional, TypedDict
+from typing import Iterator, Optional
+from typing_extensions import TypedDict
 
 import numpy as np
 from aiortc import MediaStreamTrack
