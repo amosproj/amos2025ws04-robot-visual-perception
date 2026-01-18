@@ -1,14 +1,12 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-from typing import Optional
-import sys
-
 import math
+import sys
+from typing import Optional
+
 import cv2
 import numpy as np
-
-from common.config import config
 
 
 def open_camera(idx: int) -> cv2.VideoCapture:
@@ -70,16 +68,29 @@ def read_frame(cap: cv2.VideoCapture) -> tuple[bool, Optional[np.ndarray]]:
 
 
 def compute_camera_intrinsics(
-    width: int, height: int
+    width: int,
+    height: int,
+    fx: float,
+    fy: float,
+    cx: float,
+    cy: float,
+    fov_x_deg: float,
+    fov_y_deg: float,
 ) -> tuple[float, float, float, float]:
     """Compute camera intrinsic parameters (fx, fy, cx, cy).
 
-    Calculates focal lengths and principal point using config values or FOV-based
-    fallbacks. Uses pinhole camera model: x_pixel = fx * (X/Z) + cx
+    Pure utility function that calculates focal lengths and principal point.
+    Uses pinhole camera model: x_pixel = fx * (X/Z) + cx
 
     Args:
         width: Image width in pixels (min 1)
         height: Image height in pixels (min 1)
+        fx: Focal length in x direction (pixels).
+        fy: Focal length in y direction (pixels).
+        cx: Principal point x coordinate (pixels).
+        cy: Principal point y coordinate (pixels).
+        fov_x_deg: Horizontal field of view in degrees.
+        fov_y_deg: Vertical field of view in degrees.
 
     Returns:
         Tuple of (fx, fy, cx, cy) in pixels where:
@@ -87,29 +98,22 @@ def compute_camera_intrinsics(
             cx, cy: Principal point (defaults to image center)
 
     Priority order:
-        1. Explicit config (CAMERA_FX, CAMERA_FY, CAMERA_CX, CAMERA_CY)
-        2. FOV-based calculation (CAMERA_FOV_X_DEG, CAMERA_FOV_Y_DEG)
+        1. Explicit fx/fy/cx/cy if provided (> 0)
+        2. FOV-based calculation for fx/fy
         3. Defaults (cx = width/2, cy = height/2, fy = fx)
 
     Note:
-        If no fx/fy or FOV provided, focal lengths will be 0.0
+        If no fx/fy or FOV provided, focal lengths will be 0.0 (see config)
     """
-    fx = getattr(config, "CAMERA_FX", 0.0)
-    fy = getattr(config, "CAMERA_FY", 0.0)
-    cx = getattr(config, "CAMERA_CX", 0.0)
-    cy = getattr(config, "CAMERA_CY", 0.0)
-    fov_x = getattr(config, "CAMERA_FOV_X_DEG", 0.0)
-    fov_y = getattr(config, "CAMERA_FOV_Y_DEG", 0.0)
-
     width = max(1, int(width))
     height = max(1, int(height))
 
     # Derive fx/fy from field of view when not explicitly provided
-    if fx <= 0 and fov_x > 0:
-        fx = width / (2.0 * math.tan(math.radians(fov_x) / 2.0))
+    if fx <= 0 and fov_x_deg > 0:
+        fx = width / (2.0 * math.tan(math.radians(fov_x_deg) / 2.0))
     if fy <= 0:
-        if fov_y > 0:
-            fy = height / (2.0 * math.tan(math.radians(fov_y) / 2.0))
+        if fov_y_deg > 0:
+            fy = height / (2.0 * math.tan(math.radians(fov_y_deg) / 2.0))
         else:
             fy = fx
 

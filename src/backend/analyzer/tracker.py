@@ -5,6 +5,7 @@ from collections import deque
 from typing import Optional
 
 from analyzer.tracked_object import TrackedObject, TrackedDetection
+
 from common.utils.detection import calculate_iou
 from common.typing import Detection
 

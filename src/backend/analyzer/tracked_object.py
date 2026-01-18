@@ -4,8 +4,9 @@
 from collections import deque
 from dataclasses import dataclass
 from typing import Optional
+
 from common.typing import Detection
-from common.utils.transforms import calculate_interpolation_factor, lerp_int, lerp
+from common.utils import calculate_interpolation_factor, lerp_int, lerp
 
 
 @dataclass

@@ -1,23 +1,23 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Callable, Literal, Optional
+import logging
 
 import numpy as np
 import torch
 from PIL import Image
 
 from common.config import config
-from common.protocols import DepthEstimator
 from common.typing import Detection
+from common.protocols import DepthEstimator
+
 from common.utils.depth import calculate_distances, resize_to_frame
 
-import logging
 
 logger = logging.getLogger(__name__)
+
 
 try:  # pragma: no cover - optional dependency import
     import onnxruntime as ort  # type: ignore[import-not-found,import-untyped]

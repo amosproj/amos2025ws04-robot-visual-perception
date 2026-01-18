@@ -17,26 +17,30 @@ from pydantic import BaseModel
 
 from analyzer.tracker import TrackingManager
 from analyzer.tracked_object import TrackedObject
+
 from common.config import config
 from common.typing import Detection, DetectionPayload
 from common.protocols import DepthEstimator, ObjectDetector
+
+from common.data.coco_labels import get_coco_label
+
 from common.core.depth import get_depth_estimator
 from common.core.detector import get_detector
 from common.core.session import WebcamSession
-from common.data.coco_labels import get_coco_label
+
 from common.metrics import (
     get_depth_estimation_duration,
     get_detection_duration,
     get_detections_count,
 )
-from common.utils.detection import (
+
+from common.utils import (
     unproject_bbox_center_to_camera,
     normalize_bbox_coordinates,
-)
-from common.utils.camera import (
     compute_camera_intrinsics,
+    resize_frame,
+    calculate_adaptive_scale,
 )
-from common.utils.transforms import resize_frame, calculate_adaptive_scale
 
 
 logger = logging.getLogger("manager")
@@ -191,7 +195,16 @@ class AnalyzerWebSocketManager:
         """
         cache_key = (width, height)
         if cache_key not in self._intrinsics_cache:
-            self._intrinsics_cache[cache_key] = compute_camera_intrinsics(width, height)
+            self._intrinsics_cache[cache_key] = compute_camera_intrinsics(
+                width=width,
+                height=height,
+                fx=config.CAMERA_FX,
+                fy=config.CAMERA_FY,
+                cx=config.CAMERA_CX,
+                cy=config.CAMERA_CY,
+                fov_x_deg=config.CAMERA_FOV_X_DEG,
+                fov_y_deg=config.CAMERA_FOV_Y_DEG,
+            )
         return self._intrinsics_cache[cache_key]
 
     async def shutdown(self) -> None:

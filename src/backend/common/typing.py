@@ -23,6 +23,8 @@ Pos3D = TypedDict("Pos3D", {"x": float, "y": float, "z": float})
 
 
 class DetectionPayload(TypedDict):
+    """Detection data sent to the frontend via WebSocket metadata payload."""
+
     box: Box
     position: Pos3D
     label: int

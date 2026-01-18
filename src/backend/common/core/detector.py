@@ -1,26 +1,30 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-from __future__ import annotations
-
 import asyncio
-
 from pathlib import Path
 from typing import Optional, Callable
+import logging
 
 import numpy as np
 import torch
 from ultralytics import YOLO  # type: ignore[import-untyped]
 
+from common.config import config
 from common.typing import Detection
 from common.protocols import ObjectDetectionBackend, ObjectDetector
-from common.config import config
-from common.utils.detection import get_detections, xywh_to_xyxy, non_maximum_supression
-from common.utils.transforms import letterbox, scale_boxes
 
-import logging
+from common.utils import (
+    get_detections,
+    xywh_to_xyxy,
+    non_maximum_supression,
+    letterbox,
+    scale_boxes,
+)
+
 
 logger = logging.getLogger(__name__)
+
 
 try:  # pragma: no cover - optional dependency import
     import onnxruntime as ort  # type: ignore[import-not-found,import-untyped]
