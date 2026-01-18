@@ -11,6 +11,8 @@
 @layer base {
   :root {
     /* Light theme (default) */
+    --ui-scale: 1.3;
+    --ui-header-height: 88px;
     --color-bg-primary: #ffffff;
     --color-bg-secondary: #f8fafc;
     --color-bg-tertiary: #e2e8f0;
@@ -94,6 +96,10 @@
   .theme-transition-disabled *::after {
     transition: none !important;
   }
+}
+
+html {
+  font-size: calc(16px * var(--ui-scale));
 }
 
 body {
