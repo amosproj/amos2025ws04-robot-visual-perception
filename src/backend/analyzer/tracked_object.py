@@ -4,7 +4,7 @@
 from collections import deque
 from dataclasses import dataclass
 from typing import Optional
-from common.core.contracts import Detection
+from common.typing import Detection
 from common.utils.transforms import calculate_interpolation_factor, lerp_int, lerp
 
 

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 import numpy as np
 
-from common.core.contracts import Detection
+from common.typing import Detection
 
 from ultralytics.engine.results import Results  # type: ignore[import-untyped]
 

@@ -8,7 +8,6 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Iterator, Optional
-from typing_extensions import TypedDict
 
 import numpy as np
 from aiortc import MediaStreamTrack
@@ -19,7 +18,8 @@ from pydantic import BaseModel
 from analyzer.tracker import TrackingManager
 from analyzer.tracked_object import TrackedObject
 from common.config import config
-from common.core.contracts import DepthEstimator, Detection, ObjectDetector
+from common.typing import Detection, DetectionPayload
+from common.protocols import DepthEstimator, ObjectDetector
 from common.core.depth import get_depth_estimator
 from common.core.detector import get_detector
 from common.core.session import WebcamSession
@@ -42,27 +42,12 @@ from common.utils.transforms import resize_frame, calculate_adaptive_scale
 logger = logging.getLogger("manager")
 
 
-# Strict typing for Metadata message because it's coupled with the frontend
-Box = TypedDict("Box", {"x": float, "y": float, "width": float, "height": float})
-Pos3D = TypedDict("Pos3D", {"x": float, "y": float, "z": float})
-
-
-class DetectionDict(TypedDict):
-    box: Box
-    position: Pos3D
-    label: int
-    label_text: str
-    confidence: float
-    distance: float
-    interpolated: bool
-
-
 class MetadataMessage(BaseModel):
     """Metadata message model."""
 
     timestamp: float
     frame_id: int
-    detections: list[DetectionDict]
+    detections: list[DetectionPayload]
     fps: float | None = None
 
 
@@ -561,7 +546,7 @@ class AnalyzerWebSocketManager:
                 det.x1, det.y1, det.x2, det.y2, dist_m, fx, fy, cx, cy
             )
 
-            detection_dic: DetectionDict = {
+            detection_dic: DetectionPayload = {
                 "box": {
                     "x": norm_x,
                     "y": norm_y,

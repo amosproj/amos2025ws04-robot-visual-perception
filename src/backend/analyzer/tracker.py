@@ -6,7 +6,7 @@ from typing import Optional
 
 from analyzer.tracked_object import TrackedObject, TrackedDetection
 from common.utils.detection import calculate_iou
-from common.core.contracts import Detection
+from common.typing import Detection
 
 
 class TrackingManager:

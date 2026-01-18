@@ -12,7 +12,8 @@ import numpy as np
 import torch
 from ultralytics import YOLO  # type: ignore[import-untyped]
 
-from common.core.contracts import Detection, ObjectDetectionBackend, ObjectDetector
+from common.typing import Detection
+from common.protocols import ObjectDetectionBackend, ObjectDetector
 from common.config import config
 from common.utils.detection import get_detections, xywh_to_xyxy, non_maximum_supression
 from common.utils.transforms import letterbox, scale_boxes

@@ -4,7 +4,7 @@
 import numpy as np
 import torch
 
-from common.core.contracts import Detection
+from common.typing import Detection
 
 
 def resize_to_frame(

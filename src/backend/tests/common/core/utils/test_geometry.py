@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from common.utils.detection import get_detections, calculate_iou, normalize_bbox_coordinates
-from common.core.contracts import Detection
+from common.typing import Detection
 from tests.test_utils import DummyResult, DummyBoxes
 
 

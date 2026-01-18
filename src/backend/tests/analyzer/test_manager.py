@@ -9,7 +9,7 @@ import pytest
 
 from analyzer.manager import AnalyzerWebSocketManager, ProcessingState
 from analyzer.tracked_object import TrackedObject
-from common.core.contracts import Detection
+from common.typing import Detection
 
 
 @pytest.fixture

@@ -1,24 +1,11 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-from __future__ import annotations
-
-from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 import numpy as np
 
-
-@dataclass
-class Detection:
-    """Raw detection from object detector."""
-
-    x1: int
-    y1: int
-    x2: int
-    y2: int
-    cls_id: int
-    confidence: float
+from common.typing import Detection
 
 
 @runtime_checkable
