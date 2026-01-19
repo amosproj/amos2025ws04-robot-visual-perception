@@ -90,10 +90,12 @@ export function useAnalyzerWebSocket({
             detections: data.detections.map((det: any, index: number) => ({
               id: `detection-${data.frame_id}-${index}`,
               label: det.label,
+              labelText: det.label_text ?? det.labelText,
               confidence: det.confidence,
               box: det.box,
               distance: det.distance,
               position: det.position,
+              interpolated: det.interpolated,
             })),
           };
 
