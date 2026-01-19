@@ -232,29 +232,19 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       },
     }));
 
-    const pickMetadataForTime = (mediaTimeMs: number) => {
+    const pickMetadataForTime = (_mediaTimeMs: number) => {
       const buffer = metadataBufferRef.current;
-      if (!buffer.length) return null;
-
-      // Initialize time offset on first frame if not set
-      if (timeOffsetRef.current == null) {
-        timeOffsetRef.current = buffer[0].timestamp - mediaTimeMs;
-      }
-
-      const matchResult = findBestMetadataMatch(
-        buffer,
-        mediaTimeMs,
-        timeOffsetRef.current
-      );
-
-      if (!matchResult) {
+      if (!buffer.length) {
         return null;
       }
 
-      const match = buffer[matchResult.index];
+      // For live WebRTC streams, always use the most recent metadata
+      // Timestamp matching doesn't work well because video.currentTime
+      // and backend event loop time are completely different time bases
+      const match = buffer[buffer.length - 1];
 
-      // Drop frames up to and including the one we used to prevent reuse
-      metadataBufferRef.current = buffer.slice(matchResult.index + 1);
+      // Clear the buffer after picking to avoid stale frames building up
+      metadataBufferRef.current = [];
 
       return match;
     };
