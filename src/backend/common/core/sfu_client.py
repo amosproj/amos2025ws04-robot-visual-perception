@@ -93,6 +93,10 @@ class IonSfuClient:
         self._publisher_tracks: list[MediaStreamTrack] = []
         self._closed = False
         self._expected_track_kind = "video"
+        self._pending_candidates: dict[int, list[RTCIceCandidate]] = {
+            TARGET_PUBLISHER: [],
+            TARGET_SUBSCRIBER: [],
+        }
 
     def add_publisher_track(self, track: MediaStreamTrack) -> None:
         """Queue a track to be published once the connection is established."""
@@ -168,7 +172,11 @@ class IonSfuClient:
 
     def _candidate_handler(self, target: int) -> Callable[[Any], Awaitable[None]]:
         async def handler(event: Any) -> None:
-            candidate: RTCIceCandidate | None = getattr(event, "candidate", None)
+            candidate: RTCIceCandidate | None
+            if isinstance(event, RTCIceCandidate):
+                candidate = event
+            else:
+                candidate = getattr(event, "candidate", None)
             if candidate is None or self._ws is None:
                 return
             payload = {"candidate": _serialize_candidate(candidate), "target": target}
@@ -203,6 +211,7 @@ class IonSfuClient:
         await self._pub_pc.setRemoteDescription(
             RTCSessionDescription(**answer)  # type: ignore[arg-type]
         )
+        await self._drain_pending_candidates(TARGET_PUBLISHER)
 
     async def _recv_loop(self) -> None:
         assert self._ws is not None
@@ -262,6 +271,7 @@ class IonSfuClient:
                 sdp=desc_json["sdp"], type=desc_json["type"]
             )
             await self._sub_pc.setRemoteDescription(remote_desc)
+            await self._drain_pending_candidates(TARGET_SUBSCRIBER)
             answer = await self._sub_pc.createAnswer()
             await self._sub_pc.setLocalDescription(answer)
             await self._notify("answer", {"desc": _serialize_description(answer)})
@@ -278,12 +288,31 @@ class IonSfuClient:
         if pc is None:
             return
         try:
-            await pc.addIceCandidate(_candidate_from_json(candidate_json))
+            candidate = _candidate_from_json(candidate_json)
+            if pc.remoteDescription is None:
+                self._pending_candidates[target].append(candidate)
+                return
+            await pc.addIceCandidate(candidate)
         except Exception as exc:
             self._logger.debug(
                 "Ignoring bad ICE candidate",
                 extra={"error": str(exc), "target": target},
             )
+
+    async def _drain_pending_candidates(self, target: int) -> None:
+        pc = self._pub_pc if target == TARGET_PUBLISHER else self._sub_pc
+        if pc is None or pc.remoteDescription is None:
+            return
+        pending = self._pending_candidates[target]
+        self._pending_candidates[target] = []
+        for candidate in pending:
+            try:
+                await pc.addIceCandidate(candidate)
+            except Exception as exc:
+                self._logger.debug(
+                    "Ignoring queued ICE candidate",
+                    extra={"error": str(exc), "target": target},
+                )
 
     async def _on_remote_track(self, track: MediaStreamTrack) -> None:
         if track.kind == self._expected_track_kind:
