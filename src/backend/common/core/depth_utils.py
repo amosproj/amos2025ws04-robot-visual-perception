@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+import cv2
 
 from common.core.contracts import Detection
 
@@ -68,7 +69,6 @@ def _estimate_depth_from_mask(
     Uses the mask to select only object pixels and calculates mean depth
     from the depth map, weighted by mask confidence.
     """
-    # print("Estimating depth from mask")
     mask = det.binary_mask
     if mask is None or mask.size == 0:
         return 1e-6
@@ -79,8 +79,6 @@ def _estimate_depth_from_mask(
 
     if (mask_h, mask_w) != (h, w):
         # Resize mask using nearest neighbor to preserve binary values
-        import cv2
-
         mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_NEAREST)
 
     # Extract depth values only where mask is True
@@ -107,7 +105,6 @@ def _estimate_depth_from_bbox(
 
     Samples depth from a small region around the center of the bounding box.
     """
-    # print("Estimating depth from bbox")
     cx = int((det.x1 + det.x2) / 2)
     cy = int((det.y1 + det.y2) / 2)
     half_size = region_size // 2
