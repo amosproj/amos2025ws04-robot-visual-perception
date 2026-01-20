@@ -94,7 +94,7 @@ class Config:
     CORS_ORIGINS: list[str] = os.getenv("CORS_ORIGINS", "*").split(",")
 
     # Model settings
-    MODEL_PATH: Path = Path(os.getenv("MODEL_PATH", "models/yolo11n.pt")).resolve()
+    MODEL_PATH: Path = Path(os.getenv("MODEL_PATH", "models/yolo11n-seg.pt")).resolve()
     ONNX_MODEL_PATH: Path = Path(
         os.getenv("ONNX_MODEL_PATH", str(MODEL_PATH.with_suffix(".onnx")))
     ).resolve()
