@@ -52,24 +52,40 @@ const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
               tooltipPosition="bottom"
             />
           )}
-          <select
-            id="language-select"
-            value={language}
-            onChange={(event) =>
-              setLanguage(event.target.value as typeof language)
-            }
-            className="bg-[#2d3436] text-white border border-theme-border px-6 py-3 rounded text-xl cursor-pointer shadow-lg"
-          >
-            {languageOptions.map((option) => (
-              <option
-                key={option.value}
-                value={option.value}
-                className="bg-[#2d3436] text-white"
+          <div className="relative">
+            <select
+              id="language-select"
+              value={language}
+              onChange={(event) =>
+                setLanguage(event.target.value as typeof language)
+              }
+              className="bg-[#2d3436] text-white border border-theme-border appearance-none pl-3 pr-8 py-2 rounded text-xl cursor-pointer shadow-lg"
+            >
+              {languageOptions.map((option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                  className="bg-[#2d3436] text-white"
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-white">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                {option.label}
-              </option>
-            ))}
-          </select>
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
+          </div>
         </div>
 
         {/* Title - center */}
