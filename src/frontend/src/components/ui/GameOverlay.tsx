@@ -65,15 +65,15 @@ export function GameOverlay({
 
       {/* Left side - Tabbed widget panel */}
       {showPanel && (
-        <div className="fixed left-2 right-2 top-[calc(var(--ui-header-height)+0.75rem)] z-40 sm:left-4 sm:right-auto sm:w-[28rem] md:w-[34rem] lg:w-[42rem]">
+        <div className="fixed left-2 right-2 top-[calc(var(--ui-header-height)+0.75rem)] z-40 sm:left-4 sm:right-auto sm:w-72 ui-scale">
           <TabbedWidgetPanel tabs={tabs} defaultTab="filter" />
         </div>
       )}
 
       {/* Right side - Status panel */}
       {statusPanel && (
-        <div className="fixed left-2 right-2 top-[calc(var(--ui-header-height)+0.75rem)] z-40 sm:left-auto sm:right-4 sm:w-72">
-          <div className="bg-theme-bg-secondary/95 backdrop-blur-sm border border-theme-border-subtle rounded-lg shadow-xl p-4">
+        <div className="fixed left-2 right-2 top-[calc(var(--ui-header-height)+0.75rem)] z-40 sm:left-auto sm:right-4 sm:w-56 ui-scale ui-scale--origin-top-right">
+          <div className="bg-theme-bg-secondary/95 backdrop-blur-sm border border-theme-border-subtle rounded-lg shadow-xl p-3">
             {statusPanel}
           </div>
         </div>

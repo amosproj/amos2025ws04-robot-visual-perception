@@ -36,123 +36,125 @@ const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
   const { t, language, setLanguage, languageOptions } = useI18n();
 
   if (minimal) {
-    const headerIconSize = 40;
+    const headerIconSize = 16;
     return (
       <header
         ref={ref}
-        className="fixed top-0 left-0 right-0 z-50 flex flex-wrap items-center gap-3 px-4 py-3 md:flex-nowrap md:justify-between md:px-10 md:py-4 pointer-events-none"
+        className="fixed top-0 left-0 right-0 z-50 pointer-events-none"
       >
-        {/* Language selector - top left */}
-        <div className="pointer-events-auto flex flex-wrap items-center gap-2 order-1">
-          {props.onTogglePanel && (
-            <IconButton
-              size="lg"
-              icon={<Filter size={headerIconSize} />}
-              tooltip={props.showPanel ? 'Hide Panel' : 'Show Panel'}
-              onClick={props.onTogglePanel}
-              active={props.showPanel}
-              variant={props.showPanel ? 'success' : 'default'}
-              tooltipPosition="bottom"
-            />
-          )}
-          <select
-            id="language-select"
-            value={language}
-            onChange={(event) =>
-              setLanguage(event.target.value as typeof language)
-            }
-            className="bg-[#2d3436] text-white border border-theme-border px-3 py-2 sm:px-4 sm:py-2.5 md:px-6 md:py-3 rounded text-sm sm:text-base md:text-lg cursor-pointer shadow-lg max-w-[10rem] sm:max-w-none"
-          >
-            {languageOptions.map((option) => (
-              <option
-                key={option.value}
-                value={option.value}
-                className="bg-[#2d3436] text-white"
-              >
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Title - center */}
-        <h1 className="my-0 w-full order-3 md:order-2 md:w-auto md:flex-1 text-theme-accent text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-center leading-tight">
-          {t('appTitle')}
-        </h1>
-
-        {/* Controls - top right */}
-        <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2 order-2 md:order-3 md:ml-auto">
-          {/* Connection Controls (only if props provided) */}
-          {props.onConnectVideo && (
-            <>
-              {/* Video connection button */}
+        <div className="ui-scale ui-scale--full-width flex flex-wrap items-center gap-2 px-4 py-2 md:flex-nowrap md:justify-between">
+          {/* Language selector - top left */}
+          <div className="pointer-events-auto flex flex-wrap items-center gap-2 order-1">
+            {props.onTogglePanel && (
               <IconButton
-                size="lg"
-                icon={
-                  props.videoState === 'connected' ? (
-                    <Video size={headerIconSize} />
-                  ) : (
-                    <VideoOff size={headerIconSize} />
-                  )
-                }
-                tooltip={
-                  props.videoState === 'connecting'
-                    ? t('connectionConnecting')
-                    : props.videoState === 'connected'
-                      ? t('connectionDisconnectVideo')
-                      : t('connectionConnectVideo')
-                }
-                onClick={
-                  props.videoState === 'connected'
-                    ? props.onDisconnectVideo
-                    : props.onConnectVideo
-                }
-                disabled={props.videoState === 'connecting'}
-                variant={
-                  props.videoState === 'connecting'
-                    ? 'warning'
-                    : props.videoState === 'connected'
-                      ? 'success'
-                      : 'default'
-                }
+                size="sm"
+                icon={<Filter size={headerIconSize} />}
+                tooltip={props.showPanel ? 'Hide Panel' : 'Show Panel'}
+                onClick={props.onTogglePanel}
+                active={props.showPanel}
+                variant={props.showPanel ? 'success' : 'default'}
                 tooltipPosition="bottom"
               />
+            )}
+            <select
+              id="language-select"
+              value={language}
+              onChange={(event) =>
+                setLanguage(event.target.value as typeof language)
+              }
+              className="bg-[#2d3436] text-white border border-theme-border px-3 py-1.5 rounded text-sm cursor-pointer shadow-lg max-w-[10rem] sm:max-w-none"
+            >
+              {languageOptions.map((option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                  className="bg-[#2d3436] text-white"
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-              {/* Analyzer connection button */}
+          {/* Title - center */}
+          <h1 className="my-0 w-full order-3 md:order-2 md:w-auto md:flex-1 text-theme-accent text-xl md:text-2xl font-light text-center leading-tight">
+            {t('appTitle')}
+          </h1>
+
+          {/* Controls - top right */}
+          <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2 order-2 md:order-3 md:ml-auto">
+            {/* Connection Controls (only if props provided) */}
+            {props.onConnectVideo && (
+              <>
+                {/* Video connection button */}
+                <IconButton
+                  size="sm"
+                  icon={
+                    props.videoState === 'connected' ? (
+                      <Video size={headerIconSize} />
+                    ) : (
+                      <VideoOff size={headerIconSize} />
+                    )
+                  }
+                  tooltip={
+                    props.videoState === 'connecting'
+                      ? t('connectionConnecting')
+                      : props.videoState === 'connected'
+                        ? t('connectionDisconnectVideo')
+                        : t('connectionConnectVideo')
+                  }
+                  onClick={
+                    props.videoState === 'connected'
+                      ? props.onDisconnectVideo
+                      : props.onConnectVideo
+                  }
+                  disabled={props.videoState === 'connecting'}
+                  variant={
+                    props.videoState === 'connecting'
+                      ? 'warning'
+                      : props.videoState === 'connected'
+                        ? 'success'
+                        : 'default'
+                  }
+                  tooltipPosition="bottom"
+                />
+
+                {/* Analyzer connection button */}
+                <IconButton
+                  size="sm"
+                  icon={<Activity size={headerIconSize} />}
+                  tooltip={
+                    props.analyzerConnected
+                      ? t('connectionDisconnectAnalyzer')
+                      : t('connectionConnectAnalyzer')
+                  }
+                  onClick={
+                    props.analyzerConnected
+                      ? props.onDisconnectAnalyzer
+                      : props.onConnectAnalyzer
+                  }
+                  variant={props.analyzerConnected ? 'success' : 'default'}
+                  tooltipPosition="bottom"
+                />
+
+                <div className="hidden sm:block w-px h-6 bg-theme-border mx-1" />
+              </>
+            )}
+
+            {props.onToggleRadar && (
               <IconButton
-                size="lg"
-                icon={<Activity size={headerIconSize} />}
-                tooltip={
-                  props.analyzerConnected
-                    ? t('connectionDisconnectAnalyzer')
-                    : t('connectionConnectAnalyzer')
-                }
-                onClick={
-                  props.analyzerConnected
-                    ? props.onDisconnectAnalyzer
-                    : props.onConnectAnalyzer
-                }
-                variant={props.analyzerConnected ? 'success' : 'default'}
+                size="sm"
+                icon={<Layers size={headerIconSize} />}
+                tooltip={t('radarToggle')}
+                onClick={props.onToggleRadar}
+                active={props.showRadar}
+                variant={props.showRadar ? 'success' : 'default'}
                 tooltipPosition="bottom"
               />
+            )}
 
-              <div className="hidden sm:block w-px h-8 md:h-10 bg-theme-border mx-2 md:mx-3" />
-            </>
-          )}
-
-          {props.onToggleRadar && (
-            <IconButton
-              size="lg"
-              icon={<Layers size={headerIconSize} />}
-              tooltip={t('radarToggle')}
-              onClick={props.onToggleRadar}
-              active={props.showRadar}
-              variant={props.showRadar ? 'success' : 'default'}
-              tooltipPosition="bottom"
-            />
-          )}
-
-          <ThemeToggle size="lg" />
+            <ThemeToggle size="sm" />
+          </div>
         </div>
       </header>
     );

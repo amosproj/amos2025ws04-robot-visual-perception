@@ -123,12 +123,13 @@
 }
 
 html {
-  font-size: calc(16px * var(--ui-scale));
+  font-size: 16px;
 }
 
 body {
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
+  font-size: 16px;
   margin: 0;
   padding: 0;
 }
@@ -137,5 +138,39 @@ body {
   /* Control button base styles */
   .control-btn {
     @apply bg-transparent border-none text-theme-text-primary cursor-pointer p-2 flex items-center justify-center rounded hover:bg-theme-bg-hover transition-colors;
+  }
+
+  .icon-button__icon {
+    display: inline-flex;
+  }
+
+  .icon-button__icon > svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .ui-scale {
+    transform: scale(var(--ui-scale));
+    transform-origin: top left;
+  }
+
+  .ui-scale--full-width {
+    width: calc(100% / var(--ui-scale));
+  }
+
+  .ui-scale--origin-top-right {
+    transform-origin: top right;
+  }
+
+  .ui-scale--origin-bottom-right {
+    transform-origin: bottom right;
+  }
+
+  .ui-scale--origin-bottom-left {
+    transform-origin: bottom left;
+  }
+
+  .ui-scale--origin-center {
+    transform-origin: center;
   }
 }

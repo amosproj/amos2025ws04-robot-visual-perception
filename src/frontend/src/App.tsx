@@ -332,7 +332,7 @@ function App() {
 
   const radarWidget =
     showRadar && !isFullscreen ? (
-      <div className="absolute right-3 bottom-16 z-40 pointer-events-auto sm:right-6 sm:bottom-24">
+      <div className="absolute right-3 bottom-16 z-40 pointer-events-auto sm:right-6 sm:bottom-24 ui-scale ui-scale--origin-bottom-right">
         <RadarView detections={thresholdedDetections} />
       </div>
     ) : null;
