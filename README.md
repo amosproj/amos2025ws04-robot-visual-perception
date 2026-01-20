@@ -78,6 +78,7 @@ make download-models-onnx
 make download-yolo
 make download-midas
 make download-depth-anything
+make download-depth-pro
 
 # Export models to ONNX
 make export-yolo-onnx
@@ -89,10 +90,17 @@ To start the analyzer service with ONNX backend:
 DETECTOR_BACKEND=onnx DEPTH_BACKEND=onnx make run-analyzer-local
 ```
 
+
 To start the analyzer service with Depth Anything V2 backend:
 ```bash
 DEPTH_BACKEND=depth_anything_v2 make run-analyzer-local
 ```
+
+To start the analyzer service with Apple's ML Depth Pro backend:
+```bash
+DEPTH_BACKEND=depth_pro make run-analyzer-local
+```
+*Note: Depth Pro model weights are approx. 1.8 GB and will be downloaded automatically (or via `make download-depth-pro`).*
 
 Example production usage with custom model type:
 ```bash

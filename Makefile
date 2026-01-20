@@ -255,3 +255,11 @@ download-depth-anything:
 	cd src/backend && uv run python ../../scripts/download_models.py \
 	  --models depth-anything \
 	  --output-dir $(MODELS_DIR)
+
+download-depth-pro:
+	@echo "Downloading Depth Pro model..."
+	@mkdir -p $(MODELS_DIR)
+	cd src/backend && uv sync --extra inference
+	cd src/backend && uv run python ../../scripts/download_models.py \
+	  --models depth-pro \
+	  --output-dir $(MODELS_DIR)
