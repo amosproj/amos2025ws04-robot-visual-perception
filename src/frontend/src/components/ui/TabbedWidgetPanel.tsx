@@ -26,7 +26,7 @@ export function TabbedWidgetPanel({
   const activeContent = tabs.find((tab) => tab.id === activeTab)?.content;
 
   return (
-    <div className="bg-theme-bg-secondary/95 backdrop-blur-sm border border-theme-border-subtle rounded-lg shadow-xl overflow-hidden">
+    <div className="bg-theme-bg-secondary backdrop-blur-2xl border border-theme-border-subtle rounded-lg shadow-xl overflow-hidden">
       {/* Tab buttons */}
       <div className="flex border-b border-theme-border-subtle">
         {tabs.map((tab) => (

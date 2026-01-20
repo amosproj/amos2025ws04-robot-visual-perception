@@ -78,34 +78,6 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey)) return;
-
-      if (event.key === '+' || event.key === '=') {
-        event.preventDefault();
-        setVideoZoom((prev) => clampValue(prev + 0.1, 1, 3));
-        return;
-      }
-
-      if (event.key === '-' || event.key === '_') {
-        event.preventDefault();
-        setVideoZoom((prev) => clampValue(prev - 0.1, 1, 3));
-        return;
-      }
-
-      if (event.key === '0') {
-        event.preventDefault();
-        setVideoZoom(1);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
-
   // WebRTC connection to webcam service (for raw video)
   const {
     videoRef,
