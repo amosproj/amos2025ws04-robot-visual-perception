@@ -65,7 +65,7 @@ export function GameOverlay({
 
       {/* Left side - Tabbed widget panel */}
       {showPanel && (
-        <div className="fixed left-10 top-[calc(var(--ui-header-height)-12px)] z-40 w-72">
+        <div className="fixed left-10 top-[calc(var(--ui-header-height)+12px)] z-40 w-72">
           <TabbedWidgetPanel tabs={tabs} defaultTab="filter" />
         </div>
       )}
