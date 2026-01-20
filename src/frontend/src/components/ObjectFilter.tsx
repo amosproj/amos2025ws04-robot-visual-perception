@@ -356,7 +356,7 @@ function ObjectFilter({
       {/* Toggle button */}
       <button
         onClick={onToggle}
-        className="fixed left-5 top-[80px] z-50 bg-theme-bg-tertiary hover:bg-theme-bg-hover text-theme-accent rounded-lg p-2 transition-colors border border-theme-border shadow-lg"
+        className="fixed left-3 sm:left-5 top-[calc(var(--ui-header-height)+0.5rem)] z-50 bg-theme-bg-tertiary hover:bg-theme-bg-hover text-theme-accent rounded-lg p-2 transition-colors border border-theme-border shadow-lg"
         aria-label={t('objectFilterToggle')}
       >
         <svg
@@ -375,7 +375,7 @@ function ObjectFilter({
 
       {/* Widget content */}
       {isOpen && (
-        <div className="fixed left-5 top-[120px] w-[280px] max-h-[calc(100vh-140px)] overflow-y-auto z-50 transition-all duration-300">
+        <div className="fixed left-3 right-3 sm:left-5 sm:right-auto top-[calc(var(--ui-header-height)+3.5rem)] w-auto sm:w-[280px] max-h-[calc(100vh-var(--ui-header-height)-4.5rem)] overflow-y-auto z-50 transition-all duration-300">
           <ObjectFilterSection {...sectionProps} variant="card" />
         </div>
       )}

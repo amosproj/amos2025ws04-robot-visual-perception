@@ -16,9 +16,18 @@ import { GameOverlay } from './components/ui/GameOverlay';
 import { ObjectFilterSection } from './components/ObjectFilter';
 import StreamInfo from './components/StreamInfo';
 import DetectionInfo from './components/DetectionInfo';
+import RadarView from './components/RadarView';
 
 const clampValue = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+const getBaseUiScale = (width: number) => {
+  if (width < 640) return 0.95;
+  if (width < 768) return 1;
+  if (width < 1024) return 1.1;
+  if (width < 1280) return 1.2;
+  return 1.3;
+};
 
 function App() {
   const log = useMemo(() => logger.child({ component: 'App' }), []);
@@ -36,6 +45,25 @@ function App() {
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.3);
   const autoSelectedClassesRef = useRef<Set<number>>(new Set());
   const [videoZoom, setVideoZoom] = useState(1);
+
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+
+    const updateUiScale = () => {
+      const baseScale = getBaseUiScale(window.innerWidth);
+      const dpr = window.devicePixelRatio || 1;
+      const adjustedScale = baseScale / Math.sqrt(dpr);
+      const clampedScale = clampValue(adjustedScale, 0.85, baseScale);
+      root.style.setProperty('--ui-scale', clampedScale.toFixed(3));
+    };
+
+    updateUiScale();
+    window.addEventListener('resize', updateUiScale);
+
+    return () => {
+      window.removeEventListener('resize', updateUiScale);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const header = headerRef.current;
@@ -254,6 +282,39 @@ function App() {
   }, [connectVideo, connectAnalyzer]);
 
   const [showPanel, setShowPanel] = useState(true);
+  const [showRadar, setShowRadar] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const doc = document as Document & {
+        webkitFullscreenElement?: Element | null;
+        msFullscreenElement?: Element | null;
+      };
+      const fullscreenElement =
+        doc.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.msFullscreenElement;
+      setIsFullscreen(Boolean(fullscreenElement));
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('msfullscreenchange', handleFullscreenChange);
+    handleFullscreenChange();
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener(
+        'webkitfullscreenchange',
+        handleFullscreenChange
+      );
+      document.removeEventListener(
+        'msfullscreenchange',
+        handleFullscreenChange
+      );
+    };
+  }, []);
 
   const handleClearOverlay = () => {
     setSelectedClasses(new Set());
@@ -269,6 +330,13 @@ function App() {
     });
   };
 
+  const radarWidget =
+    showRadar && !isFullscreen ? (
+      <div className="absolute right-3 bottom-16 z-40 pointer-events-auto sm:right-6 sm:bottom-24">
+        <RadarView detections={thresholdedDetections} />
+      </div>
+    ) : null;
+
   return (
     <div className="font-sans bg-theme-bg-primary text-theme-text-primary min-h-screen">
       <Header
@@ -282,6 +350,8 @@ function App() {
         onDisconnectAnalyzer={disconnectAnalyzer}
         showPanel={showPanel}
         onTogglePanel={() => setShowPanel(!showPanel)}
+        showRadar={showRadar}
+        onToggleRadar={() => setShowRadar((prev) => !prev)}
       />
 
       <GameOverlay
@@ -348,6 +418,7 @@ function App() {
             onTogglePlay={togglePlayPause}
             onFullscreen={enterFullscreen}
             onOverlayFpsUpdate={setOverlayFps}
+            metadataWidget={radarWidget}
           />
         </div>
       </GameOverlay>

@@ -46,7 +46,7 @@ export default function ThemeToggle({
   const sizeClass = {
     sm: 'p-2',
     md: 'p-2.5',
-    lg: 'p-4 w-[4.5rem] h-[4.5rem]',
+    lg: 'p-2.5 w-12 h-12 sm:p-3 sm:w-14 sm:h-14 lg:p-4 lg:w-[4.5rem] lg:h-[4.5rem]',
   }[size];
 
   const iconSize = {

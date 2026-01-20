@@ -49,7 +49,7 @@ function MetadataWidget({
       {/* Toggle button */}
       <button
         onClick={onToggle}
-        className="fixed right-5 top-[80px] z-50 bg-theme-bg-tertiary hover:bg-theme-bg-hover text-theme-accent rounded-lg p-2 transition-colors border border-theme-border shadow-lg"
+        className="fixed right-3 sm:right-5 top-[calc(var(--ui-header-height)+0.5rem)] z-50 bg-theme-bg-tertiary hover:bg-theme-bg-hover text-theme-accent rounded-lg p-2 transition-colors border border-theme-border shadow-lg"
         aria-label={t('metadataToggle')}
       >
         <svg
@@ -68,7 +68,7 @@ function MetadataWidget({
 
       {/* Widget content */}
       {isOpen && (
-        <div className="fixed right-5 top-[120px] w-[320px] max-h-[calc(100vh-140px)] overflow-y-auto z-50 transition-all duration-300">
+        <div className="fixed left-3 right-3 sm:left-auto sm:right-5 top-[calc(var(--ui-header-height)+3.5rem)] w-auto sm:w-[320px] max-h-[calc(100vh-var(--ui-header-height)-4.5rem)] overflow-y-auto z-50 transition-all duration-300">
           <div className="space-y-4">
             {/* Stream Info Section */}
             {streamMetadata && <StreamInfo {...streamMetadata} />}

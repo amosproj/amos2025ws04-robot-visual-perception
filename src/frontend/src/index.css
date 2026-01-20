@@ -45,6 +45,30 @@
     --shadow-error-glow: 0 0 8px rgba(220, 38, 38, 0.3);
   }
 
+  @media (max-width: 1280px) {
+    :root {
+      --ui-scale: 1.2;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    :root {
+      --ui-scale: 1.1;
+    }
+  }
+
+  @media (max-width: 768px) {
+    :root {
+      --ui-scale: 1;
+    }
+  }
+
+  @media (max-width: 640px) {
+    :root {
+      --ui-scale: 0.95;
+    }
+  }
+
   .dark {
     /* Dark theme */
     --color-bg-primary: #1a1a1a;

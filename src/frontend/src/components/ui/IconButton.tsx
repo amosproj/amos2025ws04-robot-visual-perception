@@ -41,7 +41,7 @@ const variantStyles = {
 const sizeStyles = {
   sm: 'w-11 h-11',
   md: 'w-14 h-14',
-  lg: 'w-[4.5rem] h-[4.5rem]',
+  lg: 'w-12 h-12 sm:w-14 sm:h-14 lg:w-[4.5rem] lg:h-[4.5rem]',
 };
 
 const tooltipPositionStyles = {
