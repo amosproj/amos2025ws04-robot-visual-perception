@@ -378,7 +378,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             ctx.shadowColor = color;
             ctx.shadowBlur = 8;
             ctx.strokeStyle = color;
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 2;
             ctx.strokeRect(bboxX, bboxY, bboxWidth, bboxHeight);
             ctx.strokeRect(bboxX + 1, bboxY + 1, bboxWidth - 2, bboxHeight - 2);
             ctx.shadowBlur = 0;
