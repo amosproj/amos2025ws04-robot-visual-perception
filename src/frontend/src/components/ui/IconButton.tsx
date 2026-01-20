@@ -39,9 +39,9 @@ const variantStyles = {
 };
 
 const sizeStyles = {
-  sm: 'w-11 h-11',
-  md: 'w-14 h-14',
-  lg: 'w-[4.5rem] h-[4.5rem]',
+  sm: 'w-8 h-8',
+  md: 'w-10 h-10',
+  lg: 'w-12 h-12',
 };
 
 const tooltipPositionStyles = {
