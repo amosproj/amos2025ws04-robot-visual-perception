@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
+from typing import Optional
+
 import numpy as np
+from ultralytics.engine.results import Results  # type: ignore[import-untyped]
 
 from common.typing import Detection
-
-from ultralytics.engine.results import Results  # type: ignore[import-untyped]
 
 
 def get_detections(
@@ -17,7 +18,7 @@ def get_detections(
         inference_results: Output of `model.predict(...)` (only the first item is used).
 
     Returns:
-        Detections with (x1, y1, x2, y2, cls_id, confidence). Empty if none found.
+        Detections with (x1, y1, x2, y2, cls_id, confidence, binary_mask). Empty if none found.
     """
     if not inference_results:
         return []
@@ -30,6 +31,11 @@ def get_detections(
     class_ids = result.boxes.cls.cpu().numpy().astype(int)
     confidences = result.boxes.conf.cpu().numpy()
 
+    # Check if segmentation masks are available (YOLOv8-seg or similar)
+    masks = None
+    if result.masks is not None and len(result.masks) > 0:
+        masks = result.masks.data.cpu().numpy()
+
     detections = [
         Detection(
             x1=int(x1),
@@ -38,9 +44,10 @@ def get_detections(
             y2=int(y2),
             cls_id=int(class_id),
             confidence=float(confidence),
+            binary_mask=_extract_binary_mask(masks, idx),
         )
-        for (x1, y1, x2, y2), class_id, confidence in zip(
-            bbox_coords, class_ids, confidences
+        for idx, ((x1, y1, x2, y2), class_id, confidence) in enumerate(
+            zip(bbox_coords, class_ids, confidences)
         )
     ]
 
@@ -265,3 +272,16 @@ def calculate_region_bounds(
     y_end = min(center_y + half_size + 1, frame_height)
 
     return x_start, x_end, y_start, y_end
+
+
+def _extract_binary_mask(masks: Optional[np.ndarray], idx: int) -> Optional[np.ndarray]:
+    if masks is None:
+        return None
+
+    if idx >= len(masks):
+        return None
+
+    data = masks[idx]
+    binary_mask = (data > 0.5).astype(np.uint8)
+
+    return binary_mask

@@ -15,35 +15,29 @@ from fastapi import WebSocket
 from prometheus_client import Histogram
 from pydantic import BaseModel
 
-from analyzer.tracker import TrackingManager
 from analyzer.tracked_object import TrackedObject
-
+from analyzer.tracker import TrackingManager
 from common.config import config
-from common.typing import Detection, DetectionPayload
-from common.protocols import DepthEstimator, ObjectDetector
-
-from common.data.coco_labels import get_coco_label
-
 from common.core.depth import get_depth_estimator
 from common.core.detector import get_detector
 from common.core.session import WebcamSession
-
+from common.data.coco_labels import get_coco_label
 from common.metrics import (
     get_depth_estimation_duration,
     get_detection_duration,
     get_detections_count,
 )
-
+from common.protocols import DepthEstimator, ObjectDetector
+from common.typing import Detection, DetectionPayload
 from common.utils.camera import compute_camera_intrinsics
 from common.utils.detection import (
-    unproject_bbox_center_to_camera,
     normalize_bbox_coordinates,
+    unproject_bbox_center_to_camera,
 )
 from common.utils.transforms import (
-    resize_frame,
     calculate_adaptive_scale,
+    resize_frame,
 )
-
 
 logger = logging.getLogger("manager")
 

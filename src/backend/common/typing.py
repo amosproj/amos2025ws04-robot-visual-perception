@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+import numpy as np
 from typing_extensions import TypedDict
 
 
@@ -15,6 +17,8 @@ class Detection:
     y2: int
     cls_id: int
     confidence: float
+    binary_mask: np.ndarray | None = field(default=None, kw_only=True)
+    """Optional binary segmentation mask (H x W) where True = object pixel, False = background."""
 
 
 # Strict typing for Metadata message because it's coupled with the frontend
