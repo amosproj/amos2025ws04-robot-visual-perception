@@ -21,9 +21,11 @@ import {
   sanitizeTimestamp,
   isHeldFrameValid,
   hasLayoutChanged,
+  getRelativePosition,
   HOLD_LAST_MS,
   type ObjectFit,
 } from '../../lib/overlayUtils';
+import { scaleForDPR } from '../../lib/mathUtils';
 
 /**
  * Metadata for a single detected object with bounding box
@@ -149,10 +151,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       );
       const dpr = window.devicePixelRatio || 1;
 
-      const top =
-        (containerRect ? videoRect.top - containerRect.top : 0) + offsetY;
-      const left =
-        (containerRect ? videoRect.left - containerRect.left : 0) + offsetX;
+      const { top, left } = getRelativePosition(videoRect, containerRect, {
+        x: offsetX,
+        y: offsetY,
+      });
 
       const currentLayout = { width, height, top, left, dpr };
       const { sizeChanged, positionChanged } = hasLayoutChanged(
@@ -161,8 +163,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       );
 
       if (sizeChanged) {
-        canvas.width = Math.max(1, Math.round(width * dpr));
-        canvas.height = Math.max(1, Math.round(height * dpr));
+        canvas.width = scaleForDPR(width, dpr);
+        canvas.height = scaleForDPR(height, dpr);
         canvas.style.width = `${width}px`;
         canvas.style.height = `${height}px`;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

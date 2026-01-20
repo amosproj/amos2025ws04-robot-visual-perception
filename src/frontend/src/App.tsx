@@ -9,6 +9,8 @@ import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 import { logger } from './lib/logger';
 import { useI18n } from './i18n';
+import { clamp } from './lib/mathUtils';
+import { getClassId } from './lib/overlayUtils';
 
 import Header from './components/Header';
 import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
@@ -16,9 +18,6 @@ import { GameOverlay } from './components/ui/GameOverlay';
 import { ObjectFilterSection } from './components/ObjectFilter';
 import StreamInfo from './components/StreamInfo';
 import DetectionInfo from './components/DetectionInfo';
-
-const clampValue = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
 
 function App() {
   const log = useMemo(() => logger.child({ component: 'App' }), []);
@@ -69,7 +68,7 @@ function App() {
       if (!direction) return;
 
       const step = direction > 0 ? -0.1 : 0.1;
-      setVideoZoom((prev) => clampValue(prev + step, 1, 3));
+      setVideoZoom((prev) => clamp(prev + step, 1, 3));
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false });
@@ -135,10 +134,7 @@ function App() {
     return {
       ...latestMetadata,
       detections: thresholdedDetections.filter((detection) => {
-        const classId =
-          typeof detection.label === 'string'
-            ? parseInt(detection.label, 10)
-            : detection.label;
+        const classId = getClassId(detection.label);
         return !isNaN(classId) && selectedClasses.has(classId);
       }),
     };
@@ -186,10 +182,7 @@ function App() {
       const newClassIds: number[] = [];
 
       thresholdedDetections.forEach((detection) => {
-        const classId =
-          typeof detection.label === 'string'
-            ? parseInt(detection.label, 10)
-            : detection.label;
+        const classId = getClassId(detection.label);
 
         if (!isNaN(classId) && !autoSelectedClassesRef.current.has(classId)) {
           autoSelectedClassesRef.current.add(classId);
