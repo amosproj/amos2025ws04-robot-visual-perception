@@ -137,6 +137,32 @@ Optional environment variables:
 
 > Check `src/backend/common/config.py`.
 
+### Analyzer settings file (JSON)
+
+The analyzer can load a JSON settings file on startup. If the file does not
+exist, it falls back to the default config values.
+
+Default path:
+- `config/analyzer.json`
+
+Override the path:
+- `ANALYZER_SETTINGS_FILE=/path/to/analyzer.json`
+
+Format:
+- JSON object where keys match the config names in `src/backend/common/config.py`.
+- Values in the JSON override the defaults and environment variables for the analyzer.
+
+Example `config/analyzer.json`:
+```json
+{
+  "MODEL_PATH": "models/yolo11n.pt",
+  "DETECTOR_BACKEND": "onnx",
+  "DEPTH_BACKEND": "depth_anything_v2",
+  "DETECTOR_CONF_THRESHOLD": 0.35,
+  "TRACKING_IOU_THRESHOLD": 0.2
+}
+```
+
 
 ### Calibrate depth and XYZ
 - Set camera intrinsics: if you have calibrated values, export them to env vars (pixels): `CAMERA_FX`, `CAMERA_FY`, `CAMERA_CX`, `CAMERA_CY`. If not, set approximate FOVs: `CAMERA_FOV_X_DEG=78 CAMERA_FOV_Y_DEG=65` (defaults). Intrinsics are derived from the first frame size plus these values.
