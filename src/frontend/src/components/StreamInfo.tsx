@@ -37,7 +37,7 @@ function StreamInfo({
   const titleClass =
     variant === 'card'
       ? 'my-0 mb-4 text-theme-accent text-xl'
-      : 'my-0 mb-3 text-theme-accent text-3xl font-semibold';
+      : 'my-0 mb-3 text-theme-accent text-lg font-semibold';
   const hasStreamMetrics =
     videoResolution !== undefined ||
     packetLoss !== undefined ||
@@ -78,7 +78,7 @@ function StreamInfo({
           jitter !== undefined ||
           bitrate !== undefined) && (
           <>
-            <div className="text-theme-text-muted text-lg font-semibold uppercase mt-4 mb-2">
+            <div className="text-theme-text-muted text-xs font-semibold uppercase mt-4 mb-2">
               {t('streamInfoNetworkQuality')}
             </div>
 
@@ -117,7 +117,7 @@ function StreamInfo({
         {/* Video Quality */}
         {(framesReceived !== undefined || framesDecoded !== undefined) && (
           <>
-            <div className="text-theme-text-muted text-lg font-semibold uppercase mt-4 mb-2">
+            <div className="text-theme-text-muted text-xs font-semibold uppercase mt-4 mb-2">
               {t('streamInfoVideoQuality')}
             </div>
 
@@ -156,8 +156,8 @@ const InfoRow = memo(
   }) => {
     return (
       <div className="flex justify-between items-center">
-        <span className="text-theme-text-secondary text-xl">{label}:</span>
-        <span className={`font-semibold text-xl ${valueClass}`}>{value}</span>
+        <span className="text-theme-text-secondary text-sm">{label}:</span>
+        <span className={`font-semibold text-sm ${valueClass}`}>{value}</span>
       </div>
     );
   }

@@ -302,7 +302,7 @@ function App() {
         }
       >
         {/* Main video player - fullscreen background */}
-        <div className="fixed inset-0 pt-[var(--ui-header-height)]">
+        <div className="fixed inset-0 pt-[var(--ui-header-height)] pb-[var(--ui-header-height)]">
           <VideoPlayer
             ref={videoPlayerRef}
             videoRef={videoRef}

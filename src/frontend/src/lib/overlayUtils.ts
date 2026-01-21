@@ -10,9 +10,6 @@
  */
 
 import { clamp } from './mathUtils';
-
-export { clamp };
-
 /**
  * Color for detection bounding boxes (all overlays use green).
  */

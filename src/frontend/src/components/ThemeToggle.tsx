@@ -44,15 +44,15 @@ export default function ThemeToggle({
   }, []);
 
   const sizeClass = {
-    sm: 'p-2',
-    md: 'p-2.5',
-    lg: 'p-4 w-[4.5rem] h-[4.5rem]',
+    sm: 'p-1.5',
+    md: 'p-2',
+    lg: 'p-3',
   }[size];
 
   const iconSize = {
-    sm: 20,
-    md: 24,
-    lg: 40,
+    sm: 16,
+    md: 20,
+    lg: 24,
   }[size];
 
   return (

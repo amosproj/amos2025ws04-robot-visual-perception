@@ -6,7 +6,6 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import {
-  clamp,
   getDetectionColor,
   computeDisplayedVideoRect,
   calculateBoundingBoxPixels,
@@ -22,6 +21,7 @@ import {
   METADATA_TOLERANCE_MS,
   HOLD_LAST_MS,
 } from '../src/lib/overlayUtils';
+import { clamp } from '../src/lib/mathUtils';
 
 describe('clamp', () => {
   it('returns value when within bounds', () => {

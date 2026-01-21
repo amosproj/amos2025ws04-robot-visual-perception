@@ -87,13 +87,13 @@ const ClassCheckboxItem = memo(
             checked={isSelected}
             onChange={() => {}} // Handled by label onClick
             disabled={disabled}
-            className="w-5 h-5 accent-theme-accent cursor-pointer disabled:cursor-not-allowed"
+            className="w-4 h-4 accent-theme-accent cursor-pointer disabled:cursor-not-allowed"
           />
-          <span className="text-xl text-theme-text-primary">
+          <span className="text-sm text-theme-text-primary">
             {classInfo.label}
           </span>
         </div>
-        <span className="text-lg text-theme-text-muted bg-theme-bg-tertiary px-3 py-1 rounded">
+        <span className="text-xs text-theme-text-muted bg-theme-bg-tertiary px-2 py-0.5 rounded">
           {classInfo.count}
         </span>
       </label>
@@ -247,10 +247,10 @@ export function ObjectFilterSection({
     <div className={containerClass}>
       {/* Header */}
       <div className={headerSpacingClass}>
-        <h3 className="my-0 text-theme-accent text-3xl font-semibold">
+        <h3 className="my-0 text-theme-accent text-lg font-semibold">
           {t('objectFilterTitle')}
         </h3>
-        <p className="text-theme-text-muted text-lg mt-1">
+        <p className="text-theme-text-muted text-xs mt-1">
           {noneSelected
             ? t('objectFilterNoVisible')
             : t('objectFilterSelectedClasses', {
@@ -261,9 +261,9 @@ export function ObjectFilterSection({
 
       {/* Low confidence filter */}
       <div className="mb-4">
-        <div className="flex items-center justify-between text-lg text-theme-text-primary mb-1">
+        <div className="flex items-center justify-between text-xs text-theme-text-primary mb-1">
           <span>{t('objectFilterConfidenceTitle')}</span>
-          <span className="text-theme-accent font-mono text-lg">
+          <span className="text-theme-accent font-mono">
             {Math.round(confidenceThreshold * 100)}%+
           </span>
         </div>
@@ -277,7 +277,7 @@ export function ObjectFilterSection({
           disabled={!isVideoConnected}
           className="w-full accent-theme-accent cursor-pointer disabled:cursor-not-allowed"
         />
-        <p className="text-theme-text-muted text-lg mt-1">
+        <p className="text-theme-text-muted text-[11px] mt-1">
           {t('objectFilterConfidenceHelper')}
         </p>
       </div>
@@ -288,14 +288,14 @@ export function ObjectFilterSection({
           <button
             onClick={handleSelectAll}
             disabled={allSelected || !isVideoConnected}
-            className="flex-1 text-lg px-4 py-2.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover disabled:bg-theme-bg-disabled disabled:text-theme-text-muted text-theme-accent rounded border border-theme-border transition-colors"
+            className="flex-1 text-xs px-2 py-1.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover disabled:bg-theme-bg-disabled disabled:text-theme-text-muted text-theme-accent rounded border border-theme-border transition-colors"
           >
             {t('objectFilterSelectAll')}
           </button>
           <button
             onClick={handleClearAll}
             disabled={noneSelected || !isVideoConnected}
-            className="flex-1 text-lg px-4 py-2.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover disabled:bg-theme-bg-disabled disabled:text-theme-text-muted text-theme-accent rounded border border-theme-border transition-colors"
+            className="flex-1 text-xs px-2 py-1.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover disabled:bg-theme-bg-disabled disabled:text-theme-text-muted text-theme-accent rounded border border-theme-border transition-colors"
           >
             {t('objectFilterClearAll')}
           </button>
@@ -316,7 +316,7 @@ export function ObjectFilterSection({
           ))}
         </div>
       ) : (
-        <p className="text-theme-text-muted text-xl italic text-center py-4">
+        <p className="text-theme-text-muted text-sm italic text-center py-4">
           {t('objectFilterNoDetections')}
         </p>
       )}
@@ -324,7 +324,7 @@ export function ObjectFilterSection({
       {/* Info text */}
       {hasDetections && (
         <div className="mt-3 pt-3 border-t border-theme-border-subtle">
-          <p className="text-theme-text-muted text-lg">
+          <p className="text-theme-text-muted text-xs">
             {noneSelected
               ? t('objectFilterInfoNoneSelected')
               : t('objectFilterInfoSomeSelected')}

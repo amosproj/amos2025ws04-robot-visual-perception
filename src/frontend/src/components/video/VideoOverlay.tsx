@@ -380,7 +380,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             ctx.shadowColor = color;
             ctx.shadowBlur = 8;
             ctx.strokeStyle = color;
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 2;
             ctx.strokeRect(bboxX, bboxY, bboxWidth, bboxHeight);
             ctx.strokeRect(bboxX + 1, bboxY + 1, bboxWidth - 2, bboxHeight - 2);
             ctx.shadowBlur = 0;
@@ -394,10 +394,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
               labelText
             );
 
-            ctx.font = 'bold 24px "SF Pro Display", -apple-system, sans-serif';
+            ctx.font = 'bold 14px "SF Pro Display", -apple-system, sans-serif';
             const textMetrics = ctx.measureText(fullText);
-            const textHeight = 30;
-            const padding = 10;
+            const textHeight = 18;
+            const padding = 6;
             const maxLabelWidth = Math.min(
               canvasWidth,
               textMetrics.width + padding * 2
