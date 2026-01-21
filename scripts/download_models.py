@@ -37,7 +37,7 @@ sys.path.insert(0, str(backend_path))
 
 try:
     from common.config import config
-    from common.core.model_downloader import (
+    from common.utils.model_downloader import (
         ensure_depth_anything_model_available,
         ensure_midas_model_available,
         ensure_yolo_model_downloaded,
