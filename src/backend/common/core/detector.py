@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 import asyncio
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Optional, Callable, Any
 import logging
 
 import numpy as np
@@ -229,7 +229,7 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         self._max_det = config.DETECTOR_MAX_DETECTIONS
         self._num_classes = config.DETECTOR_NUM_CLASSES
         self._use_io_binding = config.ONNX_IO_BINDING
-        self._io_binding = None
+        self._io_binding: Optional[Any] = None
         self._io_device_type, self._io_device_id = self._resolve_io_binding_device()
 
     def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
@@ -363,20 +363,25 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         if self._io_binding is None:
             self._io_binding = self._session.io_binding()
 
+        io_binding = self._io_binding
+        if io_binding is None:
+            ort_inputs = {self._input_name: input_tensor}
+            return self._session.run(self._output_names, ort_inputs)
+
         try:
-            self._io_binding.clear_binding_inputs()
-            self._io_binding.clear_binding_outputs()
+            io_binding.clear_binding_inputs()
+            io_binding.clear_binding_outputs()
 
             ort_value = ort.OrtValue.ortvalue_from_numpy(
                 input_tensor, self._io_device_type, self._io_device_id
             )
-            self._io_binding.bind_ortvalue_input(self._input_name, ort_value)
+            io_binding.bind_ortvalue_input(self._input_name, ort_value)
             for output_name in self._output_names:
-                self._io_binding.bind_output(
+                io_binding.bind_output(
                     output_name, self._io_device_type, self._io_device_id
                 )
-            self._session.run_with_iobinding(self._io_binding)
-            return self._io_binding.copy_outputs_to_cpu()
+            self._session.run_with_iobinding(io_binding)
+            return io_binding.copy_outputs_to_cpu()
         except Exception as exc:
             logger.warning(
                 "IO binding failed, falling back to session.run",
