@@ -111,6 +111,11 @@ class Config:
         for provider in os.getenv("ONNX_PROVIDERS", "").split(",")
         if provider.strip()
     ]
+    ONNX_IO_BINDING: bool = os.getenv("ONNX_IO_BINDING", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
     # Tracking/interpolation settings
     # Minimum IoU to match detection to track
