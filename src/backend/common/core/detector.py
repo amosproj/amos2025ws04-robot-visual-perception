@@ -231,7 +231,6 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         self._use_io_binding = config.ONNX_IO_BINDING
         self._io_binding = None
         self._io_device_type, self._io_device_id = self._resolve_io_binding_device()
-        
 
     def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
         """Run ONNX Runtime inference and return scaled, filtered detections."""
