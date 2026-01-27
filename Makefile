@@ -161,7 +161,7 @@ run-backend-local: run-streamer-webcam
 	@echo "Note: To use file source instead, run 'make run-streamer-file'"
 
 run-frontend-local:
-	cd src/frontend && VITE_BACKEND_URL=http://localhost:8001 npm run dev
+	cd src/frontend && VITE_ORCHESTRATOR_URL=http://localhost:8002 npm run dev
 
 docker-build: docker-build-frontend docker-build-backend
 
