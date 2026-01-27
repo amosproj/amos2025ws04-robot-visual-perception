@@ -57,7 +57,7 @@ help:
 	@echo "  sbom-check"
 	@echo "      checks if SBOM is up-to-date with dependencies"
 	@echo "  run-orchestrator-local"
-	@echo "      runs orchestrator service on port 8002"
+	@echo "      runs orchestrator service with dynamic port (starting from 8002)"
 	@echo "  run-backend-local"
 	@echo "      runs backend locally with uvicorn"
 	@echo "  run-frontend-local"
@@ -140,21 +140,21 @@ test-backend:
 	cd src/backend && uv run pytest -s
 
 run-streamer-webcam:
-	@echo "Starting video source service (webcam) on port 8000..."
-	cd src/backend && VIDEO_SOURCE_TYPE=webcam uv run uvicorn streamer.main:app --host 0.0.0.0 --port 8000 --reload
+	@echo "Starting video source service (webcam) with dynamic port..."
+	cd src/backend && VIDEO_SOURCE_TYPE=webcam uv run python -m streamer
 
 run-streamer-file:
-	@echo "Starting video source service (file) on port 8000..."
+	@echo "Starting video source service (file) with dynamic port..."
 	@echo "Set VIDEO_FILE_PATH env var to specify file (default: video.mp4)"
-	cd src/backend && VIDEO_SOURCE_TYPE=file uv run uvicorn streamer.main:app --host 0.0.0.0 --port 8000 --reload
+	cd src/backend && VIDEO_SOURCE_TYPE=file uv run python -m streamer
 
 run-analyzer-local:
-	@echo "Starting analyzer service on port 8001..."
-	cd src/backend && uv run uvicorn analyzer.main:app --host 0.0.0.0 --port 8001 --reload
+	@echo "Starting analyzer service with dynamic port..."
+	cd src/backend && uv run python -m analyzer
 
 run-orchestrator-local:
-	@echo "Starting orchestrator service on port 8002..."
-	cd src/backend && uv run uvicorn orchestrator.main:app --host 0.0.0.0 --port 8002 --reload
+	@echo "Starting orchestrator service with dynamic port..."
+	cd src/backend && uv run python -m orchestrator
 
 run-backend-local: run-streamer-webcam
 	@echo "Note: To run analyzer, use 'make run-analyzer-local' in another terminal"

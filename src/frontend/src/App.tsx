@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { useRef, useEffect, useState, useMemo, useLayoutEffect } from 'react';
+import { useRef, useEffect, useState, useMemo, useLayoutEffect, useCallback } from 'react';
 import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 import { useOrchestrator } from './hooks/useOrchestrator';
@@ -42,6 +42,7 @@ function App() {
   const {
     services,
     assignAnalyzer,
+    unassignAnalyzer,
   } = useOrchestrator({
     orchestratorUrl,
   });
@@ -49,27 +50,7 @@ function App() {
   // Selected streamer/analyzer
   const [selectedStreamerUrl, setSelectedStreamerUrl] = useState<string | null>(null);
   const [selectedAnalyzerUrl, setSelectedAnalyzerUrl] = useState<string | null>(null);
-
-  // Auto-select first streamer on startup or when streamer list changes
-  useEffect(() => {
-    if (services.streamer.length > 0 && !selectedStreamerUrl) {
-      const firstStreamer = services.streamer[0].url;
-      setSelectedStreamerUrl(firstStreamer);
-      log.info('app.streamer_selected', { streamer: firstStreamer });
-    }
-  }, [services.streamer, selectedStreamerUrl, log]);
-
-  // Auto-request analyzer assignment when streamer is selected
-  useEffect(() => {
-    if (selectedStreamerUrl && !selectedAnalyzerUrl) {
-      assignAnalyzer(selectedStreamerUrl).then((result) => {
-        if (result?.analyzerUrl) {
-          setSelectedAnalyzerUrl(result.analyzerUrl);
-          log.info('app.analyzer_assigned', { analyzer: result.analyzerUrl });
-        }
-      });
-    }
-  }, [selectedStreamerUrl, selectedAnalyzerUrl, assignAnalyzer, log]);
+  const [isSwitching, setIsSwitching] = useState(false);
 
   useLayoutEffect(() => {
     const header = headerRef.current;
@@ -143,6 +124,40 @@ function App() {
       setSelectedClasses(new Set());
     },
   });
+
+  const handleSelectStreamer = useCallback(async (streamerUrl: string) => {
+    if (isSwitching || streamerUrl === selectedStreamerUrl) return;
+    setIsSwitching(true);
+
+    try {
+      if (selectedAnalyzerUrl) {
+        await unassignAnalyzer(selectedAnalyzerUrl);
+        setSelectedAnalyzerUrl(null);
+        disconnectAnalyzer();
+      }
+
+      disconnectVideo();
+
+      setSelectedStreamerUrl(streamerUrl);
+      log.info('app.streamer_selected', { streamer: streamerUrl });
+
+      const result = await assignAnalyzer(streamerUrl);
+      if (result?.analyzerUrl) {
+        setSelectedAnalyzerUrl(result.analyzerUrl);
+        log.info('app.analyzer_assigned', { analyzer: result.analyzerUrl });
+      } else {
+        log.warn('app.analyzer_assignment_failed', { streamer: streamerUrl });
+      }
+    } finally {
+      setIsSwitching(false);
+    }
+  }, [assignAnalyzer, disconnectAnalyzer, disconnectVideo, isSwitching, log, selectedAnalyzerUrl, selectedStreamerUrl, unassignAnalyzer]);
+
+  useEffect(() => {
+    if (services.streamer.length > 0 && !selectedStreamerUrl) {
+      void handleSelectStreamer(services.streamer[0].url);
+    }
+  }, [services.streamer, selectedStreamerUrl, handleSelectStreamer]);
 
   // Filter metadata based on selected classes
   const thresholdedDetections = useMemo(() => {
@@ -286,6 +301,42 @@ function App() {
         showPanel={showPanel}
         onTogglePanel={() => setShowPanel(!showPanel)}
       />
+
+      <div className="relative z-50 px-4 py-3 flex flex-wrap items-center gap-2 bg-theme-bg-secondary border-b border-theme-border">
+        <span className="text-sm font-medium text-theme-text-muted">Stream sources:</span>
+        {services.streamer.length === 0 ? (
+          <span className="text-sm text-theme-text-muted">No streamer available</span>
+        ) : (
+          services.streamer.map((s) => {
+            const isSelected = s.url === selectedStreamerUrl;
+            const isDisabled = isSwitching || isSelected;
+            
+            return (
+              <button
+                key={s.url}
+                onClick={() => {
+                  if (!isDisabled) {
+                    console.log('[App] Switching to streamer:', s.url);
+                    handleSelectStreamer(s.url);
+                  }
+                }}
+                disabled={isDisabled}
+                className={`px-3 py-1.5 rounded border text-sm font-medium transition-colors ${
+                  isSelected
+                    ? 'bg-theme-accent text-white border-theme-accent cursor-default'
+                    : 'bg-theme-bg-tertiary text-theme-text-primary border-theme-border hover:bg-theme-bg-hover cursor-pointer'
+                } ${isSwitching ? 'opacity-50 cursor-wait' : ''}`}
+              >
+                {isSelected ? '✓ ' : ''}
+                {s.url}
+              </button>
+            );
+          })
+        )}
+        {isSwitching && (
+          <span className="text-sm text-theme-text-muted animate-pulse">Switching...</span>
+        )}
+      </div>
 
       <GameOverlay
         showPanel={showPanel}

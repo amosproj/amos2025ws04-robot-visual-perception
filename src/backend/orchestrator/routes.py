@@ -42,6 +42,8 @@ class AnalyzerAssignmentResponse(BaseModel):
 
 # Global state
 _services: dict[str, dict[str, ServiceInfo]] = {"streamer": {}, "analyzer": {}}
+# Tracks which analyzer is currently assigned to which streamer (analyzer_url -> streamer_url)
+_assignments: dict[str, str] = {}
 _services_lock = asyncio.Lock()
 _ws_connections: set[WebSocket] = set()  # WebSocket clients watching for updates
 
@@ -99,6 +101,15 @@ async def unregister_service(payload: RegisterRequest) -> dict[str, object]:
     async with _services_lock:
         _services[payload.service_type].pop(payload.url, None)
 
+        # Clear assignments when a service goes away
+        if payload.service_type == "analyzer":
+            _assignments.pop(payload.url, None)
+        elif payload.service_type == "streamer":
+            # Free any analyzer assigned to this streamer
+            busy_analyzers = [a for a, s in _assignments.items() if s == payload.url]
+            for analyzer_url in busy_analyzers:
+                _assignments.pop(analyzer_url, None)
+
     logger.info(f"Unregistered service: {payload.service_type} at {payload.url}")
     
     # Broadcast update to all connected clients
@@ -126,7 +137,9 @@ async def assign_analyzer(streamer_url: str) -> AnalyzerAssignmentResponse:
     """
     async with _services_lock:
         analyzers = _services.get("analyzer", {})
-        if not analyzers:
+        free_analyzers = [url for url in analyzers.keys() if url not in _assignments]
+
+        if not free_analyzers:
             return AnalyzerAssignmentResponse(
                 analyzer_url=None,
                 streamer_url=None,
@@ -134,7 +147,8 @@ async def assign_analyzer(streamer_url: str) -> AnalyzerAssignmentResponse:
             )
         
         # Return first available analyzer (simple first-fit strategy)
-        analyzer_url = next(iter(analyzers.keys()))
+        analyzer_url = free_analyzers[0]
+        _assignments[analyzer_url] = streamer_url
         
     logger.info(f"Assigned analyzer {analyzer_url} to streamer {streamer_url}")
     return AnalyzerAssignmentResponse(
@@ -142,6 +156,20 @@ async def assign_analyzer(streamer_url: str) -> AnalyzerAssignmentResponse:
         streamer_url=streamer_url,
         message=f"Analyzer {analyzer_url} assigned to streamer {streamer_url}",
     )
+
+@router.post("/unassign-analyzer")
+async def unassign_analyzer(analyzer_url: str) -> dict[str, object]:
+    """Mark an analyzer as free (unassign from any streamer)."""
+    async with _services_lock:
+        was_assigned = analyzer_url in _assignments
+        _assignments.pop(analyzer_url, None)
+
+    logger.info(f"Unassigned analyzer {analyzer_url}")
+    return {
+        "status": "unassigned",
+        "analyzer_url": analyzer_url,
+        "was_assigned": was_assigned,
+    }
 
 
 @router.websocket("/ws")

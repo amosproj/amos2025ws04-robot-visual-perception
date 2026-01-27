@@ -171,6 +171,24 @@ export function useOrchestrator({
     [orchestratorUrl]
   );
 
+  const unassignAnalyzer = useCallback(
+    async (analyzerUrl: string): Promise<boolean> => {
+      try {
+        const response = await fetch(
+          `${orchestratorUrl}/unassign-analyzer?analyzer_url=${encodeURIComponent(analyzerUrl)}`,
+          { method: 'POST' }
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        await response.json();
+        return true;
+      } catch (err) {
+        console.error('[Orchestrator] Failed to unassign analyzer:', err);
+        return false;
+      }
+    },
+    [orchestratorUrl]
+  );
+
   // Initialize: fetch services and connect WebSocket
   useEffect(() => {
     fetchServices();
@@ -187,6 +205,7 @@ export function useOrchestrator({
     loading,
     fetchServices,
     assignAnalyzer,
+    unassignAnalyzer,
     disconnect,
   };
 }

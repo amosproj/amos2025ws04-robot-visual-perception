@@ -121,9 +121,18 @@ class AnalyzerWebSocketManager:
 
     async def set_streamer_url(self, streamer_url: str) -> None:
         """Set the streamer URL and trigger processing startup if needed."""
+        # Check if URL is changing
+        url_changed = self._streamer_url and self._streamer_url != streamer_url
+        
         self._streamer_url = streamer_url
         logger.info(f"Streamer URL configured: {streamer_url}")
         self._streamer_url_event.set()
+        
+        # If URL changed and we have active connections, restart processing
+        if url_changed and self.active_connections:
+            logger.info("Streamer URL changed, restarting processing...")
+            await self._stop_processing()
+            await self._start_processing()
 
     async def disconnect(self, websocket: WebSocket) -> None:
         """Handle WebSocket disconnection."""
