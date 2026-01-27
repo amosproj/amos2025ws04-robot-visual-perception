@@ -163,6 +163,7 @@ def main() -> None:
                 yolo_path=yolo_final_path,
                 output_path=yolo_onnx_target,
                 opset=args.onnx_opset,
+                imgsz=config.DETECTOR_IMAGE_SIZE,
                 simplify=args.onnx_simplify
             )
 
@@ -197,6 +198,7 @@ def main() -> None:
                 model_type=args.midas_type,
                 model_repo=args.midas_repo,
                 opset=args.onnx_opset,
+                input_size=config.MIDAS_ONNX_INPUT_SIZE,
             )
 
     # --- Depth Anything Processing ---

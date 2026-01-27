@@ -97,7 +97,7 @@ def export_yolo_to_onnx(
     yolo_path: Path,
     output_path: Path,
     opset: int = 18,
-    imgsz: int = 640,
+    imgsz: int = 384,
     simplify: bool = True,
 ) -> Path:
     """Export YOLO model to ONNX format.
