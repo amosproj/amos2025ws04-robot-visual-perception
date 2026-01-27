@@ -38,7 +38,7 @@ def _build_midas_small_transform(
 ) -> Callable[[np.ndarray], torch.Tensor]:
     """Create a MiDaS-small transform with a custom input size."""
     import cv2
-    from torchvision.transforms import Compose
+    from torchvision.transforms import Compose  # type: ignore[import-untyped]
 
     resize = getattr(midas_transforms, "Resize")
     normalize = getattr(midas_transforms, "NormalizeImage")
@@ -69,7 +69,7 @@ def _build_midas_no_resize_transform(
     std: list[float],
 ) -> Callable[[np.ndarray], torch.Tensor]:
     """Create a MiDaS transform that assumes the input is already resized, want to avoid resize inside MiDaS."""
-    from torchvision.transforms import Compose
+    from torchvision.transforms import Compose  # type: ignore[import-untyped]
 
     normalize = getattr(midas_transforms, "NormalizeImage")
     prepare = getattr(midas_transforms, "PrepareForNet")
