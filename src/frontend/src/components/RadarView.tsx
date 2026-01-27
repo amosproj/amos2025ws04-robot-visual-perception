@@ -107,7 +107,7 @@ export default function RadarView({
   const objectCount = radarPoints.length;
 
   return (
-    <div className="bg-theme-bg-secondary/95 backdrop-blur-sm border border-theme-border-subtle rounded-lg shadow-xl p-4 sm:p-5 md:p-6 w-[calc(100vw-2rem)] max-w-[34rem]">
+    <div className="bg-theme-bg-secondary/95 backdrop-blur-sm border border-theme-border-subtle rounded-lg shadow-xl p-3 sm:p-4 w-[calc(100vw-2rem)] max-w-[24rem]">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="my-0 text-theme-accent text-base sm:text-lg md:text-xl font-semibold">
@@ -123,7 +123,7 @@ export default function RadarView({
       </div>
 
       <div
-        className="relative mt-4 h-64 sm:h-72 md:h-80 lg:h-96 overflow-hidden rounded-b-[4rem] border border-theme-border-subtle bg-theme-bg-tertiary/70"
+        className="relative mt-3 h-44 sm:h-52 md:h-60 overflow-hidden rounded-b-[3rem] border border-theme-border-subtle bg-theme-bg-tertiary/70"
         style={{
           backgroundImage:
             'radial-gradient(circle at 50% 100%, rgba(116,185,255,0.18) 0%, rgba(45,52,54,0.05) 55%, rgba(45,52,54,0) 75%)',

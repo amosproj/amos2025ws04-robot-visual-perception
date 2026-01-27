@@ -26,7 +26,7 @@ export function TabbedWidgetPanel({
   const activeContent = tabs.find((tab) => tab.id === activeTab)?.content;
 
   return (
-    <div className="bg-theme-bg-secondary/95 backdrop-blur-sm border border-theme-border-subtle rounded-lg shadow-xl overflow-hidden">
+    <div className="bg-theme-bg-secondary backdrop-blur-2xl border border-theme-border-subtle rounded-lg shadow-xl overflow-hidden">
       {/* Tab buttons */}
       <div className="flex border-b border-theme-border-subtle">
         {tabs.map((tab) => (
@@ -34,7 +34,7 @@ export function TabbedWidgetPanel({
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`
-              flex-1 px-3 py-2 sm:px-5 sm:py-3 text-base sm:text-lg md:text-xl lg:text-2xl font-semibold uppercase tracking-wider
+              flex-1 px-4 py-2 text-xs font-semibold uppercase tracking-wider
               transition-colors duration-200
               ${
                 activeTab === tab.id
@@ -49,7 +49,7 @@ export function TabbedWidgetPanel({
       </div>
 
       {/* Tab content */}
-      <div className="p-4 sm:p-6 md:p-8 max-h-[calc(100vh-var(--ui-header-height)-4rem)] overflow-y-auto">
+      <div className="p-4 max-h-[calc(100vh-200px)] overflow-y-auto">
         {activeContent}
       </div>
     </div>

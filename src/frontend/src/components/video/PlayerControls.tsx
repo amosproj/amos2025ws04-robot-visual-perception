@@ -30,13 +30,13 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
         {/* Left side - Play/Pause */}
         <button
           onClick={onTogglePlay}
-          className="pointer-events-auto p-4 bg-black/40 hover:bg-black/60 rounded-xl backdrop-blur-md text-white transition-colors"
+          className="pointer-events-auto p-2 bg-black/40 hover:bg-black/60 rounded-lg backdrop-blur-md text-white transition-colors"
           title={isPlaying ? 'Pause' : 'Play'}
         >
           {!isPlaying ? (
-            <Play size={36} fill="white" />
+            <Play size={24} fill="white" />
           ) : (
-            <Pause size={36} fill="white" />
+            <Pause size={24} fill="white" />
           )}
         </button>
 

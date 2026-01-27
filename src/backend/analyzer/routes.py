@@ -2,9 +2,11 @@
 #
 # SPDX-License-Identifier: MIT
 from pathlib import Path
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+
 from analyzer.manager import AnalyzerWebSocketManager
 
 

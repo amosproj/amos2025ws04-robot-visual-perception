@@ -9,6 +9,8 @@ import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 import { logger } from './lib/logger';
 import { useI18n } from './i18n';
+import { clamp } from './lib/mathUtils';
+import { getClassId } from './lib/overlayUtils';
 
 import Header from './components/Header';
 import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
@@ -17,17 +19,6 @@ import { ObjectFilterSection } from './components/ObjectFilter';
 import StreamInfo from './components/StreamInfo';
 import DetectionInfo from './components/DetectionInfo';
 import RadarView from './components/RadarView';
-
-const clampValue = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
-
-const getBaseUiScale = (width: number) => {
-  if (width < 640) return 0.95;
-  if (width < 768) return 1;
-  if (width < 1024) return 1.1;
-  if (width < 1280) return 1.2;
-  return 1.3;
-};
 
 function App() {
   const log = useMemo(() => logger.child({ component: 'App' }), []);
@@ -45,25 +36,6 @@ function App() {
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.3);
   const autoSelectedClassesRef = useRef<Set<number>>(new Set());
   const [videoZoom, setVideoZoom] = useState(1);
-
-  useLayoutEffect(() => {
-    const root = document.documentElement;
-
-    const updateUiScale = () => {
-      const baseScale = getBaseUiScale(window.innerWidth);
-      const dpr = window.devicePixelRatio || 1;
-      const adjustedScale = baseScale / Math.sqrt(dpr);
-      const clampedScale = clampValue(adjustedScale, 0.85, baseScale);
-      root.style.setProperty('--ui-scale', clampedScale.toFixed(3));
-    };
-
-    updateUiScale();
-    window.addEventListener('resize', updateUiScale);
-
-    return () => {
-      window.removeEventListener('resize', updateUiScale);
-    };
-  }, []);
 
   useLayoutEffect(() => {
     const header = headerRef.current;
@@ -97,40 +69,12 @@ function App() {
       if (!direction) return;
 
       const step = direction > 0 ? -0.1 : 0.1;
-      setVideoZoom((prev) => clampValue(prev + step, 1, 3));
+      setVideoZoom((prev) => clamp(prev + step, 1, 3));
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false });
     return () => {
       window.removeEventListener('wheel', handleWheel);
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey)) return;
-
-      if (event.key === '+' || event.key === '=') {
-        event.preventDefault();
-        setVideoZoom((prev) => clampValue(prev + 0.1, 1, 3));
-        return;
-      }
-
-      if (event.key === '-' || event.key === '_') {
-        event.preventDefault();
-        setVideoZoom((prev) => clampValue(prev - 0.1, 1, 3));
-        return;
-      }
-
-      if (event.key === '0') {
-        event.preventDefault();
-        setVideoZoom(1);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
@@ -191,10 +135,7 @@ function App() {
     return {
       ...latestMetadata,
       detections: thresholdedDetections.filter((detection) => {
-        const classId =
-          typeof detection.label === 'string'
-            ? parseInt(detection.label, 10)
-            : detection.label;
+        const classId = getClassId(detection.label);
         return !isNaN(classId) && selectedClasses.has(classId);
       }),
     };
@@ -242,10 +183,7 @@ function App() {
       const newClassIds: number[] = [];
 
       thresholdedDetections.forEach((detection) => {
-        const classId =
-          typeof detection.label === 'string'
-            ? parseInt(detection.label, 10)
-            : detection.label;
+        const classId = getClassId(detection.label);
 
         if (!isNaN(classId) && !autoSelectedClassesRef.current.has(classId)) {
           autoSelectedClassesRef.current.add(classId);
@@ -407,7 +345,7 @@ function App() {
         }
       >
         {/* Main video player - fullscreen background */}
-        <div className="fixed inset-0 pt-[var(--ui-header-height)]">
+        <div className="fixed inset-0 pt-[var(--ui-header-height)] pb-[var(--ui-header-height)]">
           <VideoPlayer
             ref={videoPlayerRef}
             videoRef={videoRef}
