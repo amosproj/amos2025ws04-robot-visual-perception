@@ -36,6 +36,7 @@ from common.utils.detection import (
 )
 from common.utils.transforms import (
     calculate_adaptive_scale,
+    letterbox,
     resize_frame,
 )
 
@@ -396,11 +397,29 @@ class AnalyzerWebSocketManager:
         detector: ObjectDetector,
         estimator: DepthEstimator,
     ) -> tuple[list[Detection], list[float], list[bool]]:
-        with self._measure_time(
-            self._detection_duration, labels={"backend": config.DETECTOR_BACKEND}
-        ):
-            # YOLO detection (async)
-            raw_detections = await detector.infer(frame_small)
+        shared_preprocess = (
+            config.ONNX_SHARED_PREPROCESSING
+            and config.DETECTOR_BACKEND == "onnx"
+            and config.DEPTH_BACKEND == "onnx"
+            and config.DETECTOR_IMAGE_SIZE == config.MIDAS_ONNX_INPUT_SIZE
+            and hasattr(detector, "infer_preprocessed")
+            and hasattr(estimator, "estimate_distance_m_preprocessed")
+        )
+
+        if shared_preprocess:
+            resized, ratio, dwdh = letterbox(frame_small, config.DETECTOR_IMAGE_SIZE)
+            with self._measure_time(
+                self._detection_duration, labels={"backend": config.DETECTOR_BACKEND}
+            ):
+                raw_detections = await detector.infer_preprocessed(
+                    resized, ratio, dwdh, frame_small.shape[:2]
+                )
+        else:
+            with self._measure_time(
+                self._detection_duration, labels={"backend": config.DETECTOR_BACKEND}
+            ):
+                # YOLO detection (async)
+                raw_detections = await detector.infer(frame_small)
 
         if not raw_detections:
             return [], [], []
@@ -410,9 +429,18 @@ class AnalyzerWebSocketManager:
             labels={"model_type": estimator.model_type},
         ):
             # Distance estimation (sync) -> run in executor
-            raw_distances = await asyncio.get_running_loop().run_in_executor(
-                None, estimator.estimate_distance_m, frame_small, raw_detections
-            )
+            if shared_preprocess:
+                raw_distances = await asyncio.get_running_loop().run_in_executor(
+                    None,
+                    estimator.estimate_distance_m_preprocessed,
+                    resized,
+                    raw_detections,
+                    frame_small.shape[:2],
+                )
+            else:
+                raw_distances = await asyncio.get_running_loop().run_in_executor(
+                    None, estimator.estimate_distance_m, frame_small, raw_detections
+                )
 
         # Tracking logic
         updated_track_ids, track_assignments = (
