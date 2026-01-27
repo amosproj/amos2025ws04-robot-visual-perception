@@ -310,7 +310,10 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
                     mean=[0.485, 0.456, 0.406],
                     std=[0.229, 0.224, 0.225],
                 )
-            if config.MIDAS_ONNX_INPUT_SIZE != 256:
+            if (
+                config.MIDAS_ONNX_INPUT_SIZE != 256
+                and hasattr(midas_transforms, "Resize")
+            ):
                 return _build_midas_small_transform(
                     midas_transforms, config.MIDAS_ONNX_INPUT_SIZE
                 )
