@@ -292,13 +292,19 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
             self.midas_model, "transforms", trust_repo=True
         )
         if self.model_type in {"DPT_Large", "DPT_Hybrid"}:
-            if config.ONNX_SHARED_PREPROCESSING:
+            if config.ONNX_SHARED_PREPROCESSING and all(
+                hasattr(midas_transforms, attr)
+                for attr in ("NormalizeImage", "PrepareForNet")
+            ):
                 self._no_resize_transform = _build_midas_no_resize_transform(
                     midas_transforms, mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]
                 )
             return midas_transforms.dpt_transform
         if self.model_type == "MiDaS_small":
-            if config.ONNX_SHARED_PREPROCESSING:
+            if config.ONNX_SHARED_PREPROCESSING and all(
+                hasattr(midas_transforms, attr)
+                for attr in ("NormalizeImage", "PrepareForNet")
+            ):
                 self._no_resize_transform = _build_midas_no_resize_transform(
                     midas_transforms,
                     mean=[0.485, 0.456, 0.406],
