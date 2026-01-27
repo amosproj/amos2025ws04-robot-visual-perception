@@ -84,6 +84,14 @@ make export-yolo-onnx
 make export-midas-onnx
 ```
 
+### FP16 Quantization (Optional)
+
+Export models with FP16 precision for ~50% size reduction:
+
+```bash
+ONNX_HALF_PRECISION=true make export-onnx
+```
+
 To start the analyzer service with ONNX backend:
 ```bash
 DETECTOR_BACKEND=onnx DEPTH_BACKEND=onnx make run-analyzer-local
