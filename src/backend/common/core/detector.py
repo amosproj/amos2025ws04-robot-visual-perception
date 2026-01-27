@@ -110,6 +110,48 @@ class _Detector(ObjectDetector):
             self._last_time = now
             return detections
 
+    async def infer_preprocessed(
+        self,
+        resized_rgb: np.ndarray,
+        ratio: float,
+        dwdh: tuple[float, float],
+        original_hw: tuple[int, int],
+    ) -> list[Detection]:
+        """Run detection using preprocessed inputs when supported."""
+        now = asyncio.get_running_loop().time()
+        if self._last_det is not None and (now - self._last_time) < 0.10:
+            return self._last_det
+
+        async with self._lock:
+            now = asyncio.get_running_loop().time()
+            if self._last_det is not None and (now - self._last_time) < 0.10:
+                return self._last_det
+
+            loop = asyncio.get_running_loop()
+            detections = await loop.run_in_executor(
+                None,
+                self._predict_preprocessed,
+                resized_rgb,
+                ratio,
+                dwdh,
+                original_hw,
+            )
+            self._last_det = detections
+            self._last_time = now
+            return detections
+
+    def _predict_preprocessed(
+        self,
+        resized_rgb: np.ndarray,
+        ratio: float,
+        dwdh: tuple[float, float],
+        original_hw: tuple[int, int],
+    ) -> list[Detection]:
+        engine = self._engine
+        if hasattr(engine, "predict_preprocessed"):
+            return engine.predict_preprocessed(resized_rgb, ratio, dwdh, original_hw)
+        return engine.predict(resized_rgb)
+
 
 _detector_instance: Optional[_Detector] = None
 
@@ -236,6 +278,22 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         outputs = self._session.run(self._output_names, ort_inputs)[0]
         h, w = frame_rgb.shape[:2]
         return self._postprocess(outputs, (h, w), ratio, dwdh)
+
+    def predict_preprocessed(
+        self,
+        resized_rgb: np.ndarray,
+        ratio: float,
+        dwdh: tuple[float, float],
+        original_hw: tuple[int, int],
+    ) -> list[Detection]:
+        """Run inference using a pre-letterboxed RGB image."""
+        img = resized_rgb.astype(np.float32) / 255.0
+        img = np.transpose(img, (2, 0, 1))
+        img = np.expand_dims(img, axis=0)
+        input_tensor = np.ascontiguousarray(img)
+        ort_inputs = {self._input_name: input_tensor}
+        outputs = self._session.run(self._output_names, ort_inputs)[0]
+        return self._postprocess(outputs, original_hw, ratio, dwdh)
 
     def _prepare_input(
         self, frame_rgb: np.ndarray
