@@ -412,7 +412,10 @@ class AnalyzerWebSocketManager:
                 self._detection_duration, labels={"backend": config.DETECTOR_BACKEND}
             ):
                 raw_detections = await detector.infer_preprocessed(
-                    resized, ratio, dwdh, frame_small.shape[:2]
+                    resized,
+                    ratio,
+                    dwdh,
+                    (frame_small.shape[0], frame_small.shape[1]),
                 )
         else:
             with self._measure_time(
@@ -435,7 +438,7 @@ class AnalyzerWebSocketManager:
                     estimator.estimate_distance_m_preprocessed,
                     resized,
                     raw_detections,
-                    frame_small.shape[:2],
+                    (frame_small.shape[0], frame_small.shape[1]),
                 )
             else:
                 raw_distances = await asyncio.get_running_loop().run_in_executor(
