@@ -8,11 +8,9 @@ import logging
 import numpy as np
 import torch
 from PIL import Image
-
 from common.config import config
 from common.typing import Detection
 from common.protocols import DepthEstimator
-
 from common.utils.depth import calculate_distances, resize_to_frame
 
 
@@ -32,6 +30,58 @@ try:
 except ImportError:
     AutoImageProcessor = None  # type: ignore
     AutoModelForDepthEstimation = None  # type: ignore
+
+
+def _build_midas_small_transform(
+    midas_transforms: object,
+    input_size: int,
+) -> Callable[[np.ndarray], torch.Tensor]:
+    """Create a MiDaS-small transform with a custom input size."""
+    import cv2
+    from torchvision.transforms import Compose
+
+    resize = getattr(midas_transforms, "Resize")
+    normalize = getattr(midas_transforms, "NormalizeImage")
+    prepare = getattr(midas_transforms, "PrepareForNet")
+
+    return Compose(
+        [
+            lambda img: {"image": img / 255.0},
+            resize(
+                input_size,
+                input_size,
+                resize_target=None,
+                keep_aspect_ratio=True,
+                ensure_multiple_of=32,
+                resize_method="upper_bound",
+                image_interpolation_method=cv2.INTER_CUBIC,
+            ),
+            normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            prepare(),
+            lambda sample: torch.from_numpy(sample["image"]).unsqueeze(0),
+        ]
+    )
+
+
+def _build_midas_no_resize_transform(
+    midas_transforms: object,
+    mean: list[float],
+    std: list[float],
+) -> Callable[[np.ndarray], torch.Tensor]:
+    """Create a MiDaS transform that assumes the input is already resized, want to avoid resize inside MiDaS."""
+    from torchvision.transforms import Compose
+
+    normalize = getattr(midas_transforms, "NormalizeImage")
+    prepare = getattr(midas_transforms, "PrepareForNet")
+
+    return Compose(
+        [
+            lambda img: {"image": img / 255.0},
+            normalize(mean=mean, std=std),
+            prepare(),
+            lambda sample: torch.from_numpy(sample["image"]).unsqueeze(0),
+        ]
+    )
 
 
 # Factories let us swap depth estimation backends without changing call sites.
@@ -227,12 +277,38 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
         )
         self._input_name = self._session.get_inputs()[0].name
         self._output_name = self._session.get_outputs()[0].name
+        self._no_resize_transform: Optional[Callable[[np.ndarray], torch.Tensor]] = None
 
         super().__init__(
             midas_cache_directory=midas_cache_directory,
             model_type=model_type,
             midas_model=midas_model,
         )
+
+    def _load_transform(self) -> Callable[[np.ndarray], torch.Tensor]:
+        """Load MiDaS transform, aligned to the ONNX input size when needed."""
+        torch.hub.set_dir(str(self.midas_cache_directory))
+        midas_transforms = torch.hub.load(
+            self.midas_model, "transforms", trust_repo=True
+        )
+        if self.model_type in {"DPT_Large", "DPT_Hybrid"}:
+            if config.ONNX_SHARED_PREPROCESSING:
+                self._no_resize_transform = _build_midas_no_resize_transform(
+                    midas_transforms, mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]
+                )
+            return midas_transforms.dpt_transform
+        if self.model_type == "MiDaS_small":
+            if config.ONNX_SHARED_PREPROCESSING:
+                self._no_resize_transform = _build_midas_no_resize_transform(
+                    midas_transforms,
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225],
+                )
+            if config.MIDAS_ONNX_INPUT_SIZE != 256:
+                return _build_midas_small_transform(
+                    midas_transforms, config.MIDAS_ONNX_INPUT_SIZE
+                )
+        return midas_transforms.small_transform
 
     def _resolve_providers(self) -> list[str]:
         configured = config.MIDAS_ONNX_PROVIDERS or config.ONNX_PROVIDERS
@@ -255,6 +331,39 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
         self, frame_rgb: np.ndarray, output_shape: tuple[int, int]
     ) -> np.ndarray:
         input_batch = self.transform(frame_rgb)
+        _, _, h, w = input_batch.shape
+        size = max(w, h)
+        input_batch = torch.nn.functional.pad(input_batch, (0, size - w, 0, size - h))
+        input_array = input_batch.detach().cpu().numpy().astype(np.float32)
+        ort_inputs = {self._input_name: input_array}
+        output = self._session.run([self._output_name], ort_inputs)[0]
+        prediction = np.asarray(output)
+        if prediction.ndim == 3:  # (1,H,W) -> (1,1,H,W)
+            prediction = np.expand_dims(prediction, axis=1)
+        return resize_to_frame(prediction, output_shape)
+
+    def estimate_distance_m_preprocessed(
+        self,
+        resized_rgb: np.ndarray,
+        dets: list[Detection],
+        output_shape: tuple[int, int],
+    ) -> list[float]:
+        """Estimate distances using a pre-resized ONNX input."""
+        self.update_id += 1
+        if self.update_id % self.update_freq != 0 and len(self.last_depths) == len(
+            dets
+        ):
+            return self.last_depths
+        depth_map = self._predict_depth_map_preprocessed(resized_rgb, output_shape)
+        distances = self._distances_from_depth_map(depth_map, dets)
+        self.last_depths = distances
+        return distances
+
+    def _predict_depth_map_preprocessed(
+        self, resized_rgb: np.ndarray, output_shape: tuple[int, int]
+    ) -> np.ndarray:
+        transform = self._no_resize_transform or self.transform
+        input_batch = transform(resized_rgb)
         _, _, h, w = input_batch.shape
         size = max(w, h)
         input_batch = torch.nn.functional.pad(input_batch, (0, size - w, 0, size - h))
