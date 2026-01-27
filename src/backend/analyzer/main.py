@@ -5,9 +5,14 @@
 # Necessary for running stuff before other imports
 # ruff: noqa: E402
 
+import os
+
 from common import __version__
 from common.logging_config import configure_logging
 from common.metrics import configure_metrics
+
+# Set service type for Prometheus metrics port allocation
+os.environ["SERVICE_TYPE"] = "analyzer"
 
 # Initialize logging early
 configure_logging(service_name="analyzer", service_version=__version__)
@@ -27,6 +32,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from common.config import config
 from common.core.detector import get_detector
 from common.core.depth import get_depth_estimator
+from common.orchestrator import register_with_orchestrator, deregister_from_orchestrator
 from analyzer.routes import router, on_shutdown
 
 
@@ -54,8 +60,20 @@ def create_lifespan(
         # Warm up detector and depth estimator so initial /offer handling is instant.
         get_detector(yolo_model_path)
         get_depth_estimator(midas_cache_directory)
+
+        # Register this analyzer instance with orchestrator (best-effort)
+        await register_with_orchestrator(
+            service_type="analyzer",
+            service_url=config.ANALYZER_PUBLIC_URL,
+            orchestrator_url=config.ORCHESTRATOR_URL,
+        )
         yield
         with suppress(Exception):
+            await deregister_from_orchestrator(
+                service_type="analyzer",
+                service_url=config.ANALYZER_PUBLIC_URL,
+                orchestrator_url=config.ORCHESTRATOR_URL,
+            )
             await on_shutdown()
 
     return lifespan_context

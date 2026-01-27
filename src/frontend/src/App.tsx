@@ -7,6 +7,7 @@
 import { useRef, useEffect, useState, useMemo, useLayoutEffect } from 'react';
 import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
+import { useOrchestrator } from './hooks/useOrchestrator';
 import { logger } from './lib/logger';
 import { useI18n } from './i18n';
 import { clamp } from './lib/mathUtils';
@@ -35,6 +36,40 @@ function App() {
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.3);
   const autoSelectedClassesRef = useRef<Set<number>>(new Set());
   const [videoZoom, setVideoZoom] = useState(1);
+
+  // Service discovery from orchestrator
+  const orchestratorUrl = import.meta.env.VITE_ORCHESTRATOR_URL || 'http://localhost:8002';
+  const {
+    services,
+    assignAnalyzer,
+  } = useOrchestrator({
+    orchestratorUrl,
+  });
+
+  // Selected streamer/analyzer
+  const [selectedStreamerUrl, setSelectedStreamerUrl] = useState<string | null>(null);
+  const [selectedAnalyzerUrl, setSelectedAnalyzerUrl] = useState<string | null>(null);
+
+  // Auto-select first streamer on startup or when streamer list changes
+  useEffect(() => {
+    if (services.streamer.length > 0 && !selectedStreamerUrl) {
+      const firstStreamer = services.streamer[0].url;
+      setSelectedStreamerUrl(firstStreamer);
+      log.info('app.streamer_selected', { streamer: firstStreamer });
+    }
+  }, [services.streamer, selectedStreamerUrl, log]);
+
+  // Auto-request analyzer assignment when streamer is selected
+  useEffect(() => {
+    if (selectedStreamerUrl && !selectedAnalyzerUrl) {
+      assignAnalyzer(selectedStreamerUrl).then((result) => {
+        if (result?.analyzerUrl) {
+          setSelectedAnalyzerUrl(result.analyzerUrl);
+          log.info('app.analyzer_assigned', { analyzer: result.analyzerUrl });
+        }
+      });
+    }
+  }, [selectedStreamerUrl, selectedAnalyzerUrl, assignAnalyzer, log]);
 
   useLayoutEffect(() => {
     const header = headerRef.current;
@@ -89,8 +124,8 @@ function App() {
     togglePlayPause,
     enterFullscreen,
   } = useWebRTCPlayer({
-    signalingEndpoint: 'http://localhost:8000', // Webcam service
-    autoPlay: true,
+    signalingEndpoint: selectedStreamerUrl || 'http://localhost:8000',
+    autoPlay: !!selectedStreamerUrl,
     containerRef: videoContainerRef,
   });
 
@@ -102,10 +137,9 @@ function App() {
     connect: connectAnalyzer,
     disconnect: disconnectAnalyzer,
   } = useAnalyzerWebSocket({
-    endpoint: 'ws://localhost:8001/ws', // Analyzer service
-    autoConnect: false, // Manual control for proper disconnect
+    endpoint: selectedAnalyzerUrl ? `ws://${selectedAnalyzerUrl.replace(/^https?:\/\//, '')}/ws` : '',
+    autoConnect: !!selectedAnalyzerUrl,
     onBeforeDisconnect: () => {
-      // Clear selections before disconnect to remove bounding boxes smoothly
       setSelectedClasses(new Set());
     },
   });
@@ -214,9 +248,13 @@ function App() {
 
   // Auto-connect to services when component mounts
   useEffect(() => {
-    connectVideo();
-    connectAnalyzer(); // Manual connect to analyzer
-  }, [connectVideo, connectAnalyzer]);
+    if (selectedStreamerUrl) {
+      connectVideo();
+    }
+    if (selectedAnalyzerUrl) {
+      connectAnalyzer();
+    }
+  }, [selectedStreamerUrl, selectedAnalyzerUrl, connectVideo, connectAnalyzer]);
 
   const [showPanel, setShowPanel] = useState(true);
 

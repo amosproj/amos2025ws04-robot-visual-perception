@@ -9,13 +9,25 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from common import __version__
 from common.config import config
+from common.orchestrator import register_with_orchestrator, deregister_from_orchestrator
 from streamer.routes import router, on_shutdown
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Register this streamer instance with orchestrator (best-effort)
+    await register_with_orchestrator(
+        service_type="streamer",
+        service_url=config.STREAMER_PUBLIC_URL,
+        orchestrator_url=config.ORCHESTRATOR_URL,
+    )
     yield
     with suppress(Exception):
+        await deregister_from_orchestrator(
+            service_type="streamer",
+            service_url=config.STREAMER_PUBLIC_URL,
+            orchestrator_url=config.ORCHESTRATOR_URL,
+        )
         await on_shutdown()
 
 

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
+import logging
+import os
 from typing import Optional
 
 from prometheus_client import (
@@ -16,12 +18,21 @@ _detection_duration: Optional[Histogram] = None
 _depth_estimation_duration: Optional[Histogram] = None
 _detections_count: Optional[Counter] = None
 
+# Service-specific Prometheus ports to avoid conflicts
+PROMETHEUS_PORTS = {
+    "analyzer": 9001,
+    "streamer": 9002,
+    "orchestrator": 9003,
+}
+
 
 def configure_metrics() -> None:
     """
     Configure Prometheus metrics.
     """
     global _detection_duration, _depth_estimation_duration, _detections_count
+
+    logger = logging.getLogger(__name__)
 
     if _detection_duration is not None:
         return  # Already configured
@@ -44,7 +55,22 @@ def configure_metrics() -> None:
         ["interpolated"],
     )
 
-    start_http_server(9000)
+    # Determine service-specific port
+    service_type = os.getenv("SERVICE_TYPE", "unknown")
+    port = PROMETHEUS_PORTS.get(service_type, 9000)
+
+    # Start Prometheus HTTP server with error handling for --reload mode
+    try:
+        start_http_server(port)
+        logger.info(f"Prometheus metrics server started on port {port} (service: {service_type})")
+    except OSError as e:
+        if "Address already in use" in str(e):
+            logger.warning(
+                f"Port {port} already in use (likely uvicorn --reload worker). "
+                "Metrics endpoint will be available on the main process only."
+            )
+        else:
+            raise
 
 
 def get_detection_duration() -> Histogram:

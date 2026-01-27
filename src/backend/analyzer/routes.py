@@ -6,8 +6,15 @@ from pathlib import Path
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from pydantic import BaseModel
 
 from analyzer.manager import AnalyzerWebSocketManager
+
+
+class ConfigureAnalyzerRequest(BaseModel):
+    """Request to configure analyzer with streamer URL."""
+
+    streamer_url: str
 
 
 # Create a global instance of the WebSocket manager
@@ -15,6 +22,28 @@ websocket_manager = AnalyzerWebSocketManager()
 
 
 router = APIRouter()
+
+
+@router.get("/health")
+def health() -> dict[str, str]:
+    """Health check endpoint."""
+    return {"status": "ok", "service": "analyzer"}
+
+
+@router.post("/configure")
+async def configure_analyzer(request: ConfigureAnalyzerRequest) -> dict[str, str]:
+    """Configure analyzer to use a specific streamer.
+    
+    This endpoint is called by the orchestrator/frontend after analyzer assignment
+    to tell this analyzer which streamer service to connect to.
+    """
+    # Append /offer endpoint path to the streamer base URL
+    streamer_offer_url = f"{request.streamer_url.rstrip('/')}/offer"
+    await websocket_manager.set_streamer_url(streamer_offer_url)
+    return {
+        "status": "configured",
+        "streamer_url": streamer_offer_url,
+    }
 
 
 @router.get("/health")

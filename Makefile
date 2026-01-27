@@ -9,7 +9,7 @@
 	format-check format-check-frontend format-check-backend \
 	test test-frontend test-backend \
 	sbom sbom-check \
-	run-backend-local run-frontend-local run-streamer-webcam run-streamer-file run-analyzer-local \
+	run-backend-local run-frontend-local run-streamer-webcam run-streamer-file run-analyzer-local run-orchestrator-local \
 	docker-build docker-build-frontend docker-build-backend docker-build-streamer \
 	docker-build-analyzer docker-build-analyzer-cuda docker-build-analyzer-rocm \
 	docker-compose-up docker-compose-down \
@@ -56,6 +56,8 @@ help:
 	@echo "      generates SBOM (sbom.json) and dependency CSV"
 	@echo "  sbom-check"
 	@echo "      checks if SBOM is up-to-date with dependencies"
+	@echo "  run-orchestrator-local"
+	@echo "      runs orchestrator service on port 8002"
 	@echo "  run-backend-local"
 	@echo "      runs backend locally with uvicorn"
 	@echo "  run-frontend-local"
@@ -149,6 +151,10 @@ run-streamer-file:
 run-analyzer-local:
 	@echo "Starting analyzer service on port 8001..."
 	cd src/backend && uv run uvicorn analyzer.main:app --host 0.0.0.0 --port 8001 --reload
+
+run-orchestrator-local:
+	@echo "Starting orchestrator service on port 8002..."
+	cd src/backend && uv run uvicorn orchestrator.main:app --host 0.0.0.0 --port 8002 --reload
 
 run-backend-local: run-streamer-webcam
 	@echo "Note: To run analyzer, use 'make run-analyzer-local' in another terminal"

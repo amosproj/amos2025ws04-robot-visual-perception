@@ -3,6 +3,19 @@
 # SPDX-License-Identifier: MIT
 
 services:
+  orchestrator:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile.orchestrator
+    image: robot-orchestrator:latest
+    container_name: robot-orchestrator
+    ports:
+      - "8002:8002"
+    environment:
+      - CORS_ORIGINS=*
+    networks:
+      - robot-net
+
   # Note: Camera device access only works on Linux.
   # On macOS/Windows, run things locally
   streamer:
@@ -19,12 +32,16 @@ services:
       - CAMERA_INDEX=0
       - STUN_SERVER=stun:stun.l.google.com:19302
       - CORS_ORIGINS=*
+      - ORCHESTRATOR_URL=http://orchestrator:8002
+      - STREAMER_PUBLIC_URL=http://streamer:8000
     devices:
       - /dev/video0:/dev/video0  # Only works on Linux (ignored for file mode)
     volumes:
       - ./videos:/app/videos  # Mount videos directory for file mode
     networks:
       - robot-net
+    depends_on:
+      - orchestrator
 
   analyzer:
     build:
@@ -41,9 +58,12 @@ services:
       - MODEL_PATH=models/yolo11n.pt
       - STUN_SERVER=stun:stun.l.google.com:19302
       - CORS_ORIGINS=*
+      - ORCHESTRATOR_URL=http://orchestrator:8002
+      - ANALYZER_PUBLIC_URL=http://analyzer:8001
     volumes:
       - ./src/backend/models:/app/models
     depends_on:
+      - orchestrator
       - streamer
     networks:
       - robot-net
@@ -54,6 +74,7 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_BACKEND_URL=http://localhost:8001
+        - VITE_ORCHESTRATOR_URL=http://localhost:8002
     image: robot-frontend:latest
     container_name: robot-frontend
     ports:
