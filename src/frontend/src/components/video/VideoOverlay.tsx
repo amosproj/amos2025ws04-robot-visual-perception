@@ -17,7 +17,6 @@ import {
   calculateBoundingBoxPixels,
   formatDetectionLabel,
   calculateLabelPosition,
-  findBestMetadataMatch,
   sanitizeTimestamp,
   isHeldFrameValid,
   hasLayoutChanged,
@@ -101,7 +100,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
     const animationFrameRef = useRef<number>();
     const videoFrameCallbackRef = useRef<number>();
     const fpsCounterRef = useRef({ lastTime: 0, frames: 0, fps: 0 });
-    const timeOffsetRef = useRef<number | null>(null);
     const lastRenderedRef = useRef<{
       metadata: MetadataFrame;
       mediaTimeMs: number;
@@ -187,7 +185,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       updateMetadata: (metadata: MetadataFrame) => {
         if (!metadata) {
           metadataBufferRef.current = [];
-          timeOffsetRef.current = null;
           lastRenderedRef.current = null;
 
           // Clear canvas immediately to avoid stale boxes when no frames render
