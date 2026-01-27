@@ -33,18 +33,17 @@ const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
   const { t, language, setLanguage, languageOptions } = useI18n();
 
   if (minimal) {
-    const headerIconSize = 40;
     return (
       <header
         ref={ref}
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-10 py-4 pointer-events-none"
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2 pointer-events-none"
       >
         {/* Language selector - top left */}
         <div className="pointer-events-auto flex items-center gap-2">
           {props.onTogglePanel && (
             <IconButton
-              size="lg"
-              icon={<Filter size={headerIconSize} />}
+              size="sm"
+              icon={<Filter size={16} />}
               tooltip={props.showPanel ? 'Hide Panel' : 'Show Panel'}
               onClick={props.onTogglePanel}
               active={props.showPanel}
@@ -52,28 +51,44 @@ const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
               tooltipPosition="bottom"
             />
           )}
-          <select
-            id="language-select"
-            value={language}
-            onChange={(event) =>
-              setLanguage(event.target.value as typeof language)
-            }
-            className="bg-[#2d3436] text-white border border-theme-border px-6 py-3 rounded text-xl cursor-pointer shadow-lg"
-          >
-            {languageOptions.map((option) => (
-              <option
-                key={option.value}
-                value={option.value}
-                className="bg-[#2d3436] text-white"
+          <div className="relative">
+            <select
+              id="language-select"
+              value={language}
+              onChange={(event) =>
+                setLanguage(event.target.value as typeof language)
+              }
+              className="bg-[#2d3436] text-white border border-theme-border appearance-none pl-3 pr-8 py-1.5 rounded text-sm cursor-pointer shadow-lg"
+            >
+              {languageOptions.map((option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                  className="bg-[#2d3436] text-white"
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-white">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                {option.label}
-              </option>
-            ))}
-          </select>
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
+          </div>
         </div>
 
         {/* Title - center */}
-        <h1 className="my-0 text-theme-accent text-4xl md:text-5xl font-light">
+        <h1 className="my-0 text-theme-accent text-xl md:text-2xl font-light">
           {t('appTitle')}
         </h1>
 
@@ -84,12 +99,12 @@ const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
             <>
               {/* Video connection button */}
               <IconButton
-                size="lg"
+                size="sm"
                 icon={
                   props.videoState === 'connected' ? (
-                    <Video size={headerIconSize} />
+                    <Video size={16} />
                   ) : (
-                    <VideoOff size={headerIconSize} />
+                    <VideoOff size={16} />
                   )
                 }
                 tooltip={
@@ -117,8 +132,8 @@ const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
 
               {/* Analyzer connection button */}
               <IconButton
-                size="lg"
-                icon={<Activity size={headerIconSize} />}
+                size="sm"
+                icon={<Activity size={16} />}
                 tooltip={
                   props.analyzerConnected
                     ? t('connectionDisconnectAnalyzer')
@@ -133,11 +148,11 @@ const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
                 tooltipPosition="bottom"
               />
 
-              <div className="w-px h-10 bg-theme-border mx-3" />
+              <div className="w-px h-6 bg-theme-border mx-1" />
             </>
           )}
 
-          <ThemeToggle size="lg" />
+          <ThemeToggle size="sm" />
         </div>
       </header>
     );

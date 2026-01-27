@@ -9,24 +9,11 @@
  * These are pure functions extracted from VideoOverlay for testability
  */
 
+import { clamp } from './mathUtils';
 /**
- * Color palette for detection bounding boxes
+ * Color for detection bounding boxes (all overlays use green).
  */
-export const DETECTION_COLORS = [
-  '#00d4ff',
-  '#00ff88',
-  '#ff6b9d',
-  '#ffd93d',
-  '#ff8c42',
-  '#a8e6cf',
-  '#b4a5ff',
-  '#ffb347',
-] as const;
-
-/**
- * Color for interpolated detections
- */
-export const INTERPOLATED_COLOR = '#808080';
+export const DETECTION_COLOR = '#00ff00';
 
 /**
  * Tolerance window for metadata timestamp matching (in milliseconds)
@@ -39,27 +26,28 @@ export const METADATA_TOLERANCE_MS = 120;
 export const HOLD_LAST_MS = 150;
 
 /**
- * Clamp a value between min and max bounds
+ * Calculate position relative to a container element
  */
-export function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
+export function getRelativePosition(
+  elementRect: DOMRect,
+  containerRect: DOMRect | undefined,
+  offset: { x: number; y: number } = { x: 0, y: 0 }
+): { top: number; left: number } {
+  const top =
+    (containerRect ? elementRect.top - containerRect.top : 0) + offset.y;
+  const left =
+    (containerRect ? elementRect.left - containerRect.left : 0) + offset.x;
+  return { top, left };
 }
 
 /**
  * Get the color for a detection based on its index
  */
 export function getDetectionColor(
-  label: string | number,
-  interpolated: boolean = false
+  _label: string | number,
+  _interpolated: boolean = false
 ): string {
-  // Use label (class ID) for consistent colors per class
-  const index =
-    typeof label === 'number' ? label : parseInt(String(label), 10) || 0;
-
-  // Color scheme - use black for interpolated detections
-  // For real detections, use color based on class ID for consistency
-  if (interpolated) return INTERPOLATED_COLOR;
-  else return DETECTION_COLORS[index % DETECTION_COLORS.length];
+  return DETECTION_COLOR;
 }
 
 /**
@@ -432,4 +420,18 @@ export function hasLayoutChanged(
     Math.abs(current.left - previous.left) > threshold;
 
   return { sizeChanged, positionChanged };
+}
+
+/**
+ * Convert a detection label into a numeric class ID.
+ *
+ * @param label - The detection label (string or number).
+ * @returns The numeric class ID parsed from the label.
+ *
+ * @example
+ * getClassId("3") // 3
+ * getClassId(7)   // 7
+ */
+export function getClassId(label: string | number): number {
+  return typeof label === 'string' ? parseInt(label, 10) : label;
 }

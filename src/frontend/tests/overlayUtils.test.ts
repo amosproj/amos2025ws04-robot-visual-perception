@@ -6,7 +6,6 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import {
-  clamp,
   getDetectionColor,
   computeDisplayedVideoRect,
   calculateBoundingBoxPixels,
@@ -18,10 +17,11 @@ import {
   isHeldFrameValid,
   sanitizeTimestamp,
   hasLayoutChanged,
-  DETECTION_COLORS,
+  DETECTION_COLOR,
   METADATA_TOLERANCE_MS,
   HOLD_LAST_MS,
 } from '../src/lib/overlayUtils';
+import { clamp } from '../src/lib/mathUtils';
 
 describe('clamp', () => {
   it('returns value when within bounds', () => {
@@ -61,28 +61,21 @@ describe('clamp', () => {
 
 describe('getDetectionColor', () => {
   it('returns first color for index 0', () => {
-    expect(getDetectionColor(0)).toBe(DETECTION_COLORS[0]);
+    expect(getDetectionColor(0)).toBe(DETECTION_COLOR);
   });
 
-  it('cycles through colors', () => {
-    for (let i = 0; i < DETECTION_COLORS.length; i++) {
-      expect(getDetectionColor(i)).toBe(DETECTION_COLORS[i]);
+  it('returns the same color for any index', () => {
+    for (let i = 0; i < 10; i++) {
+      expect(getDetectionColor(i)).toBe(DETECTION_COLOR);
     }
   });
 
-  it('wraps around after all colors are used', () => {
-    expect(getDetectionColor(DETECTION_COLORS.length)).toBe(
-      DETECTION_COLORS[0]
-    );
-    expect(getDetectionColor(DETECTION_COLORS.length + 1)).toBe(
-      DETECTION_COLORS[1]
-    );
+  it('returns the same color for large indices', () => {
+    expect(getDetectionColor(1000)).toBe(DETECTION_COLOR);
   });
 
-  it('handles large indices', () => {
-    const largeIndex = 1000;
-    const expectedIndex = largeIndex % DETECTION_COLORS.length;
-    expect(getDetectionColor(largeIndex)).toBe(DETECTION_COLORS[expectedIndex]);
+  it('returns the same color for interpolated detections', () => {
+    expect(getDetectionColor(0, true)).toBe(DETECTION_COLOR);
   });
 });
 
@@ -750,15 +743,9 @@ describe('hasLayoutChanged', () => {
 });
 
 describe('constants', () => {
-  it('has expected number of detection colors', () => {
-    expect(DETECTION_COLORS.length).toBe(8);
-  });
-
   it('has valid hex color format', () => {
     const hexColorRegex = /^#[0-9a-f]{6}$/i;
-    DETECTION_COLORS.forEach((color) => {
-      expect(color).toMatch(hexColorRegex);
-    });
+    expect(DETECTION_COLOR).toMatch(hexColorRegex);
   });
 
   it('has reasonable tolerance values', () => {
