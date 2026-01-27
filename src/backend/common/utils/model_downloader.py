@@ -10,6 +10,7 @@ from typing import Optional
 
 import torch
 from ultralytics import YOLO  # type: ignore[import-untyped]
+import numpy as np
 
 try:
     from transformers import (  # type: ignore[import-untyped]
@@ -19,6 +20,13 @@ try:
 except ImportError:
     AutoImageProcessor = None  # type: ignore
     AutoModelForDepthEstimation = None  # type: ignore
+
+try:
+    import onnx
+    from onnx import numpy_helper
+except ImportError:
+    onnx = None  # type: ignore
+    numpy_helper = None  # type: ignore
 
 
 logger = logging.getLogger(__name__)
@@ -93,12 +101,47 @@ def ensure_yolo_model_downloaded(
         raise RuntimeError(error_msg) from e
 
 
+def convert_onnx_to_fp16(model_path: Path) -> None:
+    """Convert ONNX model from FP32 to FP16 in-place.
+
+    Args:
+        model_path: Path to the ONNX model to convert
+    """
+    model = onnx.load(str(model_path))
+
+    # convert all FP32 initializers to FP16
+    for tensor in model.graph.initializer:
+        if tensor.data_type == onnx.TensorProto.FLOAT:
+            arr = numpy_helper.to_array(tensor)
+            arr_fp16 = arr.astype(np.float16)
+            new_tensor = numpy_helper.from_array(arr_fp16, tensor.name)
+            tensor.CopyFrom(new_tensor)
+
+    # update graph value_info
+    for value_info in model.graph.value_info:
+        if value_info.type.tensor_type.elem_type == onnx.TensorProto.FLOAT:
+            value_info.type.tensor_type.elem_type = onnx.TensorProto.FLOAT16
+
+    # update graph input
+    for input_info in model.graph.input:
+        if input_info.type.tensor_type.elem_type == onnx.TensorProto.FLOAT:
+            input_info.type.tensor_type.elem_type = onnx.TensorProto.FLOAT16
+
+    # update graph output
+    for output_info in model.graph.output:
+        if output_info.type.tensor_type.elem_type == onnx.TensorProto.FLOAT:
+            output_info.type.tensor_type.elem_type = onnx.TensorProto.FLOAT16
+
+    onnx.save(model, str(model_path))
+
+
 def export_yolo_to_onnx(
     yolo_path: Path,
     output_path: Path,
     opset: int = 18,
     imgsz: int = 640,
     simplify: bool = True,
+    half: bool = False,
 ) -> Path:
     """Export YOLO model to ONNX format.
 
@@ -108,11 +151,12 @@ def export_yolo_to_onnx(
         opset: ONNX opset version
         imgsz: Image size
         simplify: Whether to run ONNX simplifier
+        half: Export with FP16 precision
 
     Returns:
         Path to the exported ONNX model
     """
-    logger.info("Exporting YOLO model to ONNX...")
+    logger.info("Exporting YOLO model to ONNX (FP16=%s)...", half)
     try:
         if not yolo_path.exists():
             raise FileNotFoundError(f"YOLO model not found at {yolo_path}")
@@ -122,11 +166,14 @@ def export_yolo_to_onnx(
         # Ultralytics export saves to the same directory as the source model by default
         # or we can specify 'project' and 'name' but it creates subdirs.
         # Easiest is to let it export, then move if needed.
+        # NOTE: Ultralytics half=True only works on CUDA, so we always export FP32
+        # and convert to FP16 post-export
         exported_filename = model.export(
             format="onnx",
             opset=opset,
             imgsz=imgsz,
             simplify=simplify,
+            half=False,
         )
 
         exported_path = Path(exported_filename).resolve()
@@ -137,9 +184,19 @@ def export_yolo_to_onnx(
         if exported_path != output_path:
             shutil.move(str(exported_path), str(output_path))
             logger.info("Moved exported YOLO model to %s", output_path)
-        else:
-            logger.info("YOLO ONNX model ready at: %s", output_path)
 
+        if half:
+            if onnx is None:
+                logger.warning(
+                    "onnx required for FP16 conversion. "
+                    "Install with: uv sync --extra onnx-tools"
+                )
+            else:
+                logger.info("Converting YOLO ONNX model to FP16...")
+                convert_onnx_to_fp16(output_path)
+                logger.info("FP16 conversion done")
+
+        logger.info("YOLO ONNX model ready at: %s", output_path)
         return output_path
 
     except Exception as e:
@@ -208,6 +265,7 @@ def export_midas_to_onnx(
     model_repo: str = "intel-isl/MiDaS",
     opset: int = 18,
     input_size: Optional[int] = None,
+    half: bool = False,
 ) -> Path:
     """Export MiDaS model to ONNX format.
 
@@ -218,15 +276,19 @@ def export_midas_to_onnx(
         model_repo: Repo
         opset: ONNX opset version
         input_size: Optional manual input size override
+        half: Export with FP16 precision
 
     Returns:
         Path to the exported ONNX model
     """
-    logger.info("Exporting %s model to ONNX...", model_type)
+    logger.info("Exporting %s model to ONNX (FP16=%s)...", model_type, half)
     try:
         torch.hub.set_dir(str(cache_dir))
         model = torch.hub.load(model_repo, model_type, trust_repo=True)
         model.eval()
+
+        if half:
+            model = model.half()
 
         default_size, _ = get_midas_onnx_config(model_type)
         size = input_size if input_size else default_size
@@ -234,6 +296,8 @@ def export_midas_to_onnx(
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         dummy_input = torch.randn(1, 3, size, size)
+        if half:
+            dummy_input = dummy_input.half()
 
         torch.onnx.export(
             model,
