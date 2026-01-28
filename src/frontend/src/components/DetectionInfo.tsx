@@ -11,6 +11,7 @@ import { useI18n } from '../i18n';
 export interface Detection {
   id: string;
   label: string | number;
+  labelText?: string;
   confidence: number;
   distance?: number;
   position: Position;
@@ -25,6 +26,7 @@ export interface Position {
 export interface DetectionInfoProps {
   detections: Detection[];
   showGrouped?: boolean;
+  variant?: 'card' | 'section';
 }
 
 interface GroupedDetection {
@@ -39,13 +41,19 @@ interface GroupedDetection {
 function DetectionInfo({
   detections,
   showGrouped = false,
+  variant = 'card',
 }: DetectionInfoProps) {
   const { t, language } = useI18n();
   const resolveLabel = useCallback(
-    (value: string | number) =>
-      getCocoLabel(value, language, {
+    (det: Detection) => {
+      if (det.labelText && det.labelText.trim().length > 0) {
+        return det.labelText;
+      }
+
+      return getCocoLabel(det.label, language, {
         unknownLabel: (id) => t('labelUnknown', { id }),
-      }),
+      });
+    },
     [language, t]
   );
   // Track the order in which labels were first seen for stable sorting
@@ -54,7 +62,7 @@ function DetectionInfo({
 
   // Update first-seen order for new labels
   useMemo(() => {
-    const currentLabels = new Set(detections.map((d) => resolveLabel(d.label)));
+    const currentLabels = new Set(detections.map((d) => resolveLabel(d)));
 
     // Add new labels with next available order
     currentLabels.forEach((label) => {
@@ -79,11 +87,23 @@ function DetectionInfo({
     return null;
   }
 
+  const containerClass =
+    variant === 'card'
+      ? 'bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card'
+      : '';
+  const titleClass =
+    variant === 'card'
+      ? 'my-0 mb-4 text-theme-accent text-xl'
+      : 'my-0 mb-3 text-theme-accent text-lg font-semibold';
+  const listClass = variant === 'card' ? 'max-h-96 overflow-y-auto' : '';
+  const groupedListClass =
+    variant === 'card' ? 'max-h-96 overflow-y-auto space-y-2' : 'space-y-2';
+
   // Sort detections by first-seen order (stable sorting)
   const sortedDetections = useMemo(() => {
     return [...detections].sort((a, b) => {
-      const labelA = resolveLabel(a.label);
-      const labelB = resolveLabel(b.label);
+      const labelA = resolveLabel(a);
+      const labelB = resolveLabel(b);
 
       const orderA =
         firstSeenOrderRef.current.get(labelA) ?? Number.MAX_SAFE_INTEGER;
@@ -99,7 +119,7 @@ function DetectionInfo({
     const groups = new Map<string, GroupedDetection>();
 
     sortedDetections.forEach((det) => {
-      const labelName = resolveLabel(det.label);
+      const labelName = resolveLabel(det);
       const existing = groups.get(labelName);
 
       if (existing) {
@@ -140,11 +160,11 @@ function DetectionInfo({
 
   if (showGrouped) {
     return (
-      <div className="bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card">
-        <h3 className="my-0 mb-4 text-theme-accent text-xl">
+      <div className={containerClass}>
+        <h3 className={titleClass}>
           {t('detectionsTitleGrouped', { count: detections.length })}
         </h3>
-        <div className="max-h-96 overflow-y-auto space-y-2">
+        <div className={groupedListClass}>
           {groupedDetections.map((group) => (
             <GroupedDetectionCard key={group.label} group={group} />
           ))}
@@ -154,11 +174,11 @@ function DetectionInfo({
   }
 
   return (
-    <div className="bg-theme-bg-secondary border border-theme-border-subtle p-5 rounded-lg shadow-card">
-      <h3 className="my-0 mb-4 text-theme-accent text-xl">
+    <div className={containerClass}>
+      <h3 className={titleClass}>
         {t('detectionsTitleLatest', { count: detections.length })}
       </h3>
-      <div className="max-h-96 overflow-y-auto">
+      <div className={listClass}>
         <div className="flex flex-wrap gap-2.5">
           {sortedDetections.map((detection) => (
             <DetectionCard
@@ -180,9 +200,9 @@ const DetectionCard = memo(
     resolveLabel,
   }: {
     detection: Detection;
-    resolveLabel: (value: string | number) => string;
+    resolveLabel: (det: Detection) => string;
   }) => {
-    const labelName = resolveLabel(detection.label);
+    const labelName = resolveLabel(detection);
 
     return (
       <div className="flex flex-col items-center gap-2 px-3 py-2 bg-theme-bg-tertiary w-full rounded-md border-l-[3px] border-l-theme-accent border border-theme-border">

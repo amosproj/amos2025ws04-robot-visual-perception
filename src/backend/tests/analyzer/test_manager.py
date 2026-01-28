@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 
 from analyzer.manager import AnalyzerWebSocketManager, ProcessingState
-from analyzer.tracking_models import TrackedObject
-from common.core.contracts import Detection
+from analyzer.tracked_object import TrackedObject
+from common.typing import Detection
 
 
 @pytest.fixture
@@ -203,7 +203,6 @@ async def test_run_inference_pipeline_excludes_updated_tracks_from_interpolation
     [
         (0, "Person"),  # happy path
         (999, "Unknown (999)"),  # out of range
-        ("foo", "Unknown (foo)"),  # non-numeric input
     ],
 )
 def test_build_metadata_message_maps_label_to_text(
@@ -223,6 +222,7 @@ def test_build_metadata_message_maps_label_to_text(
         timestamp=1.0,
         frame_id=1,
         current_fps=30.0,
+        is_interpolated=[False],
     )
 
     assert metadata.detections[0]["label"] == cls_id
@@ -243,7 +243,7 @@ async def test_process_detection_applies_detection_threshold(
     estimator = MagicMock()
     estimator.estimate_distance_m = MagicMock(return_value=[1.0])
 
-    detections, distances = await manager._process_detection(
+    detections, distances, interpoalted_flags = await manager._process_detection(
         MagicMock(),
         ProcessingState(frame_id=2, current_fps=20.0, last_fps_time=1.0),
         detector,
@@ -252,3 +252,4 @@ async def test_process_detection_applies_detection_threshold(
 
     assert detections == []
     assert distances == []
+    assert interpoalted_flags == []

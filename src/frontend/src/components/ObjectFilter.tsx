@@ -8,8 +8,10 @@ import { useState, useMemo, useCallback, memo, useEffect } from 'react';
 import { getCocoLabel } from '../constants/cocoLabels';
 import { BoundingBox } from './video/VideoOverlay';
 import { useI18n } from '../i18n';
+import { clamp } from '../lib/mathUtils';
+import { getClassId } from '../lib/overlayUtils';
 
-export interface ObjectFilterProps {
+export interface ObjectFilterSectionProps {
   /** Current detections from the latest frame */
   detections: BoundingBox[];
   /** Currently selected class IDs */
@@ -20,16 +22,22 @@ export interface ObjectFilterProps {
   confidenceThreshold: number;
   /** Callback when confidence threshold changes */
   onConfidenceThresholdChange: (threshold: number) => void;
-  /** Whether the widget is currently open */
-  isOpen: boolean;
-  /** Callback to toggle widget visibility */
-  onToggle: () => void;
   /** Whether the analyzer is currently connected */
   isAnalyzerConnected: boolean;
   /** Whether the video is currently connected */
   isVideoConnected: boolean;
   /** Callback when clear all is triggered */
   onClearAll?: () => void;
+  /** Visual variant for layout */
+  variant?: 'card' | 'section';
+}
+
+export interface ObjectFilterProps
+  extends Omit<ObjectFilterSectionProps, 'variant'> {
+  /** Whether the widget is currently open */
+  isOpen: boolean;
+  /** Callback to toggle widget visibility */
+  onToggle: () => void;
 }
 
 interface DetectedClass {
@@ -94,30 +102,37 @@ const ClassCheckboxItem = memo(
 );
 
 /**
- * ObjectFilter component for filtering detected objects by class
+ * ObjectFilter section for filtering detected objects by class
  *
  * Features:
  * - Multi-select checkbox list of detected object classes
  * - Stable ordering: new classes added at top, but not reordered after that
  * - Shows current count of each class in the frame
- * - Positioned on the left side (opposite of MetadataWidget)
  */
-function ObjectFilter({
+export function ObjectFilterSection({
   detections,
   selectedClasses,
   onSelectionChange,
   confidenceThreshold,
   onConfidenceThresholdChange,
-  isOpen,
-  onToggle,
   isAnalyzerConnected,
   isVideoConnected,
   onClearAll,
-}: ObjectFilterProps) {
+  variant = 'card',
+}: ObjectFilterSectionProps) {
   const { t, language } = useI18n();
   const unknownLabel = useCallback(
     (value: string | number) => t('labelUnknown', { id: value }),
     [t]
+  );
+  const resolveLabel = useCallback(
+    (label: string | number, labelText?: string) => {
+      if (labelText && labelText.trim().length > 0) {
+        return labelText;
+      }
+      return getCocoLabel(label, language, { unknownLabel });
+    },
+    [language, unknownLabel]
   );
   // Track all classes ever seen in the session with their first-seen timestamp
   const [seenClasses, setSeenClasses] = useState<Map<number, number>>(
@@ -133,16 +148,21 @@ function ObjectFilter({
 
   // Compute current frame's class counts and update seen classes
   const currentClasses = useMemo(() => {
-    const classMap = new Map<number, number>();
+    const classMap = new Map<number, { count: number; label: string }>();
 
     detections.forEach((detection) => {
-      const classId =
-        typeof detection.label === 'string'
-          ? parseInt(detection.label, 10)
-          : detection.label;
+      const classId = getClassId(detection.label);
 
       if (!isNaN(classId)) {
-        classMap.set(classId, (classMap.get(classId) || 0) + 1);
+        const resolvedLabel = resolveLabel(
+          detection.label,
+          detection.labelText
+        );
+        const existing = classMap.get(classId);
+        classMap.set(classId, {
+          count: (existing?.count ?? 0) + 1,
+          label: existing?.label ?? resolvedLabel,
+        });
 
         // Track when this class was first seen
         setSeenClasses((prev) => {
@@ -157,17 +177,18 @@ function ObjectFilter({
     });
 
     return classMap;
-  }, [detections]);
+  }, [detections, resolveLabel]);
 
   // Build stable list of detected classes (ordered by first-seen, newest at top)
   const detectedClasses = useMemo(() => {
     const classes: DetectedClass[] = [];
 
     seenClasses.forEach((firstSeen, classId) => {
-      const count = currentClasses.get(classId) || 0;
+      const classInfo = currentClasses.get(classId);
+      const count = classInfo?.count || 0;
       classes.push({
         classId,
-        label: getCocoLabel(classId, language, { unknownLabel }),
+        label: classInfo?.label ?? resolveLabel(classId, undefined),
         count,
         firstSeen,
       });
@@ -175,7 +196,7 @@ function ObjectFilter({
 
     // Sort by first-seen timestamp (newest first = highest timestamp first)
     return classes.sort((a, b) => b.firstSeen - a.firstSeen);
-  }, [seenClasses, currentClasses, language, unknownLabel]);
+  }, [seenClasses, currentClasses, resolveLabel]);
 
   const handleToggleClass = useCallback(
     (classId: number) => {
@@ -202,7 +223,7 @@ function ObjectFilter({
 
   const handleConfidenceChange = useCallback(
     (value: number) => {
-      const clamped = Math.min(1, Math.max(0, value));
+      const clamped = clamp(value, 0, 1);
       onConfidenceThresholdChange(clamped);
     },
     [onConfidenceThresholdChange]
@@ -212,6 +233,122 @@ function ObjectFilter({
   const allSelected =
     hasDetections && selectedClasses.size === detectedClasses.length;
   const noneSelected = selectedClasses.size === 0;
+  const containerClass =
+    variant === 'card'
+      ? 'bg-theme-bg-secondary border border-theme-border-subtle p-4 rounded-lg shadow-card'
+      : '';
+  const headerSpacingClass = variant === 'card' ? 'mb-3' : 'mb-2';
+  const listClass =
+    variant === 'card'
+      ? 'space-y-1 max-h-[calc(100vh-300px)] overflow-y-auto'
+      : 'space-y-1';
+
+  return (
+    <div className={containerClass}>
+      {/* Header */}
+      <div className={headerSpacingClass}>
+        <h3 className="my-0 text-theme-accent text-lg font-semibold">
+          {t('objectFilterTitle')}
+        </h3>
+        <p className="text-theme-text-muted text-xs mt-1">
+          {noneSelected
+            ? t('objectFilterNoVisible')
+            : t('objectFilterSelectedClasses', {
+                count: selectedClasses.size,
+              })}
+        </p>
+      </div>
+
+      {/* Low confidence filter */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between text-xs text-theme-text-primary mb-1">
+          <span>{t('objectFilterConfidenceTitle')}</span>
+          <span className="text-theme-accent font-mono">
+            {Math.round(confidenceThreshold * 100)}%+
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={confidenceThreshold}
+          onChange={(e) => handleConfidenceChange(parseFloat(e.target.value))}
+          disabled={!isVideoConnected}
+          className="w-full accent-theme-accent cursor-pointer disabled:cursor-not-allowed"
+        />
+        <p className="text-theme-text-muted text-[11px] mt-1">
+          {t('objectFilterConfidenceHelper')}
+        </p>
+      </div>
+
+      {/* Action buttons */}
+      {hasDetections && (
+        <div className="flex gap-2 mb-3">
+          <button
+            onClick={handleSelectAll}
+            disabled={allSelected || !isVideoConnected}
+            className="flex-1 text-xs px-2 py-1.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover disabled:bg-theme-bg-disabled disabled:text-theme-text-muted text-theme-accent rounded border border-theme-border transition-colors"
+          >
+            {t('objectFilterSelectAll')}
+          </button>
+          <button
+            onClick={handleClearAll}
+            disabled={noneSelected || !isVideoConnected}
+            className="flex-1 text-xs px-2 py-1.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover disabled:bg-theme-bg-disabled disabled:text-theme-text-muted text-theme-accent rounded border border-theme-border transition-colors"
+          >
+            {t('objectFilterClearAll')}
+          </button>
+        </div>
+      )}
+
+      {/* Class list */}
+      {hasDetections ? (
+        <div className={listClass}>
+          {detectedClasses.map((classInfo) => (
+            <ClassCheckboxItem
+              key={classInfo.classId}
+              classInfo={classInfo}
+              isSelected={selectedClasses.has(classInfo.classId)}
+              onToggle={handleToggleClass}
+              disabled={!isVideoConnected}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="text-theme-text-muted text-sm italic text-center py-4">
+          {t('objectFilterNoDetections')}
+        </p>
+      )}
+
+      {/* Info text */}
+      {hasDetections && (
+        <div className="mt-3 pt-3 border-t border-theme-border-subtle">
+          <p className="text-theme-text-muted text-xs">
+            {noneSelected
+              ? t('objectFilterInfoNoneSelected')
+              : t('objectFilterInfoSomeSelected')}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ObjectFilter component for filtering detected objects by class
+ *
+ * Features:
+ * - Multi-select checkbox list of detected object classes
+ * - Stable ordering: new classes added at top, but not reordered after that
+ * - Shows current count of each class in the frame
+ */
+function ObjectFilter({
+  isOpen,
+  onToggle,
+  ...sectionProps
+}: ObjectFilterProps) {
+  const { t } = useI18n();
 
   return (
     <>
@@ -238,96 +375,7 @@ function ObjectFilter({
       {/* Widget content */}
       {isOpen && (
         <div className="fixed left-5 top-[120px] w-[280px] max-h-[calc(100vh-140px)] overflow-y-auto z-50 transition-all duration-300">
-          <div className="bg-theme-bg-secondary border border-theme-border-subtle p-4 rounded-lg shadow-card">
-            {/* Header */}
-            <div className="mb-3">
-              <h3 className="my-0 text-theme-accent text-lg font-semibold">
-                {t('objectFilterTitle')}
-              </h3>
-              <p className="text-theme-text-muted text-xs mt-1">
-                {noneSelected
-                  ? t('objectFilterNoVisible')
-                  : t('objectFilterSelectedClasses', {
-                      count: selectedClasses.size,
-                    })}
-              </p>
-            </div>
-
-            {/* Low confidence filter */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between text-xs text-theme-text-primary mb-1">
-                <span>{t('objectFilterConfidenceTitle')}</span>
-                <span className="text-theme-accent font-mono">
-                  {Math.round(confidenceThreshold * 100)}%+
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={confidenceThreshold}
-                onChange={(e) =>
-                  handleConfidenceChange(parseFloat(e.target.value))
-                }
-                disabled={!isVideoConnected}
-                className="w-full accent-theme-accent cursor-pointer disabled:cursor-not-allowed"
-              />
-              <p className="text-theme-text-muted text-[11px] mt-1">
-                {t('objectFilterConfidenceHelper')}
-              </p>
-            </div>
-
-            {/* Action buttons */}
-            {hasDetections && (
-              <div className="flex gap-2 mb-3">
-                <button
-                  onClick={handleSelectAll}
-                  disabled={allSelected || !isVideoConnected}
-                  className="flex-1 text-xs px-2 py-1.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover disabled:bg-theme-bg-disabled disabled:text-theme-text-muted text-theme-accent rounded border border-theme-border transition-colors"
-                >
-                  {t('objectFilterSelectAll')}
-                </button>
-                <button
-                  onClick={handleClearAll}
-                  disabled={noneSelected || !isVideoConnected}
-                  className="flex-1 text-xs px-2 py-1.5 bg-theme-bg-tertiary hover:bg-theme-bg-hover disabled:bg-theme-bg-disabled disabled:text-theme-text-muted text-theme-accent rounded border border-theme-border transition-colors"
-                >
-                  {t('objectFilterClearAll')}
-                </button>
-              </div>
-            )}
-
-            {/* Class list */}
-            {hasDetections ? (
-              <div className="space-y-1 max-h-[calc(100vh-300px)] overflow-y-auto">
-                {detectedClasses.map((classInfo) => (
-                  <ClassCheckboxItem
-                    key={classInfo.classId}
-                    classInfo={classInfo}
-                    isSelected={selectedClasses.has(classInfo.classId)}
-                    onToggle={handleToggleClass}
-                    disabled={!isVideoConnected}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="text-theme-text-muted text-sm italic text-center py-4">
-                {t('objectFilterNoDetections')}
-              </p>
-            )}
-
-            {/* Info text */}
-            {hasDetections && (
-              <div className="mt-3 pt-3 border-t border-theme-border-subtle">
-                <p className="text-theme-text-muted text-xs">
-                  {noneSelected
-                    ? t('objectFilterInfoNoneSelected')
-                    : t('objectFilterInfoSomeSelected')}
-                </p>
-              </div>
-            )}
-          </div>
+          <ObjectFilterSection {...sectionProps} variant="card" />
         </div>
       )}
     </>

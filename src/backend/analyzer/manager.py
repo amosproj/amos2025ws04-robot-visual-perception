@@ -15,10 +15,9 @@ from fastapi import WebSocket
 from prometheus_client import Histogram
 from pydantic import BaseModel
 
+from analyzer.tracked_object import TrackedObject
 from analyzer.tracker import TrackingManager
-from analyzer.tracking_models import TrackedObject
 from common.config import config
-from common.core.contracts import DepthEstimator, Detection, ObjectDetector
 from common.core.depth import get_depth_estimator
 from common.core.detector import get_detector
 from common.core.session import WebcamSession
@@ -28,11 +27,17 @@ from common.metrics import (
     get_detection_duration,
     get_detections_count,
 )
-from common.utils.geometry import (
-    compute_camera_intrinsics,
+from common.protocols import DepthEstimator, ObjectDetector
+from common.typing import Detection, DetectionPayload
+from common.utils.camera import compute_camera_intrinsics
+from common.utils.detection import (
+    normalize_bbox_coordinates,
     unproject_bbox_center_to_camera,
 )
-from common.utils.image import resize_frame
+from common.utils.transforms import (
+    calculate_adaptive_scale,
+    resize_frame,
+)
 
 logger = logging.getLogger("manager")
 
@@ -42,7 +47,7 @@ class MetadataMessage(BaseModel):
 
     timestamp: float
     frame_id: int
-    detections: list[dict]
+    detections: list[DetectionPayload]
     fps: float | None = None
 
 
@@ -96,6 +101,10 @@ class AnalyzerWebSocketManager:
         self._detection_duration = get_detection_duration()
         self._depth_estimation_duration = get_depth_estimation_duration()
         self._detections_count = get_detections_count()
+
+        self._intrinsics_cache: dict[
+            tuple[int, int], tuple[float, float, float, float]
+        ] = {}
 
     async def connect(self, websocket: WebSocket) -> None:
         """Accept a new WebSocket connection."""
@@ -161,6 +170,38 @@ class AnalyzerWebSocketManager:
 
         # Clear tracking manager state when stopping
         self._tracking_manager.clear()
+
+        # Clear intrinsics cache when stopping
+        self._intrinsics_cache.clear()
+
+    def _get_compute_intrinsics(
+        self, width: int, height: int
+    ) -> tuple[float, float, float, float]:
+        """Get cached camera intrinsics for resolution or compute if new.
+
+        Camera intrinsics are resolution-dependent but constant for a given size.
+        This caches them to avoid redundant trigonometry calculations.
+
+        Args:
+            width: Frame width in pixels
+            height: Frame height in pixels
+
+        Returns:
+            Tuple of (fx, fy, cx, cy) camera intrinsic parameters
+        """
+        cache_key = (width, height)
+        if cache_key not in self._intrinsics_cache:
+            self._intrinsics_cache[cache_key] = compute_camera_intrinsics(
+                width=width,
+                height=height,
+                fx=config.CAMERA_FX,
+                fy=config.CAMERA_FY,
+                cx=config.CAMERA_CX,
+                cy=config.CAMERA_CY,
+                fov_x_deg=config.CAMERA_FOV_X_DEG,
+                fov_y_deg=config.CAMERA_FOV_Y_DEG,
+            )
+        return self._intrinsics_cache[cache_key]
 
     async def shutdown(self) -> None:
         """Cleanup on service shutdown."""
@@ -360,15 +401,12 @@ class AnalyzerWebSocketManager:
             state.fps_counter = 0
             state.last_fps_time = current_time
 
-            if state.current_fps < 10:
-                state.target_scale -= self.smooth_factor
-            elif state.current_fps < 18:
-                state.target_scale -= self.smooth_factor * 0.5
-            else:
-                state.target_scale += self.smooth_factor * 0.8
-
-            state.target_scale = max(
-                self.min_scale, min(self.max_scale, state.target_scale)
+            state.target_scale = calculate_adaptive_scale(
+                current_fps=state.current_fps,
+                current_scale=state.target_scale,
+                smooth_factor=self.smooth_factor,
+                min_scale=self.min_scale,
+                max_scale=self.max_scale,
             )
 
             logger.info(
@@ -387,7 +425,7 @@ class AnalyzerWebSocketManager:
         state: ProcessingState,
         detector: ObjectDetector,
         estimator: DepthEstimator,
-    ) -> tuple[list[Detection], list[float]]:
+    ) -> tuple[list[Detection], list[float], list[bool]]:
         with self._measure_time(
             self._detection_duration, labels={"backend": config.DETECTOR_BACKEND}
         ):
@@ -395,7 +433,7 @@ class AnalyzerWebSocketManager:
             raw_detections = await detector.infer(frame_small)
 
         if not raw_detections:
-            return [], []
+            return [], [], []
 
         with self._measure_time(
             self._depth_estimation_duration,
@@ -439,11 +477,14 @@ class AnalyzerWebSocketManager:
 
         all_detections = filtered_detections + interpolated_detections
         all_distances = filtered_distances + interpolated_distances
+        is_interpolated = [False] * len(filtered_detections) + [True] * len(
+            interpolated_detections
+        )
 
         # cleanup every frame, regardless of detections
         self._tracking_manager._remove_stale_tracks(state.frame_id)
 
-        return all_detections, all_distances
+        return all_detections, all_distances, is_interpolated
 
     async def _run_inference_pipeline(
         self,
@@ -467,7 +508,11 @@ class AnalyzerWebSocketManager:
             return
 
         try:
-            all_detections, all_distances = await self._process_detection(
+            (
+                all_detections,
+                all_distances,
+                is_interpolated,
+            ) = await self._process_detection(
                 frame_small=frame_small,
                 state=state,
                 detector=detector,
@@ -476,7 +521,12 @@ class AnalyzerWebSocketManager:
 
             if all_detections:
                 await self._send_frame_metadata(
-                    frame_small, all_detections, all_distances, current_time, state
+                    frame_small,
+                    all_detections,
+                    all_distances,
+                    is_interpolated,
+                    current_time,
+                    state,
                 )
 
         except Exception as e:
@@ -502,13 +552,14 @@ class AnalyzerWebSocketManager:
         frame_rgb: np.ndarray,
         detections: list[Detection],
         distances: list[float],
+        is_interpolated: list[bool],
         timestamp: float,
         frame_id: int,
         current_fps: float,
     ) -> MetadataMessage:
         """Construct metadata message with normalized boxes and camera-space XYZ."""
         h, w = frame_rgb.shape[:2]
-        fx, fy, cx, cy = compute_camera_intrinsics(w, h)
+        fx, fy, cx, cy = self._get_compute_intrinsics(w, h)
 
         if not self._intrinsics_logged and getattr(config, "LOG_INTRINSICS", False):
             logger.info(
@@ -525,36 +576,30 @@ class AnalyzerWebSocketManager:
             self._intrinsics_logged = True
 
         det_payload = []
-        for det, dist_m in zip(detections, distances):
-            box_w = max(0.0, float(det.x2 - det.x1))
-            box_h = max(0.0, float(det.y2 - det.y1))
-            if box_w <= 0 or box_h <= 0:
-                continue
-
-            norm_x = max(0.0, min(1.0, det.x1 / w))
-            norm_y = max(0.0, min(1.0, det.y1 / h))
-            norm_w = max(0.0, min(1.0, box_w / w))
-            norm_h = max(0.0, min(1.0, box_h / h))
+        for det, dist_m, is_interp in zip(detections, distances, is_interpolated):
+            norm_x, norm_y, norm_w, norm_h = normalize_bbox_coordinates(
+                det.x1, det.y1, det.x2, det.y2, w, h
+            )
 
             pos_x, pos_y, pos_z = unproject_bbox_center_to_camera(
                 det.x1, det.y1, det.x2, det.y2, dist_m, fx, fy, cx, cy
             )
 
-            det_payload.append(
-                {
-                    "box": {
-                        "x": norm_x,
-                        "y": norm_y,
-                        "width": norm_w,
-                        "height": norm_h,
-                    },
-                    "label": det.cls_id,
-                    "label_text": get_coco_label(det.cls_id),
-                    "confidence": float(det.confidence),
-                    "distance": float(dist_m),
-                    "position": {"x": pos_x, "y": pos_y, "z": pos_z},
-                }
-            )
+            detection_dic: DetectionPayload = {
+                "box": {
+                    "x": norm_x,
+                    "y": norm_y,
+                    "width": norm_w,
+                    "height": norm_h,
+                },
+                "label": det.cls_id,
+                "label_text": get_coco_label(det.cls_id),
+                "confidence": float(det.confidence),
+                "distance": float(dist_m),
+                "position": {"x": pos_x, "y": pos_y, "z": pos_z},
+                "interpolated": is_interp,
+            }
+            det_payload.append(detection_dic)
 
         return MetadataMessage(
             timestamp=timestamp * 1000,  # milliseconds
@@ -568,6 +613,7 @@ class AnalyzerWebSocketManager:
         frame_small: np.ndarray,
         detections: list[Detection],
         distances: list[float],
+        is_interpolated: list[bool],
         current_time: float,
         state: ProcessingState,
     ) -> None:
@@ -576,6 +622,7 @@ class AnalyzerWebSocketManager:
             frame_rgb=frame_small,
             detections=detections,
             distances=distances,
+            is_interpolated=is_interpolated,
             timestamp=current_time,
             frame_id=state.frame_id,
             current_fps=state.current_fps,

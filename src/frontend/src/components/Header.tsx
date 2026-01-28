@@ -4,61 +4,180 @@
  * SPDX-License-Identifier: MIT
  */
 
+import { forwardRef } from 'react';
 import { useI18n } from '../i18n';
-import type { TranslationKey } from '../i18n/translations';
 import ThemeToggle from './ThemeToggle';
+import { IconButton } from './ui/IconButton';
+import { Video, VideoOff, Activity, Filter, Layers } from './video/Icons';
 
 export interface HeaderProps {
-  videoState: string;
-  latencyMs?: number;
-  analyzerConnected: boolean;
-  analyzerFps: number;
-  overlayFps: number;
-  objectCount: number;
+  /** Whether to show in minimal/game mode */
+  minimal?: boolean;
+  /** Video connection state */
+  videoState?: string;
+  /** Whether analyzer is connected */
+  analyzerConnected?: boolean;
+  /** Video connection handlers */
+  onConnectVideo?: () => void;
+  onDisconnectVideo?: () => void;
+  /** Analyzer connection handlers */
+  onConnectAnalyzer?: () => void;
+  onDisconnectAnalyzer?: () => void;
+  /** Panel state */
+  showPanel?: boolean;
+  onTogglePanel?: () => void;
+  /** Radar overlay state */
+  showRadar?: boolean;
+  onToggleRadar?: () => void;
 }
 
-// Helper function to get status value classes
-const getStatusValueClass = (isConnected: boolean) => {
-  if (isConnected) {
-    return 'bg-gradient-to-br from-theme-success to-theme-success-secondary text-white shadow-success-glow';
-  }
-  return 'bg-theme-bg-tertiary text-theme-text-primary border border-theme-border';
-};
-
-const getVideoStateClass = (state: string) => {
-  if (state === 'connected') {
-    return 'bg-gradient-to-br from-theme-success to-theme-success-secondary text-white shadow-success-glow';
-  }
-  if (state === 'connecting') {
-    return 'bg-gradient-to-br from-theme-warning to-theme-warning-secondary text-white shadow-warning-glow animate-pulse';
-  }
-  if (state === 'error') {
-    return 'bg-gradient-to-br from-theme-error to-theme-error-secondary text-white shadow-error-glow';
-  }
-  return 'bg-theme-bg-tertiary text-theme-text-primary border border-theme-border';
-};
-
-export default function Header({
-  videoState,
-  latencyMs,
-  analyzerConnected,
-  analyzerFps,
-  overlayFps,
-  objectCount,
-}: HeaderProps) {
+const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
+  const { minimal = false } = props;
   const { t, language, setLanguage, languageOptions } = useI18n();
-  const videoStateLabels: Record<string, TranslationKey> = {
-    connected: 'videoStateConnected',
-    connecting: 'videoStateConnecting',
-    error: 'videoStateError',
-    idle: 'videoStateIdle',
-  };
-  const videoStateLabel = t(videoStateLabels[videoState] ?? 'videoStateIdle');
 
+  if (minimal) {
+    return (
+      <header
+        ref={ref}
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2 pointer-events-none"
+      >
+        {/* Language selector - top left */}
+        <div className="pointer-events-auto flex items-center gap-2">
+          {props.onTogglePanel && (
+            <IconButton
+              size="sm"
+              icon={<Filter size={16} />}
+              tooltip={props.showPanel ? 'Hide Panel' : 'Show Panel'}
+              onClick={props.onTogglePanel}
+              active={props.showPanel}
+              variant={props.showPanel ? 'success' : 'default'}
+              tooltipPosition="bottom"
+            />
+          )}
+          <div className="relative">
+            <select
+              id="language-select"
+              value={language}
+              onChange={(event) =>
+                setLanguage(event.target.value as typeof language)
+              }
+              className="bg-[#2d3436] text-white border border-theme-border appearance-none pl-3 pr-8 py-1.5 rounded text-sm cursor-pointer shadow-lg"
+            >
+              {languageOptions.map((option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                  className="bg-[#2d3436] text-white"
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-white">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* Title - center */}
+        <h1 className="my-0 text-theme-accent text-xl md:text-2xl font-light">
+          {t('appTitle')}
+        </h1>
+
+        {/* Controls - top right */}
+        <div className="pointer-events-auto flex items-center gap-2">
+          {/* Connection Controls (only if props provided) */}
+          {props.onConnectVideo && (
+            <>
+              {/* Video connection button */}
+              <IconButton
+                size="sm"
+                icon={
+                  props.videoState === 'connected' ? (
+                    <Video size={16} />
+                  ) : (
+                    <VideoOff size={16} />
+                  )
+                }
+                tooltip={
+                  props.videoState === 'connecting'
+                    ? t('connectionConnecting')
+                    : props.videoState === 'connected'
+                      ? t('connectionDisconnectVideo')
+                      : t('connectionConnectVideo')
+                }
+                onClick={
+                  props.videoState === 'connected'
+                    ? props.onDisconnectVideo
+                    : props.onConnectVideo
+                }
+                disabled={props.videoState === 'connecting'}
+                variant={
+                  props.videoState === 'connecting'
+                    ? 'warning'
+                    : props.videoState === 'connected'
+                      ? 'success'
+                      : 'default'
+                }
+                tooltipPosition="bottom"
+              />
+
+              {/* Analyzer connection button */}
+              <IconButton
+                size="sm"
+                icon={<Activity size={16} />}
+                tooltip={
+                  props.analyzerConnected
+                    ? t('connectionDisconnectAnalyzer')
+                    : t('connectionConnectAnalyzer')
+                }
+                onClick={
+                  props.analyzerConnected
+                    ? props.onDisconnectAnalyzer
+                    : props.onConnectAnalyzer
+                }
+                variant={props.analyzerConnected ? 'success' : 'default'}
+                tooltipPosition="bottom"
+              />
+
+              <div className="w-px h-6 bg-theme-border mx-1" />
+            </>
+          )}
+
+          {props.onToggleRadar && (
+            <IconButton
+              size="sm"
+              icon={<Layers size={16} />}
+              tooltip={t('radarToggle')}
+              onClick={props.onToggleRadar}
+              active={props.showRadar}
+              variant={props.showRadar ? 'success' : 'default'}
+              tooltipPosition="bottom"
+            />
+          )}
+
+          <ThemeToggle size="sm" />
+        </div>
+      </header>
+    );
+  }
+
+  // Original header for non-game mode (kept for backwards compatibility)
   return (
-    <div className="text-center mb-8">
+    <div ref={ref} className="text-center mb-8">
       <div className="flex justify-between items-center mb-5">
-        <div className="w-10" /> {/* Spacer for centering */}
+        <div className="w-10" />
         <h1 className="my-0 text-theme-accent text-[2.5rem] font-light shadow-accent-glow">
           {t('appTitle')}
         </h1>
@@ -66,12 +185,12 @@ export default function Header({
       </div>
       <div className="flex justify-center mb-4">
         <label
-          htmlFor="language-select"
+          htmlFor="language-select-full"
           className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#888]"
         >
           <span>{t('languageLabel')}</span>
           <select
-            id="language-select"
+            id="language-select-full"
             value={language}
             onChange={(event) =>
               setLanguage(event.target.value as typeof language)
@@ -86,57 +205,10 @@ export default function Header({
           </select>
         </label>
       </div>
-      <div className="flex justify-center gap-8 flex-wrap bg-theme-bg-secondary border border-theme-border-subtle p-4 rounded-lg shadow-card">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-theme-text-secondary">
-            {t('videoLabel')}:
-          </span>
-          <span
-            className={`font-medium px-3 py-1 rounded ${getVideoStateClass(videoState)}`}
-          >
-            {videoStateLabel}
-          </span>
-          {latencyMs && (
-            <span className="text-theme-accent text-xs font-semibold shadow-accent-glow">
-              ({latencyMs}ms)
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-theme-text-secondary">
-            {t('analyzerLabel')}:
-          </span>
-          <span
-            className={`font-medium px-3 py-1 rounded ${getStatusValueClass(analyzerConnected)}`}
-          >
-            {analyzerConnected ? t('statusConnected') : t('statusDisconnected')}
-          </span>
-          {analyzerFps && analyzerFps > 0 && (
-            <span className="text-theme-accent text-xs font-semibold shadow-accent-glow">
-              ({analyzerFps} FPS)
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-theme-secondary">
-            {t('overlayLabel')}:
-          </span>
-          <span className="font-medium px-3 py-1 rounded bg-theme-bg-tertiary text-theme-text-primary border border-theme-border">
-            {overlayFps} FPS
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-theme-text-secondary">
-            {t('objectsLabel')}:
-          </span>
-          <span className="font-medium px-3 py-1 rounded bg-theme-bg-tertiary text-theme-text-primary border border-theme-border">
-            {objectCount}
-          </span>
-        </div>
-      </div>
     </div>
   );
-}
+});
+
+Header.displayName = 'Header';
+
+export default Header;
