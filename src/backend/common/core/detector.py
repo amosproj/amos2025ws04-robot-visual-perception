@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 import asyncio
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Optional, Callable, Any
 import logging
 
 import numpy as np
@@ -270,12 +270,14 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         self._iou = config.DETECTOR_IOU_THRESHOLD
         self._max_det = config.DETECTOR_MAX_DETECTIONS
         self._num_classes = config.DETECTOR_NUM_CLASSES
+        self._use_io_binding = config.ONNX_IO_BINDING
+        self._io_binding: Optional[Any] = None
+        self._io_device_type, self._io_device_id = self._resolve_io_binding_device()
 
     def predict(self, frame_rgb: np.ndarray) -> list[Detection]:
         """Run ONNX Runtime inference and return scaled, filtered detections."""
         input_tensor, ratio, dwdh = self._prepare_input(frame_rgb)
-        ort_inputs = {self._input_name: input_tensor}
-        outputs = self._session.run(self._output_names, ort_inputs)[0]
+        outputs = self._run_onnx(input_tensor)[0]
         h, w = frame_rgb.shape[:2]
         return self._postprocess(outputs, (h, w), ratio, dwdh)
 
@@ -394,6 +396,58 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         ]
         providers = [p for p in preferred if p in available]
         return providers or available
+
+    def _resolve_io_binding_device(self) -> tuple[str, int]:
+        """Pick the device type/id used for IO binding based on providers."""
+        try:
+            providers = self._session.get_providers()
+        except Exception:
+            return ("cpu", 0)
+        provider_map = {
+            "CUDAExecutionProvider": "cuda",
+            "ROCMExecutionProvider": "rocm",
+            "DmlExecutionProvider": "dml",
+        }
+        for provider in providers:
+            if provider in provider_map:
+                return (provider_map[provider], 0)
+        return ("cpu", 0)
+
+    def _run_onnx(self, input_tensor: np.ndarray) -> list[np.ndarray]:
+        """Run ONNX Runtime inference with optional IO binding."""
+        if not self._use_io_binding or self._io_device_type == "cpu":
+            ort_inputs = {self._input_name: input_tensor}
+            return self._session.run(self._output_names, ort_inputs)
+
+        if self._io_binding is None:
+            self._io_binding = self._session.io_binding()
+
+        io_binding = self._io_binding
+        if io_binding is None:
+            ort_inputs = {self._input_name: input_tensor}
+            return self._session.run(self._output_names, ort_inputs)
+
+        try:
+            io_binding.clear_binding_inputs()
+            io_binding.clear_binding_outputs()
+
+            ort_value = ort.OrtValue.ortvalue_from_numpy(
+                input_tensor, self._io_device_type, self._io_device_id
+            )
+            io_binding.bind_ortvalue_input(self._input_name, ort_value)
+            for output_name in self._output_names:
+                io_binding.bind_output(
+                    output_name, self._io_device_type, self._io_device_id
+                )
+            self._session.run_with_iobinding(io_binding)
+            return io_binding.copy_outputs_to_cpu()
+        except Exception as exc:
+            logger.warning(
+                "IO binding failed, falling back to session.run",
+                extra={"error": str(exc)},
+            )
+            ort_inputs = {self._input_name: input_tensor}
+            return self._session.run(self._output_names, ort_inputs)
 
 
 # Register built-in backends

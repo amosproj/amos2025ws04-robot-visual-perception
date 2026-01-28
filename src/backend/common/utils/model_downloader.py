@@ -20,6 +20,19 @@ except ImportError:
     AutoImageProcessor = None  # type: ignore
     AutoModelForDepthEstimation = None  # type: ignore
 
+try:
+    import onnx
+except ImportError:
+    onnx = None  # type: ignore
+
+try:
+    from onnxruntime.transformers.float16 import convert_float_to_float16  # type: ignore[import-untyped]
+
+    HAS_ONNX_QUANTIZATION = True
+except ImportError:
+    convert_float_to_float16 = None  # type: ignore
+    HAS_ONNX_QUANTIZATION = False
+
 
 logger = logging.getLogger(__name__)
 
@@ -93,12 +106,53 @@ def ensure_yolo_model_downloaded(
         raise RuntimeError(error_msg) from e
 
 
+# Ops that don't work well with FP16 on cpu (can be removed if on gpu)
+FP16_OP_BLOCK_LIST = [
+    "Resize",
+    "Upsample",
+]
+
+
+def quantize_onnx_dynamic(model_path: Path) -> None:
+    """Convert ONNX model to FP16 (mixed precision) in-place.
+
+    Uses ONNX Runtime's float16 converter which properly handles:
+    - Keeping inputs/outputs as FP32 for compatibility
+    - Blocking problematic ops (Resize, Upsample) from FP16 conversion
+    - Inserting Cast nodes where needed
+
+    This provides ~50% model size reduction while maintaining CPU compatibility.
+
+    Args:
+        model_path: Path to the ONNX model to convert
+
+    Raises:
+        RuntimeError: If onnxruntime.transformers is not available
+    """
+    if not HAS_ONNX_QUANTIZATION or not onnx:
+        raise RuntimeError("onnx, onnxruntime are required for FP16 conversion. ")
+
+    logger.info("Converting ONNX model to FP16 (mixed precision)...")
+
+    model = onnx.load(str(model_path))
+
+    model_fp16 = convert_float_to_float16(
+        model,
+        keep_io_types=True,
+        op_block_list=FP16_OP_BLOCK_LIST,
+    )
+
+    onnx.save(model_fp16, str(model_path))
+    logger.info("FP16 conversion complete: %s", model_path)
+
+
 def export_yolo_to_onnx(
     yolo_path: Path,
     output_path: Path,
     opset: int = 18,
     imgsz: int = 384,
     simplify: bool = True,
+    half: bool = False,
 ) -> Path:
     """Export YOLO model to ONNX format.
 
@@ -108,25 +162,25 @@ def export_yolo_to_onnx(
         opset: ONNX opset version
         imgsz: Image size
         simplify: Whether to run ONNX simplifier
+        half: Apply INT8 quantization for smaller model size (better than FP16 for CPU)
 
     Returns:
         Path to the exported ONNX model
     """
-    logger.info("Exporting YOLO model to ONNX...")
+    logger.info("Exporting YOLO model to ONNX (quantize=%s)...", half)
     try:
         if not yolo_path.exists():
             raise FileNotFoundError(f"YOLO model not found at {yolo_path}")
 
         model = YOLO(str(yolo_path))
 
-        # Ultralytics export saves to the same directory as the source model by default
-        # or we can specify 'project' and 'name' but it creates subdirs.
-        # Easiest is to let it export, then move if needed.
+        # Export to ONNX in FP32 first
         exported_filename = model.export(
             format="onnx",
             opset=opset,
             imgsz=imgsz,
             simplify=simplify,
+            half=False,
         )
 
         exported_path = Path(exported_filename).resolve()
@@ -137,9 +191,12 @@ def export_yolo_to_onnx(
         if exported_path != output_path:
             shutil.move(str(exported_path), str(output_path))
             logger.info("Moved exported YOLO model to %s", output_path)
-        else:
-            logger.info("YOLO ONNX model ready at: %s", output_path)
 
+        # Apply INT8 quantization if requested (replaces old FP16 conversion)
+        if half:
+            quantize_onnx_dynamic(output_path)
+
+        logger.info("YOLO ONNX model ready at: %s", output_path)
         return output_path
 
     except Exception as e:
@@ -208,6 +265,7 @@ def export_midas_to_onnx(
     model_repo: str = "intel-isl/MiDaS",
     opset: int = 18,
     input_size: Optional[int] = None,
+    half: bool = False,
 ) -> Path:
     """Export MiDaS model to ONNX format.
 
@@ -218,16 +276,18 @@ def export_midas_to_onnx(
         model_repo: Repo
         opset: ONNX opset version
         input_size: Optional manual input size override
+        half: Apply FP16 quantization for smaller model size
 
     Returns:
         Path to the exported ONNX model
     """
-    logger.info("Exporting %s model to ONNX...", model_type)
+    logger.info("Exporting %s model to ONNX (FP16=%s)...", model_type, half)
     try:
         torch.hub.set_dir(str(cache_dir))
         model = torch.hub.load(model_repo, model_type, trust_repo=True)
         model.eval()
 
+        # Always export in FP32 first, then quantize post-export
         default_size, _ = get_midas_onnx_config(model_type)
         size = input_size if input_size else default_size
 
@@ -245,6 +305,9 @@ def export_midas_to_onnx(
             input_names=["input"],
             output_names=["output"],
         )
+
+        if half:
+            quantize_onnx_dynamic(output_path)
 
         logger.info("%s ONNX model ready at: %s", model_type, output_path)
         return output_path

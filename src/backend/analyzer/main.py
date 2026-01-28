@@ -25,6 +25,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from common.config import config
+
+config.apply_settings_file(config.ANALYZER_SETTINGS_FILE)
 from common.core.detector import get_detector
 from common.core.depth import get_depth_estimator
 from analyzer.routes import router, on_shutdown
