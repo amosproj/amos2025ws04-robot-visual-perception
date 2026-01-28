@@ -45,6 +45,7 @@ export function getRelativePosition(
  */
 export function getDetectionColor(
   _label: string | number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _interpolated: boolean = false
 ): string {
   return DETECTION_COLOR;

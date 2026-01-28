@@ -46,12 +46,6 @@ async def configure_analyzer(request: ConfigureAnalyzerRequest) -> dict[str, str
     }
 
 
-@router.get("/health")
-def health() -> dict[str, str]:
-    """Health check endpoint."""
-    return {"status": "ok", "service": "analyzer"}
-
-
 @router.get("/metrics")
 def metrics() -> Response:
     """Prometheus metrics endpoint."""
