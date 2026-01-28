@@ -110,6 +110,11 @@ class Config:
     DETECTOR_NUM_CLASSES: int = int(os.getenv("DETECTOR_NUM_CLASSES", "80"))
     TORCH_DEVICE: Optional[str] = os.getenv("TORCH_DEVICE")
     TORCH_HALF_PRECISION: str = os.getenv("TORCH_HALF_PRECISION", "auto")
+    ONNX_HALF_PRECISION: bool = os.getenv("ONNX_HALF_PRECISION", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     ONNX_PROVIDERS: list[str] = [
         provider.strip()
         for provider in os.getenv("ONNX_PROVIDERS", "").split(",")
