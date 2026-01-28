@@ -1,0 +1,7 @@
+{
+  "MODEL_PATH": "models/yolo11n.pt",
+  "DETECTOR_BACKEND": "torch",
+  "DEPTH_BACKEND": "torch",
+  "DETECTOR_CONF_THRESHOLD": 0.25,
+  "TRACKING_IOU_THRESHOLD": 0.1
+}
