@@ -17,7 +17,6 @@ import {
   calculateBoundingBoxPixels,
   formatDetectionLabel,
   calculateLabelPosition,
-  findBestMetadataMatch,
   sanitizeTimestamp,
   isHeldFrameValid,
   hasLayoutChanged,
@@ -73,6 +72,8 @@ export interface MetadataFrame {
 interface VideoOverlayProps {
   /** Reference to the video element being overlayed */
   videoRef: React.RefObject<HTMLVideoElement>;
+  /** Optional: reference to a canvas element for display (if needed) */
+  displayCanvasRef?: React.RefObject<HTMLCanvasElement>;
   /** Whether the video is currently paused */
   isPaused?: boolean;
   /** Callback when metadata frame is processed (for debugging/stats) */
@@ -97,13 +98,22 @@ export interface VideoOverlayHandle {
  * - In production: call updateMetadata() with real backend data
  */
 const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
-  ({ videoRef, isPaused, onFrameProcessed, labelResolver, style }, ref) => {
+  (
+    {
+      videoRef,
+      displayCanvasRef,
+      isPaused,
+      onFrameProcessed,
+      labelResolver,
+      style,
+    },
+    ref
+  ) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const metadataBufferRef = useRef<MetadataFrame[]>([]);
     const animationFrameRef = useRef<number>();
     const videoFrameCallbackRef = useRef<number>();
     const fpsCounterRef = useRef({ lastTime: 0, frames: 0, fps: 0 });
-    const timeOffsetRef = useRef<number | null>(null);
     const lastRenderedRef = useRef<{
       metadata: MetadataFrame;
       mediaTimeMs: number;
@@ -140,13 +150,14 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
 
     const syncCanvasLayout = (
       canvas: HTMLCanvasElement,
-      video: HTMLVideoElement,
+      referenceElement: HTMLElement,
       ctx: CanvasRenderingContext2D
     ) => {
-      const videoRect = video.getBoundingClientRect();
-      const containerRect = video.parentElement?.getBoundingClientRect();
+      const videoRect = referenceElement.getBoundingClientRect();
+      const containerRect =
+        referenceElement.parentElement?.getBoundingClientRect();
       const { width, height, offsetX, offsetY } = getDisplayedVideoRect(
-        video,
+        referenceElement as HTMLVideoElement,
         videoRect
       );
       const dpr = window.devicePixelRatio || 1;
@@ -189,7 +200,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       updateMetadata: (metadata: MetadataFrame) => {
         if (!metadata) {
           metadataBufferRef.current = [];
-          timeOffsetRef.current = null;
           lastRenderedRef.current = null;
 
           // Clear canvas immediately to avoid stale boxes when no frames render
@@ -234,29 +244,19 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       },
     }));
 
-    const pickMetadataForTime = (mediaTimeMs: number) => {
+    const pickMetadataForTime = () => {
       const buffer = metadataBufferRef.current;
-      if (!buffer.length) return null;
-
-      // Initialize time offset on first frame if not set
-      if (timeOffsetRef.current == null) {
-        timeOffsetRef.current = buffer[0].timestamp - mediaTimeMs;
-      }
-
-      const matchResult = findBestMetadataMatch(
-        buffer,
-        mediaTimeMs,
-        timeOffsetRef.current
-      );
-
-      if (!matchResult) {
+      if (!buffer.length) {
         return null;
       }
 
-      const match = buffer[matchResult.index];
+      // For live WebRTC streams, always use the most recent metadata
+      // Timestamp matching doesn't work well because video.currentTime
+      // and backend event loop time are completely different time bases
+      const match = buffer[buffer.length - 1];
 
-      // Drop frames up to and including the one we used to prevent reuse
-      metadataBufferRef.current = buffer.slice(matchResult.index + 1);
+      // Clear the buffer after picking to avoid stale frames building up
+      metadataBufferRef.current = [];
 
       return match;
     };
@@ -281,7 +281,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
     useEffect(() => {
       const canvas = canvasRef.current;
       const video = videoRef.current;
-      if (!canvas || !video) return;
+      const displayCanvas = displayCanvasRef?.current;
+      // use displayCanvas if provided, otherwise fall back to video element
+      const referenceElement = displayCanvas || video;
+      if (!canvas || !referenceElement) return;
 
       const ctx = canvas.getContext('2d', {
         alpha: true,
@@ -290,15 +293,15 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       if (!ctx) return;
 
       // Update canvas on video load or resize
-      const updateCanvasSize = () => syncCanvasLayout(canvas, video, ctx);
-
-      video.addEventListener('loadedmetadata', updateCanvasSize);
+      const updateCanvasSize = () =>
+        syncCanvasLayout(canvas, referenceElement, ctx);
+      referenceElement.addEventListener('loadedmetadata', updateCanvasSize);
 
       // Watch for any changes to video element or container
       const resizeObserver = new ResizeObserver(updateCanvasSize);
-      resizeObserver.observe(video);
-      if (video.parentElement) {
-        resizeObserver.observe(video.parentElement);
+      resizeObserver.observe(referenceElement);
+      if (referenceElement.parentElement) {
+        resizeObserver.observe(referenceElement.parentElement);
       }
 
       // Also listen for window resize and zoom changes (devicePixelRatio)
@@ -320,7 +323,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         const canvasWidth = lastLayoutRef.current.width;
         const canvasHeight = lastLayoutRef.current.height;
 
-        let metadata = isPaused ? null : pickMetadataForTime(mediaTimeMs);
+        let metadata = isPaused ? null : pickMetadataForTime();
 
         // If no fresh metadata, try to reuse last rendered frame within a short window
         if (!metadata && lastRenderedRef.current) {
@@ -345,14 +348,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
           metadata.detections.forEach((detection) => {
-            const {
-              box,
-              label,
-              labelText,
-              confidence,
-              distance,
-              interpolated,
-            } = detection;
+            const { box, label, labelText, confidence, distance } = detection;
 
             // Calculate pixel coordinates using utility function
             const pixelBox = calculateBoundingBoxPixels(
@@ -374,7 +370,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             } = pixelBox;
 
             // Get color for this detection
-            const color = getDetectionColor(label, interpolated);
+            const color = getDetectionColor();
 
             // Draw bounding box using calculated coordinates
             ctx.shadowColor = color;
@@ -483,7 +479,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         ).requestVideoFrameCallback(frameCallback);
       } else {
         const rafRender = (now: number) => {
-          const mediaTimeMs = (video.currentTime || 0) * 1000;
+          const mediaTimeMs =
+            referenceElement instanceof HTMLVideoElement
+              ? (referenceElement.currentTime || 0) * 1000
+              : 0;
           renderOverlay(mediaTimeMs, now);
           animationFrameRef.current = requestAnimationFrame(rafRender);
         };
@@ -495,17 +494,21 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           cancelAnimationFrame(animationFrameRef.current);
         if (
           videoFrameCallbackRef.current &&
-          typeof (video as any).cancelVideoFrameCallback === 'function'
+          typeof (referenceElement as any).cancelVideoFrameCallback ===
+            'function'
         ) {
-          (video as any).cancelVideoFrameCallback(
+          (referenceElement as any).cancelVideoFrameCallback(
             videoFrameCallbackRef.current
           );
         }
         resizeObserver.disconnect();
         window.removeEventListener('resize', handleWindowResize);
-        video.removeEventListener('loadedmetadata', updateCanvasSize);
+        referenceElement.removeEventListener(
+          'loadedmetadata',
+          updateCanvasSize
+        );
       };
-    }, [videoRef, onFrameProcessed, isPaused, resolveLabel]);
+    }, [videoRef, displayCanvasRef, onFrameProcessed, isPaused, resolveLabel]);
 
     return (
       <canvas

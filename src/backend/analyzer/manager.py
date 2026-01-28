@@ -259,15 +259,38 @@ class AnalyzerWebSocketManager:
             target_scale=self.target_scale_init, source_track=source_track
         )
 
+        # Shared frame buffer coordinated via lock + event
+        latest_frame: tuple[int, np.ndarray] | None = None
+        frame_lock = asyncio.Lock()
+        frame_ready = asyncio.Event()
+
+        async def frame_receiver() -> None:
+            """Continuously receive frames and store the latest one with its id."""
+            nonlocal latest_frame
+            while self.active_connections:
+                frame_array = await self._receive_and_convert_frame(state)
+                if frame_array is None:
+                    continue
+
+                async with frame_lock:
+                    latest_frame = (state.frame_id, frame_array)
+                    frame_ready.set()
+
+        receiver_task = asyncio.create_task(frame_receiver())
+
         try:
             while self.active_connections:
                 try:
-                    frame_array = await self._receive_and_convert_frame(state)
-                    if frame_array is None:
-                        continue
+                    # Wait until a new frame is available
+                    await frame_ready.wait()
+                    frame_ready.clear()
 
-                    state.frame_id += 1
-                    state.fps_counter += 1
+                    async with frame_lock:
+                        if latest_frame is None:
+                            continue
+                        current_frame_id, frame_array = latest_frame
+                        state.frame_id = current_frame_id
+                        state.fps_counter += 1
 
                     state, current_time = self._update_fps_and_scaling(state)
                     frame_small = resize_frame(frame_array, state.target_scale)
@@ -290,6 +313,12 @@ class AnalyzerWebSocketManager:
             logger.warning("Frame processing cancelled")
         except Exception as e:
             logger.warning("Processing task error", extra={"error": str(e)})
+        finally:
+            receiver_task.cancel()
+            try:
+                await receiver_task
+            except asyncio.CancelledError:
+                pass
 
     async def _receive_and_convert_frame(
         self, state: ProcessingState
@@ -308,6 +337,7 @@ class AnalyzerWebSocketManager:
 
         try:
             frame = await asyncio.wait_for(track.recv(), timeout=5.0)
+            state.frame_id += 1
             state.consecutive_errors = 0
         except asyncio.TimeoutError:
             logger.warning("Frame receive timeout, skipping")
@@ -345,7 +375,7 @@ class AnalyzerWebSocketManager:
             return None
 
         try:
-            frame_array = frame.to_ndarray(format="bgr24")  # type: ignore[union-attr]
+            frame_array = frame.to_ndarray(format="bgr24").copy()  # type: ignore[union-attr]
             return frame_array
         except AttributeError:
             logger.warning(
