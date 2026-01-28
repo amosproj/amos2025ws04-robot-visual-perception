@@ -287,10 +287,7 @@ class _OnnxRuntimeDetector(_DetectorEngine):
         original_hw: tuple[int, int],
     ) -> list[Detection]:
         """Run inference using a pre-letterboxed RGB image."""
-        img = resized_rgb.astype(np.float32) / 255.0
-        img = np.transpose(img, (2, 0, 1))
-        img = np.expand_dims(img, axis=0)
-        input_tensor = np.ascontiguousarray(img)
+        input_tensor = self._prepare_input_tensor(resized_rgb)
         ort_inputs = {self._input_name: input_tensor}
         outputs = self._session.run(self._output_names, ort_inputs)[0]
         return self._postprocess(outputs, original_hw, ratio, dwdh)
@@ -300,10 +297,14 @@ class _OnnxRuntimeDetector(_DetectorEngine):
     ) -> tuple[np.ndarray, float, tuple[float, float]]:
         """Resize, normalize, and batch the input frame for ONNX Runtime."""
         resized, ratio, dwdh = letterbox(frame_rgb, self._imgsz)
-        img = resized.astype(np.float32) / 255.0
+        return self._prepare_input_tensor(resized), ratio, dwdh
+
+    @staticmethod
+    def _prepare_input_tensor(resized_rgb: np.ndarray) -> np.ndarray:
+        img = resized_rgb.astype(np.float32) / 255.0
         img = np.transpose(img, (2, 0, 1))
         img = np.expand_dims(img, axis=0)
-        return np.ascontiguousarray(img), ratio, dwdh
+        return np.ascontiguousarray(img)
 
     def _postprocess(
         self,

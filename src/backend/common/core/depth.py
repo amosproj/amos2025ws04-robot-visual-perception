@@ -339,16 +339,7 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
         self, frame_rgb: np.ndarray, output_shape: tuple[int, int]
     ) -> np.ndarray:
         input_batch = self.transform(frame_rgb)
-        _, _, h, w = input_batch.shape
-        size = max(w, h)
-        input_batch = torch.nn.functional.pad(input_batch, (0, size - w, 0, size - h))
-        input_array = input_batch.detach().cpu().numpy().astype(np.float32)
-        ort_inputs = {self._input_name: input_array}
-        output = self._session.run([self._output_name], ort_inputs)[0]
-        prediction = np.asarray(output)
-        if prediction.ndim == 3:  # (1,H,W) -> (1,1,H,W)
-            prediction = np.expand_dims(prediction, axis=1)
-        return resize_to_frame(prediction, output_shape)
+        return self._run_onnx_inference(input_batch, output_shape)
 
     def estimate_distance_m_preprocessed(
         self,
@@ -372,6 +363,11 @@ class OnnxMiDasDepthEstimator(_BaseMiDasDepthEstimator):
     ) -> np.ndarray:
         transform = self._no_resize_transform or self.transform
         input_batch = transform(resized_rgb)
+        return self._run_onnx_inference(input_batch, output_shape)
+
+    def _run_onnx_inference(
+        self, input_batch: torch.Tensor, output_shape: tuple[int, int]
+    ) -> np.ndarray:
         _, _, h, w = input_batch.shape
         size = max(w, h)
         input_batch = torch.nn.functional.pad(input_batch, (0, size - w, 0, size - h))
