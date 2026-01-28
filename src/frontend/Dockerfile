@@ -9,7 +9,9 @@ RUN npm ci
 COPY . .
 
 ARG VITE_BACKEND_URL=http://host.docker.internal:8001
+ARG VITE_ORCHESTRATOR_URL=http://host.docker.internal:8002
 ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
+ENV VITE_ORCHESTRATOR_URL=$VITE_ORCHESTRATOR_URL
 
 RUN npm run build
 

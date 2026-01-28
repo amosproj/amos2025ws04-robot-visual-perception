@@ -130,6 +130,11 @@ class Config:
         "yes",
     )
 
+    # Service discovery / orchestrator
+    ORCHESTRATOR_URL: str = os.getenv("ORCHESTRATOR_URL", "http://localhost:8002")
+    ANALYZER_PUBLIC_URL: str = os.getenv("ANALYZER_PUBLIC_URL", "http://localhost:8001")
+    STREAMER_PUBLIC_URL: str = os.getenv("STREAMER_PUBLIC_URL", "http://localhost:8000")
+
     # Tracking/interpolation settings
     # Minimum IoU to match detection to track
     TRACKING_IOU_THRESHOLD: float = float(os.getenv("TRACKING_IOU_THRESHOLD", "0.1"))

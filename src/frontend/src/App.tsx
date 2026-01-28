@@ -4,9 +4,17 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { useRef, useEffect, useState, useMemo, useLayoutEffect } from 'react';
+import {
+  useRef,
+  useEffect,
+  useState,
+  useMemo,
+  useLayoutEffect,
+  useCallback,
+} from 'react';
 import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
+import { useOrchestrator } from './hooks/useOrchestrator';
 import { logger } from './lib/logger';
 import { useI18n } from './i18n';
 import { clamp } from './lib/mathUtils';
@@ -36,6 +44,22 @@ function App() {
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.3);
   const autoSelectedClassesRef = useRef<Set<number>>(new Set());
   const [videoZoom, setVideoZoom] = useState(1);
+
+  // Service discovery from orchestrator
+  const orchestratorUrl =
+    import.meta.env.VITE_ORCHESTRATOR_URL || 'http://localhost:8002';
+  const { services, assignAnalyzer, unassignAnalyzer } = useOrchestrator({
+    orchestratorUrl,
+  });
+
+  // Selected streamer/analyzer
+  const [selectedStreamerUrl, setSelectedStreamerUrl] = useState<string | null>(
+    null
+  );
+  const [selectedAnalyzerUrl, setSelectedAnalyzerUrl] = useState<string | null>(
+    null
+  );
+  const [isSwitching, setIsSwitching] = useState(false);
 
   useLayoutEffect(() => {
     const header = headerRef.current;
@@ -90,8 +114,8 @@ function App() {
     togglePlayPause,
     enterFullscreen,
   } = useWebRTCPlayer({
-    signalingEndpoint: 'http://localhost:8000', // Webcam service
-    autoPlay: true,
+    signalingEndpoint: selectedStreamerUrl || 'http://localhost:8000',
+    autoPlay: !!selectedStreamerUrl,
     containerRef: videoContainerRef,
   });
 
@@ -103,13 +127,60 @@ function App() {
     connect: connectAnalyzer,
     disconnect: disconnectAnalyzer,
   } = useAnalyzerWebSocket({
-    endpoint: 'ws://localhost:8001/ws', // Analyzer service
-    autoConnect: false, // Manual control for proper disconnect
+    endpoint: selectedAnalyzerUrl
+      ? `ws://${selectedAnalyzerUrl.replace(/^https?:\/\//, '')}/ws`
+      : '',
+    autoConnect: !!selectedAnalyzerUrl,
     onBeforeDisconnect: () => {
-      // Clear selections before disconnect to remove bounding boxes smoothly
       setSelectedClasses(new Set());
     },
   });
+
+  const handleSelectStreamer = useCallback(
+    async (streamerUrl: string) => {
+      if (isSwitching || streamerUrl === selectedStreamerUrl) return;
+      setIsSwitching(true);
+
+      try {
+        if (selectedAnalyzerUrl) {
+          await unassignAnalyzer(selectedAnalyzerUrl);
+          setSelectedAnalyzerUrl(null);
+          disconnectAnalyzer();
+        }
+
+        disconnectVideo();
+
+        setSelectedStreamerUrl(streamerUrl);
+        log.info('app.streamer_selected', { streamer: streamerUrl });
+
+        const result = await assignAnalyzer(streamerUrl);
+        if (result?.analyzerUrl) {
+          setSelectedAnalyzerUrl(result.analyzerUrl);
+          log.info('app.analyzer_assigned', { analyzer: result.analyzerUrl });
+        } else {
+          log.warn('app.analyzer_assignment_failed', { streamer: streamerUrl });
+        }
+      } finally {
+        setIsSwitching(false);
+      }
+    },
+    [
+      assignAnalyzer,
+      disconnectAnalyzer,
+      disconnectVideo,
+      isSwitching,
+      log,
+      selectedAnalyzerUrl,
+      selectedStreamerUrl,
+      unassignAnalyzer,
+    ]
+  );
+
+  useEffect(() => {
+    if (services.streamer.length > 0 && !selectedStreamerUrl) {
+      void handleSelectStreamer(services.streamer[0].url);
+    }
+  }, [services.streamer, selectedStreamerUrl, handleSelectStreamer]);
 
   // Filter metadata based on selected classes
   const thresholdedDetections = useMemo(() => {
@@ -215,9 +286,13 @@ function App() {
 
   // Auto-connect to services when component mounts
   useEffect(() => {
-    connectVideo();
-    connectAnalyzer(); // Manual connect to analyzer
-  }, [connectVideo, connectAnalyzer]);
+    if (selectedStreamerUrl) {
+      connectVideo();
+    }
+    if (selectedAnalyzerUrl) {
+      connectAnalyzer();
+    }
+  }, [selectedStreamerUrl, selectedAnalyzerUrl, connectVideo, connectAnalyzer]);
 
   const [showPanel, setShowPanel] = useState(true);
   const [showRadar, setShowRadar] = useState(false);
@@ -291,6 +366,48 @@ function App() {
         showRadar={showRadar}
         onToggleRadar={() => setShowRadar((prev) => !prev)}
       />
+
+      <div className="relative z-50 px-4 py-3 flex flex-wrap items-center gap-2 bg-theme-bg-secondary border-b border-theme-border">
+        <span className="text-sm font-medium text-theme-text-muted">
+          Stream sources:
+        </span>
+        {services.streamer.length === 0 ? (
+          <span className="text-sm text-theme-text-muted">
+            No streamer available
+          </span>
+        ) : (
+          services.streamer.map((s) => {
+            const isSelected = s.url === selectedStreamerUrl;
+            const isDisabled = isSwitching || isSelected;
+
+            return (
+              <button
+                key={s.url}
+                onClick={() => {
+                  if (!isDisabled) {
+                    console.log('[App] Switching to streamer:', s.url);
+                    handleSelectStreamer(s.url);
+                  }
+                }}
+                disabled={isDisabled}
+                className={`px-3 py-1.5 rounded border text-sm font-medium transition-colors ${
+                  isSelected
+                    ? 'bg-theme-accent text-white border-theme-accent cursor-default'
+                    : 'bg-theme-bg-tertiary text-theme-text-primary border-theme-border hover:bg-theme-bg-hover cursor-pointer'
+                } ${isSwitching ? 'opacity-50 cursor-wait' : ''}`}
+              >
+                {isSelected ? '✓ ' : ''}
+                {s.url}
+              </button>
+            );
+          })
+        )}
+        {isSwitching && (
+          <span className="text-sm text-theme-text-muted animate-pulse">
+            Switching...
+          </span>
+        )}
+      </div>
 
       <GameOverlay
         showPanel={showPanel}
