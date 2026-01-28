@@ -26,7 +26,7 @@ except ImportError:
     onnx = None  # type: ignore
 
 try:
-    from onnxruntime.transformers.float16 import convert_float_to_float16 # type: ignore[import-untyped]
+    from onnxruntime.transformers.float16 import convert_float_to_float16  # type: ignore[import-untyped]
 
     HAS_ONNX_QUANTIZATION = True
 except ImportError:
@@ -276,12 +276,12 @@ def export_midas_to_onnx(
         model_repo: Repo
         opset: ONNX opset version
         input_size: Optional manual input size override
-        half: Apply INT8 quantization for smaller model size (better than FP16 for CPU)
+        half: Apply FP16 quantization for smaller model size
 
     Returns:
         Path to the exported ONNX model
     """
-    logger.info("Exporting %s model to ONNX (quantize=%s)...", model_type, half)
+    logger.info("Exporting %s model to ONNX (FP16=%s)...", model_type, half)
     try:
         torch.hub.set_dir(str(cache_dir))
         model = torch.hub.load(model_repo, model_type, trust_repo=True)
@@ -306,7 +306,6 @@ def export_midas_to_onnx(
             output_names=["output"],
         )
 
-        # Apply INT8 quantization if requested (replaces old FP16 conversion)
         if half:
             quantize_onnx_dynamic(output_path)
 

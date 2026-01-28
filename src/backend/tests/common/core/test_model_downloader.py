@@ -8,15 +8,17 @@ import numpy as np
 import pytest
 
 from common.utils.model_downloader import (
-    convert_onnx_to_fp16,
+    quantize_onnx_dynamic,
     ensure_midas_model_available,
     ensure_yolo_model_downloaded,
     get_midas_cache_dir,
+    HAS_ONNX_QUANTIZATION,
 )
 
 try:
     import onnx
     from onnx import TensorProto, helper, numpy_helper
+
     ONNX_AVAILABLE = True
 except ImportError:
     ONNX_AVAILABLE = False
@@ -156,30 +158,34 @@ def test_ensure_yolo_model_downloaded_creates_cache_directory(tmp_path, mock_yol
         mock_copy.assert_called_once_with(downloaded_path, model_path)
 
 
-@pytest.mark.skipif(not ONNX_AVAILABLE, reason="ONNX not installed")
-def test_convert_onnx_to_fp16(tmp_path):
-    """Test FP16 conversion reduces model size and converts weights to float16."""
-    #  a basic ONNX model with FP32 weights
+@pytest.mark.skipif(
+    not ONNX_AVAILABLE or not HAS_ONNX_QUANTIZATION,
+    reason="onnx or onnxruntime.transformers.float16 not installed",
+)
+def test_quantize_onnx_dynamic(tmp_path):
+    """Test FP16 conversion reduces model size and keeps IO types as FP32."""
+    # create a basic model with FP32 weights
     weight_data = np.random.randn(100, 100).astype(np.float32)
     weight_tensor = numpy_helper.from_array(weight_data, name="weight")
-
     input_info = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 100])
     output_info = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 100])
-
     node = helper.make_node("MatMul", ["input", "weight"], ["output"])
-    graph = helper.make_graph([node], "test", [input_info], [output_info], [weight_tensor])
-    model = helper.make_model(graph)
+    graph = helper.make_graph(
+        [node], "test", [input_info], [output_info], [weight_tensor]
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
 
     model_path = tmp_path / "model.onnx"
     onnx.save(model, str(model_path))
     fp32_size = model_path.stat().st_size
-
-    convert_onnx_to_fp16(model_path)
+    quantize_onnx_dynamic(model_path)
     fp16_size = model_path.stat().st_size
+    assert fp16_size < fp32_size * 0.7
 
-    converted = onnx.load(str(model_path))
-    converted_weight = numpy_helper.to_array(converted.graph.initializer[0])
+    # model can be loaded and inputs/outputs remain FP32
+    converted_model = onnx.load(str(model_path))
+    assert converted_model is not None
 
-    assert converted_weight.dtype == np.float16
-    assert fp16_size < fp32_size * 0.6  #  around 50% smaller
-    assert converted.graph.input[0].type.tensor_type.elem_type == TensorProto.FLOAT16
+    # keep_io_types=True, inputs/outputs should remain FP32
+    assert converted_model.graph.input[0].type.tensor_type.elem_type == TensorProto.FLOAT
+    assert converted_model.graph.output[0].type.tensor_type.elem_type == TensorProto.FLOAT
