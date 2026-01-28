@@ -17,7 +17,6 @@ import {
   calculateBoundingBoxPixels,
   formatDetectionLabel,
   calculateLabelPosition,
-  findBestMetadataMatch,
   sanitizeTimestamp,
   isHeldFrameValid,
   hasLayoutChanged,
@@ -103,7 +102,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
     const animationFrameRef = useRef<number>();
     const videoFrameCallbackRef = useRef<number>();
     const fpsCounterRef = useRef({ lastTime: 0, frames: 0, fps: 0 });
-    const timeOffsetRef = useRef<number | null>(null);
     const lastRenderedRef = useRef<{
       metadata: MetadataFrame;
       mediaTimeMs: number;
@@ -189,7 +187,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       updateMetadata: (metadata: MetadataFrame) => {
         if (!metadata) {
           metadataBufferRef.current = [];
-          timeOffsetRef.current = null;
           lastRenderedRef.current = null;
 
           // Clear canvas immediately to avoid stale boxes when no frames render
@@ -234,29 +231,19 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       },
     }));
 
-    const pickMetadataForTime = (mediaTimeMs: number) => {
+    const pickMetadataForTime = () => {
       const buffer = metadataBufferRef.current;
-      if (!buffer.length) return null;
-
-      // Initialize time offset on first frame if not set
-      if (timeOffsetRef.current == null) {
-        timeOffsetRef.current = buffer[0].timestamp - mediaTimeMs;
-      }
-
-      const matchResult = findBestMetadataMatch(
-        buffer,
-        mediaTimeMs,
-        timeOffsetRef.current
-      );
-
-      if (!matchResult) {
+      if (!buffer.length) {
         return null;
       }
 
-      const match = buffer[matchResult.index];
+      // For live WebRTC streams, always use the most recent metadata
+      // Timestamp matching doesn't work well because video.currentTime
+      // and backend event loop time are completely different time bases
+      const match = buffer[buffer.length - 1];
 
-      // Drop frames up to and including the one we used to prevent reuse
-      metadataBufferRef.current = buffer.slice(matchResult.index + 1);
+      // Clear the buffer after picking to avoid stale frames building up
+      metadataBufferRef.current = [];
 
       return match;
     };
@@ -320,7 +307,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         const canvasWidth = lastLayoutRef.current.width;
         const canvasHeight = lastLayoutRef.current.height;
 
-        let metadata = isPaused ? null : pickMetadataForTime(mediaTimeMs);
+        let metadata = isPaused ? null : pickMetadataForTime();
 
         // If no fresh metadata, try to reuse last rendered frame within a short window
         if (!metadata && lastRenderedRef.current) {
@@ -345,14 +332,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
           metadata.detections.forEach((detection) => {
-            const {
-              box,
-              label,
-              labelText,
-              confidence,
-              distance,
-              interpolated,
-            } = detection;
+            const { box, label, labelText, confidence, distance } = detection;
 
             // Calculate pixel coordinates using utility function
             const pixelBox = calculateBoundingBoxPixels(
@@ -374,7 +354,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             } = pixelBox;
 
             // Get color for this detection
-            const color = getDetectionColor(label, interpolated);
+            const color = getDetectionColor();
 
             // Draw bounding box using calculated coordinates
             ctx.shadowColor = color;

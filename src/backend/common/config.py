@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: 2025 robot-visual-perception
 #
 # SPDX-License-Identifier: MIT
+import json
 import os
-from typing import Optional
+from typing import Optional, Any
 from pathlib import Path
 
 
@@ -80,6 +81,9 @@ class Config:
     # WebRTC settings
     STUN_SERVER: str = os.getenv("STUN_SERVER", "stun:stun.l.google.com:19302")
     ICE_GATHERING_TIMEOUT: float = float(os.getenv("ICE_GATHERING_TIMEOUT", "5.0"))
+    ANALYZER_SETTINGS_FILE: Path = Path(
+        os.getenv("ANALYZER_SETTINGS_FILE", "config/analyzer.json")
+    )
 
     # Analyzer mode (for analyzer.py)
     STREAMER_OFFER_URL: str = os.getenv(
@@ -136,6 +140,34 @@ class Config:
     TRACKING_MAX_HISTORY_SIZE: int = int(os.getenv("TRACKING_MAX_HISTORY_SIZE", "5"))
     # Minimum detections before a track becomes active/sent
     DETECTION_THRESHOLD: int = int(os.getenv("DETECTION_THRESHOLD", "2"))
+
+    def apply_settings_file(self, path: Path | str | None) -> bool:
+        """Apply analyzer settings from a JSON file if present."""
+        if not path:
+            return False
+        settings_path = Path(path)
+        if not settings_path.is_file():
+            return False
+        with settings_path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        if not isinstance(data, dict):
+            raise ValueError("Analyzer settings file must contain a JSON object")
+        for key, value in data.items():
+            if not hasattr(self, key):
+                continue
+            current = getattr(self, key)
+            setattr(self, key, _coerce_value(value, current))
+        return True
+
+
+def _coerce_value(value: Any, current: Any) -> Any:
+    if isinstance(current, Path):
+        if value is None:
+            return value
+        return Path(value).expanduser().resolve()
+    if isinstance(current, list) and isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return value
 
 
 config = Config()
