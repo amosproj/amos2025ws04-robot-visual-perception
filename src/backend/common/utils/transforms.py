@@ -25,6 +25,8 @@ def letterbox(
         scale: Scale factor applied to the original image.
         offset: Padding offset (dw/2, dh/2) in pixels.
     """
+    if image.shape[0] == new_size and image.shape[1] == new_size:
+        return image, 1.0, (0.0, 0.0)
     shape = image.shape[:2]  # (h, w)
     scale = min(new_size / shape[0], new_size / shape[1])
     new_unpad = (int(round(shape[1] * scale)), int(round(shape[0] * scale)))

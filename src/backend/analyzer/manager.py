@@ -36,6 +36,7 @@ from common.utils.detection import (
 )
 from common.utils.transforms import (
     calculate_adaptive_scale,
+    letterbox,
     resize_frame,
 )
 
@@ -203,6 +204,19 @@ class AnalyzerWebSocketManager:
             )
         return self._intrinsics_cache[cache_key]
 
+    def _should_share_preprocess(
+        self, detector: ObjectDetector, estimator: DepthEstimator
+    ) -> bool:
+        """Compute whether shared ONNX preprocessing can be used."""
+        return (
+            config.ONNX_SHARED_PREPROCESSING
+            and config.DETECTOR_BACKEND == "onnx"
+            and config.DEPTH_BACKEND == "onnx"
+            and config.DETECTOR_IMAGE_SIZE == config.MIDAS_ONNX_INPUT_SIZE
+            and hasattr(detector, "infer_preprocessed")
+            and hasattr(estimator, "estimate_distance_m_preprocessed")
+        )
+
     async def shutdown(self) -> None:
         """Cleanup on service shutdown."""
         await self._stop_processing()
@@ -254,6 +268,7 @@ class AnalyzerWebSocketManager:
         """Process frames from webcam and send metadata to all clients."""
         detector = get_detector()
         estimator = get_depth_estimator()
+        shared_preprocess = self._should_share_preprocess(detector, estimator)
 
         state = ProcessingState(
             target_scale=self.target_scale_init, source_track=source_track
@@ -301,7 +316,12 @@ class AnalyzerWebSocketManager:
 
                     self._inference_task = asyncio.create_task(
                         self._run_inference_pipeline(
-                            frame_small, state, detector, estimator, current_time
+                            frame_small,
+                            state,
+                            detector,
+                            estimator,
+                            current_time,
+                            shared_preprocess,
                         )
                     )
 
@@ -425,12 +445,25 @@ class AnalyzerWebSocketManager:
         state: ProcessingState,
         detector: ObjectDetector,
         estimator: DepthEstimator,
+        shared_preprocess: bool,
     ) -> tuple[list[Detection], list[float], list[bool]]:
-        with self._measure_time(
-            self._detection_duration, labels={"backend": config.DETECTOR_BACKEND}
-        ):
-            # YOLO detection (async)
-            raw_detections = await detector.infer(frame_small)
+        if shared_preprocess:
+            resized, ratio, dwdh = letterbox(frame_small, config.DETECTOR_IMAGE_SIZE)
+            with self._measure_time(
+                self._detection_duration, labels={"backend": config.DETECTOR_BACKEND}
+            ):
+                raw_detections = await detector.infer_preprocessed(
+                    resized,
+                    ratio,
+                    dwdh,
+                    (frame_small.shape[0], frame_small.shape[1]),
+                )
+        else:
+            with self._measure_time(
+                self._detection_duration, labels={"backend": config.DETECTOR_BACKEND}
+            ):
+                # YOLO detection (async)
+                raw_detections = await detector.infer(frame_small)
 
         if not raw_detections:
             return [], [], []
@@ -440,9 +473,18 @@ class AnalyzerWebSocketManager:
             labels={"model_type": estimator.model_type},
         ):
             # Distance estimation (sync) -> run in executor
-            raw_distances = await asyncio.get_running_loop().run_in_executor(
-                None, estimator.estimate_distance_m, frame_small, raw_detections
-            )
+            if shared_preprocess:
+                raw_distances = await asyncio.get_running_loop().run_in_executor(
+                    None,
+                    estimator.estimate_distance_m_preprocessed,
+                    resized,
+                    raw_detections,
+                    (frame_small.shape[0], frame_small.shape[1]),
+                )
+            else:
+                raw_distances = await asyncio.get_running_loop().run_in_executor(
+                    None, estimator.estimate_distance_m, frame_small, raw_detections
+                )
 
         # Tracking logic
         updated_track_ids, track_assignments = (
@@ -493,6 +535,7 @@ class AnalyzerWebSocketManager:
         detector: ObjectDetector,
         estimator: DepthEstimator,
         current_time: float,
+        shared_preprocess: bool,
     ) -> None:
         """Run ML inference detection and tracking pipeline in background."""
 
@@ -517,6 +560,7 @@ class AnalyzerWebSocketManager:
                 state=state,
                 detector=detector,
                 estimator=estimator,
+                shared_preprocess=shared_preprocess,
             )
 
             if all_detections:

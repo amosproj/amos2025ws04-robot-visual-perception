@@ -25,6 +25,16 @@ class ObjectDetector(Protocol):
         """Run inference with caching/throttling and return detections."""
         ...
 
+    async def infer_preprocessed(
+        self,
+        resized_rgb: np.ndarray,
+        ratio: float,
+        dwdh: tuple[float, float],
+        original_hw: tuple[int, int],
+    ) -> list[Detection]:
+        """Run inference on a preprocessed frame when supported."""
+        ...
+
 
 @runtime_checkable
 class DepthEstimator(Protocol):
@@ -37,4 +47,13 @@ class DepthEstimator(Protocol):
         self, frame_rgb: np.ndarray, detections: list[Detection]
     ) -> list[float]:
         """Return per-detection distance estimates in meters."""
+        ...
+
+    def estimate_distance_m_preprocessed(
+        self,
+        resized_rgb: np.ndarray,
+        detections: list[Detection],
+        output_shape: tuple[int, int],
+    ) -> list[float]:
+        """Return distances using a preprocessed frame when supported."""
         ...

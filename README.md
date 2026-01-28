@@ -140,7 +140,9 @@ Optional environment variables:
 - `DEPTH_ANYTHING_MODEL` - Hugging Face model ID for Depth Anything V2 (default `depth-anything/Depth-Anything-V2-Small-hf`)
 - `DEPTH_ANYTHING_CACHE_DIR` - Depth Anything cache directory (default `models/depth_anything_cache`)
 - `MIDAS_ONNX_MODEL_PATH` - defaults to `models/midas_small.onnx`
+- `MIDAS_ONNX_INPUT_SIZE` – input size for MiDaS ONNX preprocessing (default: `384`)
 - `MIDAS_ONNX_PROVIDERS` - comma separated ONNX Runtime providers for depth (falls back to `ONNX_PROVIDERS`)
+- `ONNX_SHARED_PREPROCESSING` – reuse one resize step for ONNX detector + depth when sizes align (default: `true`)
 - `DETECTOR_BACKEND` - `torch` (default) or `onnx`
 - `TORCH_DEVICE` - force PyTorch to use `cuda:0`, `cpu`, etc. (defaults to best available)
 - `TORCH_HALF_PRECISION` - `auto` (default), `true`, or `false`
