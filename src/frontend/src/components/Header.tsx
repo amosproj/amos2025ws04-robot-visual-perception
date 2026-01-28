@@ -8,7 +8,7 @@ import { forwardRef } from 'react';
 import { useI18n } from '../i18n';
 import ThemeToggle from './ThemeToggle';
 import { IconButton } from './ui/IconButton';
-import { Video, VideoOff, Activity, Filter } from './video/Icons';
+import { Video, VideoOff, Activity, Filter, Layers } from './video/Icons';
 
 export interface HeaderProps {
   /** Whether to show in minimal/game mode */
@@ -26,6 +26,9 @@ export interface HeaderProps {
   /** Panel state */
   showPanel?: boolean;
   onTogglePanel?: () => void;
+  /** Radar overlay state */
+  showRadar?: boolean;
+  onToggleRadar?: () => void;
 }
 
 const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
@@ -150,6 +153,18 @@ const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
 
               <div className="w-px h-6 bg-theme-border mx-1" />
             </>
+          )}
+
+          {props.onToggleRadar && (
+            <IconButton
+              size="sm"
+              icon={<Layers size={16} />}
+              tooltip={t('radarToggle')}
+              onClick={props.onToggleRadar}
+              active={props.showRadar}
+              variant={props.showRadar ? 'success' : 'default'}
+              tooltipPosition="bottom"
+            />
           )}
 
           <ThemeToggle size="sm" />

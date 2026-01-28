@@ -332,14 +332,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
           metadata.detections.forEach((detection) => {
-            const {
-              box,
-              label,
-              labelText,
-              confidence,
-              distance,
-              interpolated,
-            } = detection;
+            const { box, label, labelText, confidence, distance } = detection;
 
             // Calculate pixel coordinates using utility function
             const pixelBox = calculateBoundingBoxPixels(
@@ -361,7 +354,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
             } = pixelBox;
 
             // Get color for this detection
-            const color = getDetectionColor(label, interpolated);
+            const color = getDetectionColor();
 
             // Draw bounding box using calculated coordinates
             ctx.shadowColor = color;

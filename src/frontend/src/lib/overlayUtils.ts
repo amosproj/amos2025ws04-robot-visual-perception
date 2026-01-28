@@ -43,10 +43,7 @@ export function getRelativePosition(
 /**
  * Get the color for a detection based on its index
  */
-export function getDetectionColor(
-  _label: string | number,
-  _interpolated: boolean = false
-): string {
+export function getDetectionColor(): string {
   return DETECTION_COLOR;
 }
 
