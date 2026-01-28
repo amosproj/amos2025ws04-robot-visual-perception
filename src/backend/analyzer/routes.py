@@ -33,7 +33,7 @@ def health() -> dict[str, str]:
 @router.post("/configure")
 async def configure_analyzer(request: ConfigureAnalyzerRequest) -> dict[str, str]:
     """Configure analyzer to use a specific streamer.
-    
+
     This endpoint is called by the orchestrator/frontend after analyzer assignment
     to tell this analyzer which streamer service to connect to.
     """

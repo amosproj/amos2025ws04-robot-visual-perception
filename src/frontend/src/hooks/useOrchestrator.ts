@@ -98,7 +98,10 @@ export function useOrchestrator({
             }));
           }
         } catch (err) {
-          console.error('[Orchestrator] Failed to parse WebSocket message:', err);
+          console.error(
+            '[Orchestrator] Failed to parse WebSocket message:',
+            err
+          );
         }
       };
 
@@ -132,7 +135,9 @@ export function useOrchestrator({
 
   // Request analyzer assignment for streamer
   const assignAnalyzer = useCallback(
-    async (streamerUrl: string): Promise<{ analyzerUrl: string; streamerUrl: string } | null> => {
+    async (
+      streamerUrl: string
+    ): Promise<{ analyzerUrl: string; streamerUrl: string } | null> => {
       try {
         const response = await fetch(
           `${orchestratorUrl}/assign-analyzer?streamer_url=${encodeURIComponent(streamerUrl)}`,
@@ -140,7 +145,7 @@ export function useOrchestrator({
         );
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        
+
         if (!data.analyzer_url) {
           console.warn('[Orchestrator] No analyzer available');
           return null;
@@ -153,9 +158,11 @@ export function useOrchestrator({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ streamer_url: streamerUrl }),
         });
-        
+
         if (!configResponse.ok) {
-          throw new Error(`Failed to configure analyzer: HTTP ${configResponse.status}`);
+          throw new Error(
+            `Failed to configure analyzer: HTTP ${configResponse.status}`
+          );
         }
 
         console.log('[Orchestrator] Analyzer configured successfully');

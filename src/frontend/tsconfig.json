@@ -19,7 +19,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    
+
     /* Vite types */
     "types": ["vite/client"]
   },

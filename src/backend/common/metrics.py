@@ -62,7 +62,9 @@ def configure_metrics() -> None:
     # Start Prometheus HTTP server with error handling for --reload mode
     try:
         start_http_server(port)
-        logger.info(f"Prometheus metrics server started on port {port} (service: {service_type})")
+        logger.info(
+            f"Prometheus metrics server started on port {port} (service: {service_type})"
+        )
     except OSError as e:
         if "Address already in use" in str(e):
             logger.warning(

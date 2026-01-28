@@ -56,13 +56,17 @@ async def health() -> dict[str, object]:
     return {"status": "ok", "service": "orchestrator", "counts": counts}
 
 
-async def _broadcast_update(event_type: str, service_type: str, service_url: str) -> None:
+async def _broadcast_update(
+    event_type: str, service_type: str, service_url: str
+) -> None:
     """Broadcast service update to all connected WebSocket clients."""
-    message = json.dumps({
-        "type": event_type,
-        "service_type": service_type,
-        "service_url": service_url,
-    })
+    message = json.dumps(
+        {
+            "type": event_type,
+            "service_type": service_type,
+            "service_url": service_url,
+        }
+    )
     dead_connections = set()
     for ws in _ws_connections:
         try:
@@ -85,7 +89,7 @@ async def register_service(payload: RegisterRequest) -> dict[str, object]:
         _services[payload.service_type][payload.url] = entry
 
     logger.info(f"Registered service: {payload.service_type} at {payload.url}")
-    
+
     # Broadcast update to all connected clients
     await _broadcast_update("registered", payload.service_type, payload.url)
 
@@ -94,6 +98,7 @@ async def register_service(payload: RegisterRequest) -> dict[str, object]:
         "service_type": payload.service_type,
         "url": payload.url,
     }
+
 
 @router.post("/unregister")
 async def unregister_service(payload: RegisterRequest) -> dict[str, object]:
@@ -111,7 +116,7 @@ async def unregister_service(payload: RegisterRequest) -> dict[str, object]:
                 _assignments.pop(analyzer_url, None)
 
     logger.info(f"Unregistered service: {payload.service_type} at {payload.url}")
-    
+
     # Broadcast update to all connected clients
     await _broadcast_update("unregistered", payload.service_type, payload.url)
 
@@ -132,7 +137,7 @@ async def list_services() -> dict[str, list[ServiceInfo]]:
 @router.post("/assign-analyzer")
 async def assign_analyzer(streamer_url: str) -> AnalyzerAssignmentResponse:
     """Assign a free analyzer to a streamer.
-    
+
     Returns the URL of an available analyzer and the streamer URL, or None if no analyzers are available.
     """
     async with _services_lock:
@@ -145,17 +150,18 @@ async def assign_analyzer(streamer_url: str) -> AnalyzerAssignmentResponse:
                 streamer_url=None,
                 message="No analyzers available",
             )
-        
+
         # Return first available analyzer (simple first-fit strategy)
         analyzer_url = free_analyzers[0]
         _assignments[analyzer_url] = streamer_url
-        
+
     logger.info(f"Assigned analyzer {analyzer_url} to streamer {streamer_url}")
     return AnalyzerAssignmentResponse(
         analyzer_url=analyzer_url,
         streamer_url=streamer_url,
         message=f"Analyzer {analyzer_url} assigned to streamer {streamer_url}",
     )
+
 
 @router.post("/unassign-analyzer")
 async def unassign_analyzer(analyzer_url: str) -> dict[str, object]:
@@ -177,7 +183,7 @@ async def websocket_updates(websocket: WebSocket) -> None:
     """WebSocket endpoint for real-time service registry updates."""
     await websocket.accept()
     _ws_connections.add(websocket)
-    
+
     try:
         # Send initial state
         async with _services_lock:
@@ -185,11 +191,13 @@ async def websocket_updates(websocket: WebSocket) -> None:
                 kind: [service.model_dump() for service in entries.values()]
                 for kind, entries in _services.items()
             }
-        await websocket.send_json({
-            "type": "sync",
-            "services": current_state,
-        })
-        
+        await websocket.send_json(
+            {
+                "type": "sync",
+                "services": current_state,
+            }
+        )
+
         # Keep connection alive and receive ping messages
         while True:
             data = await websocket.receive_text()

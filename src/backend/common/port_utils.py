@@ -10,11 +10,11 @@ from typing import Optional
 
 def find_free_port(start_port: int = 8000, max_attempts: int = 100) -> Optional[int]:
     """Find a free port starting from start_port.
-    
+
     Args:
         start_port: Port to start searching from
         max_attempts: Maximum number of ports to try
-        
+
     Returns:
         Free port number, or None if no free port found
     """

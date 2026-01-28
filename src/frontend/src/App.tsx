@@ -4,7 +4,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { useRef, useEffect, useState, useMemo, useLayoutEffect, useCallback } from 'react';
+import {
+  useRef,
+  useEffect,
+  useState,
+  useMemo,
+  useLayoutEffect,
+  useCallback,
+} from 'react';
 import { useWebRTCPlayer } from './hooks/useWebRTCPlayer';
 import { useAnalyzerWebSocket } from './hooks/useAnalyzerWebSocket';
 import { useOrchestrator } from './hooks/useOrchestrator';
@@ -38,18 +45,19 @@ function App() {
   const [videoZoom, setVideoZoom] = useState(1);
 
   // Service discovery from orchestrator
-  const orchestratorUrl = import.meta.env.VITE_ORCHESTRATOR_URL || 'http://localhost:8002';
-  const {
-    services,
-    assignAnalyzer,
-    unassignAnalyzer,
-  } = useOrchestrator({
+  const orchestratorUrl =
+    import.meta.env.VITE_ORCHESTRATOR_URL || 'http://localhost:8002';
+  const { services, assignAnalyzer, unassignAnalyzer } = useOrchestrator({
     orchestratorUrl,
   });
 
   // Selected streamer/analyzer
-  const [selectedStreamerUrl, setSelectedStreamerUrl] = useState<string | null>(null);
-  const [selectedAnalyzerUrl, setSelectedAnalyzerUrl] = useState<string | null>(null);
+  const [selectedStreamerUrl, setSelectedStreamerUrl] = useState<string | null>(
+    null
+  );
+  const [selectedAnalyzerUrl, setSelectedAnalyzerUrl] = useState<string | null>(
+    null
+  );
   const [isSwitching, setIsSwitching] = useState(false);
 
   useLayoutEffect(() => {
@@ -118,40 +126,54 @@ function App() {
     connect: connectAnalyzer,
     disconnect: disconnectAnalyzer,
   } = useAnalyzerWebSocket({
-    endpoint: selectedAnalyzerUrl ? `ws://${selectedAnalyzerUrl.replace(/^https?:\/\//, '')}/ws` : '',
+    endpoint: selectedAnalyzerUrl
+      ? `ws://${selectedAnalyzerUrl.replace(/^https?:\/\//, '')}/ws`
+      : '',
     autoConnect: !!selectedAnalyzerUrl,
     onBeforeDisconnect: () => {
       setSelectedClasses(new Set());
     },
   });
 
-  const handleSelectStreamer = useCallback(async (streamerUrl: string) => {
-    if (isSwitching || streamerUrl === selectedStreamerUrl) return;
-    setIsSwitching(true);
+  const handleSelectStreamer = useCallback(
+    async (streamerUrl: string) => {
+      if (isSwitching || streamerUrl === selectedStreamerUrl) return;
+      setIsSwitching(true);
 
-    try {
-      if (selectedAnalyzerUrl) {
-        await unassignAnalyzer(selectedAnalyzerUrl);
-        setSelectedAnalyzerUrl(null);
-        disconnectAnalyzer();
+      try {
+        if (selectedAnalyzerUrl) {
+          await unassignAnalyzer(selectedAnalyzerUrl);
+          setSelectedAnalyzerUrl(null);
+          disconnectAnalyzer();
+        }
+
+        disconnectVideo();
+
+        setSelectedStreamerUrl(streamerUrl);
+        log.info('app.streamer_selected', { streamer: streamerUrl });
+
+        const result = await assignAnalyzer(streamerUrl);
+        if (result?.analyzerUrl) {
+          setSelectedAnalyzerUrl(result.analyzerUrl);
+          log.info('app.analyzer_assigned', { analyzer: result.analyzerUrl });
+        } else {
+          log.warn('app.analyzer_assignment_failed', { streamer: streamerUrl });
+        }
+      } finally {
+        setIsSwitching(false);
       }
-
-      disconnectVideo();
-
-      setSelectedStreamerUrl(streamerUrl);
-      log.info('app.streamer_selected', { streamer: streamerUrl });
-
-      const result = await assignAnalyzer(streamerUrl);
-      if (result?.analyzerUrl) {
-        setSelectedAnalyzerUrl(result.analyzerUrl);
-        log.info('app.analyzer_assigned', { analyzer: result.analyzerUrl });
-      } else {
-        log.warn('app.analyzer_assignment_failed', { streamer: streamerUrl });
-      }
-    } finally {
-      setIsSwitching(false);
-    }
-  }, [assignAnalyzer, disconnectAnalyzer, disconnectVideo, isSwitching, log, selectedAnalyzerUrl, selectedStreamerUrl, unassignAnalyzer]);
+    },
+    [
+      assignAnalyzer,
+      disconnectAnalyzer,
+      disconnectVideo,
+      isSwitching,
+      log,
+      selectedAnalyzerUrl,
+      selectedStreamerUrl,
+      unassignAnalyzer,
+    ]
+  );
 
   useEffect(() => {
     if (services.streamer.length > 0 && !selectedStreamerUrl) {
@@ -303,14 +325,18 @@ function App() {
       />
 
       <div className="relative z-50 px-4 py-3 flex flex-wrap items-center gap-2 bg-theme-bg-secondary border-b border-theme-border">
-        <span className="text-sm font-medium text-theme-text-muted">Stream sources:</span>
+        <span className="text-sm font-medium text-theme-text-muted">
+          Stream sources:
+        </span>
         {services.streamer.length === 0 ? (
-          <span className="text-sm text-theme-text-muted">No streamer available</span>
+          <span className="text-sm text-theme-text-muted">
+            No streamer available
+          </span>
         ) : (
           services.streamer.map((s) => {
             const isSelected = s.url === selectedStreamerUrl;
             const isDisabled = isSwitching || isSelected;
-            
+
             return (
               <button
                 key={s.url}
@@ -334,7 +360,9 @@ function App() {
           })
         )}
         {isSwitching && (
-          <span className="text-sm text-theme-text-muted animate-pulse">Switching...</span>
+          <span className="text-sm text-theme-text-muted animate-pulse">
+            Switching...
+          </span>
         )}
       </div>
 
