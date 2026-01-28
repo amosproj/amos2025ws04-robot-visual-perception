@@ -231,7 +231,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
       },
     }));
 
-    const pickMetadataForTime = (_mediaTimeMs: number) => {
+    const pickMetadataForTime = () => {
       const buffer = metadataBufferRef.current;
       if (!buffer.length) {
         return null;
@@ -307,7 +307,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, VideoOverlayProps>(
         const canvasWidth = lastLayoutRef.current.width;
         const canvasHeight = lastLayoutRef.current.height;
 
-        let metadata = isPaused ? null : pickMetadataForTime(mediaTimeMs);
+        let metadata = isPaused ? null : pickMetadataForTime();
 
         // If no fresh metadata, try to reuse last rendered frame within a short window
         if (!metadata && lastRenderedRef.current) {
