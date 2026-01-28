@@ -26,6 +26,7 @@ import { GameOverlay } from './components/ui/GameOverlay';
 import { ObjectFilterSection } from './components/ObjectFilter';
 import StreamInfo from './components/StreamInfo';
 import DetectionInfo from './components/DetectionInfo';
+import RadarView from './components/RadarView';
 
 function App() {
   const log = useMemo(() => logger.child({ component: 'App' }), []);
@@ -294,6 +295,39 @@ function App() {
   }, [selectedStreamerUrl, selectedAnalyzerUrl, connectVideo, connectAnalyzer]);
 
   const [showPanel, setShowPanel] = useState(true);
+  const [showRadar, setShowRadar] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const doc = document as Document & {
+        webkitFullscreenElement?: Element | null;
+        msFullscreenElement?: Element | null;
+      };
+      const fullscreenElement =
+        doc.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.msFullscreenElement;
+      setIsFullscreen(Boolean(fullscreenElement));
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('msfullscreenchange', handleFullscreenChange);
+    handleFullscreenChange();
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener(
+        'webkitfullscreenchange',
+        handleFullscreenChange
+      );
+      document.removeEventListener(
+        'msfullscreenchange',
+        handleFullscreenChange
+      );
+    };
+  }, []);
 
   const handleClearOverlay = () => {
     setSelectedClasses(new Set());
@@ -309,6 +343,13 @@ function App() {
     });
   };
 
+  const radarWidget =
+    showRadar && !isFullscreen ? (
+      <div className="absolute right-3 bottom-16 z-40 pointer-events-auto sm:right-6 sm:bottom-24">
+        <RadarView detections={thresholdedDetections} />
+      </div>
+    ) : null;
+
   return (
     <div className="font-sans bg-theme-bg-primary text-theme-text-primary min-h-screen">
       <Header
@@ -322,6 +363,8 @@ function App() {
         onDisconnectAnalyzer={disconnectAnalyzer}
         showPanel={showPanel}
         onTogglePanel={() => setShowPanel(!showPanel)}
+        showRadar={showRadar}
+        onToggleRadar={() => setShowRadar((prev) => !prev)}
       />
 
       <div className="relative z-50 px-4 py-3 flex flex-wrap items-center gap-2 bg-theme-bg-secondary border-b border-theme-border">
@@ -430,6 +473,7 @@ function App() {
             onTogglePlay={togglePlayPause}
             onFullscreen={enterFullscreen}
             onOverlayFpsUpdate={setOverlayFps}
+            metadataWidget={radarWidget}
           />
         </div>
       </GameOverlay>

@@ -163,7 +163,8 @@ def main() -> None:
                 yolo_path=yolo_final_path,
                 output_path=yolo_onnx_target,
                 opset=args.onnx_opset,
-                simplify=args.onnx_simplify
+                simplify=args.onnx_simplify,
+                half=config.ONNX_HALF_PRECISION,
             )
 
     # --- MiDaS Processing ---
@@ -197,6 +198,7 @@ def main() -> None:
                 model_type=args.midas_type,
                 model_repo=args.midas_repo,
                 opset=args.onnx_opset,
+                half=config.ONNX_HALF_PRECISION,
             )
 
     # --- Depth Anything Processing ---
