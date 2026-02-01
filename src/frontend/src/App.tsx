@@ -365,49 +365,11 @@ function App() {
         onTogglePanel={() => setShowPanel(!showPanel)}
         showRadar={showRadar}
         onToggleRadar={() => setShowRadar((prev) => !prev)}
+        streamers={services.streamer}
+        selectedStreamerUrl={selectedStreamerUrl}
+        onSelectStreamer={handleSelectStreamer}
+        isSwitching={isSwitching}
       />
-
-      <div className="relative z-50 px-4 py-3 flex flex-wrap items-center gap-2 bg-theme-bg-secondary border-b border-theme-border">
-        <span className="text-sm font-medium text-theme-text-muted">
-          Stream sources:
-        </span>
-        {services.streamer.length === 0 ? (
-          <span className="text-sm text-theme-text-muted">
-            No streamer available
-          </span>
-        ) : (
-          services.streamer.map((s) => {
-            const isSelected = s.url === selectedStreamerUrl;
-            const isDisabled = isSwitching || isSelected;
-
-            return (
-              <button
-                key={s.url}
-                onClick={() => {
-                  if (!isDisabled) {
-                    console.log('[App] Switching to streamer:', s.url);
-                    handleSelectStreamer(s.url);
-                  }
-                }}
-                disabled={isDisabled}
-                className={`px-3 py-1.5 rounded border text-sm font-medium transition-colors ${
-                  isSelected
-                    ? 'bg-theme-accent text-white border-theme-accent cursor-default'
-                    : 'bg-theme-bg-tertiary text-theme-text-primary border-theme-border hover:bg-theme-bg-hover cursor-pointer'
-                } ${isSwitching ? 'opacity-50 cursor-wait' : ''}`}
-              >
-                {isSelected ? '✓ ' : ''}
-                {s.url}
-              </button>
-            );
-          })
-        )}
-        {isSwitching && (
-          <span className="text-sm text-theme-text-muted animate-pulse">
-            Switching...
-          </span>
-        )}
-      </div>
 
       <GameOverlay
         showPanel={showPanel}
