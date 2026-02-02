@@ -77,6 +77,8 @@ const en: TranslationMap = {
   streamInfoFramesReceived: 'Frames Received',
   streamInfoFramesDecoded: 'Frames Decoded',
   labelUnknown: ({ id }) => `Unknown (${id})`,
+  streamSourceLabel: 'Video Source',
+  streamSourceStream: ({ number }) => `Stream ${number}`,
 };
 
 const de: TranslationMap = {
@@ -131,6 +133,8 @@ const de: TranslationMap = {
   streamInfoFramesReceived: 'Frames empfangen',
   streamInfoFramesDecoded: 'Frames dekodiert',
   labelUnknown: ({ id }) => `Unbekannt (${id})`,
+  streamSourceLabel: 'Videoquelle',
+  streamSourceStream: ({ number }) => `Stream ${number}`,
 };
 
 const fr: TranslationMap = {
@@ -187,6 +191,8 @@ const fr: TranslationMap = {
   streamInfoFramesReceived: 'Frames recues',
   streamInfoFramesDecoded: 'Frames decodees',
   labelUnknown: ({ id }) => `Inconnu (${id})`,
+  streamSourceLabel: 'Source video',
+  streamSourceStream: ({ number }) => `Flux ${number}`,
 };
 
 const es: TranslationMap = {
@@ -241,6 +247,8 @@ const es: TranslationMap = {
   streamInfoFramesReceived: 'Frames recibidos',
   streamInfoFramesDecoded: 'Frames decodificados',
   labelUnknown: ({ id }) => `Desconocido (${id})`,
+  streamSourceLabel: 'Fuente de video',
+  streamSourceStream: ({ number }) => `Stream ${number}`,
 };
 
 const it: TranslationMap = {
@@ -295,6 +303,8 @@ const it: TranslationMap = {
   streamInfoFramesReceived: 'Frames ricevuti',
   streamInfoFramesDecoded: 'Frames decodificati',
   labelUnknown: ({ id }) => `Sconosciuto (${id})`,
+  streamSourceLabel: 'Sorgente video',
+  streamSourceStream: ({ number }) => `Stream ${number}`,
 };
 
 export const translations = {
