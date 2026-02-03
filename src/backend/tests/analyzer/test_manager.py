@@ -71,7 +71,7 @@ async def test_run_inference_pipeline_skips_non_detection_frames(
     current_time = 2.0
 
     await manager._run_inference_pipeline(
-        frame, state, detector, estimator, current_time
+        frame, state, detector, estimator, current_time, shared_preprocess=False
     )
 
     if should_detect:
@@ -96,7 +96,12 @@ async def test_run_inference_pipeline_returns_early_when_no_active_connections(
     current_time = 2.0
 
     await manager._run_inference_pipeline(
-        frame, processing_state, detector, estimator, current_time
+        frame,
+        processing_state,
+        detector,
+        estimator,
+        current_time,
+        shared_preprocess=False,
     )
 
     detector.infer.assert_not_called()
@@ -135,7 +140,12 @@ async def test_run_inference_pipeline_combines_detected_and_interpolated(
 
     current_time = 2.0
     await manager._run_inference_pipeline(
-        MagicMock(), processing_state, detector, estimator, current_time
+        MagicMock(),
+        processing_state,
+        detector,
+        estimator,
+        current_time,
+        shared_preprocess=False,
     )
 
     manager._send_frame_metadata.assert_called_once()
@@ -186,7 +196,12 @@ async def test_run_inference_pipeline_excludes_updated_tracks_from_interpolation
 
     current_time = 2.0
     await manager._run_inference_pipeline(
-        MagicMock(), processing_state, detector, estimator, current_time
+        MagicMock(),
+        processing_state,
+        detector,
+        estimator,
+        current_time,
+        shared_preprocess=False,
     )
 
     # make sure interpolation was called with excluded track IDs
@@ -248,6 +263,7 @@ async def test_process_detection_applies_detection_threshold(
         ProcessingState(frame_id=2, current_fps=20.0, last_fps_time=1.0),
         detector,
         estimator,
+        shared_preprocess=False,
     )
 
     assert detections == []

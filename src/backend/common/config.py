@@ -61,6 +61,7 @@ class Config:
     MIDAS_ONNX_MODEL_PATH: Path = Path(
         os.getenv("MIDAS_ONNX_MODEL_PATH", "models/midas_small.onnx")
     ).resolve()
+    MIDAS_ONNX_INPUT_SIZE: int = int(os.getenv("MIDAS_ONNX_INPUT_SIZE", "384"))
     MIDAS_ONNX_PROVIDERS: list[str] = [
         provider.strip()
         for provider in os.getenv("MIDAS_ONNX_PROVIDERS", "").split(",")
@@ -103,7 +104,7 @@ class Config:
         os.getenv("ONNX_MODEL_PATH", str(MODEL_PATH.with_suffix(".onnx")))
     ).resolve()
     DETECTOR_BACKEND: str = os.getenv("DETECTOR_BACKEND", "torch").lower()
-    DETECTOR_IMAGE_SIZE: int = int(os.getenv("DETECTOR_IMAGE_SIZE", "640"))
+    DETECTOR_IMAGE_SIZE: int = int(os.getenv("DETECTOR_IMAGE_SIZE", "384"))
     DETECTOR_CONF_THRESHOLD: float = float(os.getenv("DETECTOR_CONF_THRESHOLD", "0.25"))
     DETECTOR_IOU_THRESHOLD: float = float(os.getenv("DETECTOR_IOU_THRESHOLD", "0.7"))
     DETECTOR_MAX_DETECTIONS: int = int(os.getenv("DETECTOR_MAX_DETECTIONS", "100"))
@@ -120,6 +121,9 @@ class Config:
         for provider in os.getenv("ONNX_PROVIDERS", "").split(",")
         if provider.strip()
     ]
+    ONNX_SHARED_PREPROCESSING: bool = os.getenv(
+        "ONNX_SHARED_PREPROCESSING", "true"
+    ).lower() in ("1", "true", "yes")
     ONNX_IO_BINDING: bool = os.getenv("ONNX_IO_BINDING", "false").lower() in (
         "1",
         "true",

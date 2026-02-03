@@ -82,3 +82,6 @@ exclude = [
 
 [tool.mypy]
 exclude = ["models"]
+[[tool.mypy.overrides]]
+module = ["untyped_package.*"]
+follow_untyped_imports = true
