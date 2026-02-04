@@ -79,6 +79,10 @@ class AnalyzerWebSocketManager:
         self._inference_task: asyncio.Task[None] | None = None
         self._intrinsics_logged: bool = False
 
+        # Dynamic streamer configuration
+        self._streamer_url: str | None = None
+        self._streamer_url_event = asyncio.Event()
+
         self.max_consecutive_errors = 5
         # adaptive downscaling parameters
         self.target_scale_init = config.TARGET_SCALE_INIT
@@ -116,6 +120,21 @@ class AnalyzerWebSocketManager:
         if len(self.active_connections) == 1:
             await self._start_processing()
 
+    async def set_streamer_url(self, streamer_url: str) -> None:
+        """Set the streamer URL and trigger processing startup if needed."""
+        # Check if URL is changing
+        url_changed = self._streamer_url and self._streamer_url != streamer_url
+
+        self._streamer_url = streamer_url
+        logger.info(f"Streamer URL configured: {streamer_url}")
+        self._streamer_url_event.set()
+
+        # If URL changed and we have active connections, restart processing
+        if url_changed and self.active_connections:
+            logger.info("Streamer URL changed, restarting processing...")
+            await self._stop_processing()
+            await self._start_processing()
+
     async def disconnect(self, websocket: WebSocket) -> None:
         """Handle WebSocket disconnection."""
         self.active_connections.discard(websocket)
@@ -141,9 +160,16 @@ class AnalyzerWebSocketManager:
             return  # Already running
 
         try:
+            # Wait for streamer URL to be configured if not already set
+            if not self._streamer_url:
+                logger.info("Waiting for streamer URL configuration...")
+                await asyncio.wait_for(self._streamer_url_event.wait(), timeout=30.0)
+
+            if not self._streamer_url:
+                raise Exception("Streamer URL was not configured")
+
             # Connect to webcam service
-            upstream_url = config.STREAMER_OFFER_URL
-            self._webcam_session = WebcamSession(upstream_url)
+            self._webcam_session = WebcamSession(self._streamer_url)
             source_track = await self._webcam_session.connect()
 
             # Start processing task
