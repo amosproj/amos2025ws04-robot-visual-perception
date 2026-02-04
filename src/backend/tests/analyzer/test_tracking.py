@@ -387,3 +387,171 @@ def test_get_interpolated_confidence_decay(tracked_object) -> None:
     assert result is not None
     # confidence = 1.0 * (1 - 0.5 * 0.2) = 1.0 * 0.9 = 0.9
     assert result.confidence == pytest.approx(0.9, abs=0.01)
+
+
+@pytest.mark.parametrize(
+    "count,threshold,expected",
+    [
+        (0, 1, False),
+        (1, 1, True),
+        (2, 1, True),
+        (1, 2, False),
+        (2, 2, True),
+        (0, 0, True),
+    ],
+)
+def test_is_active(count: int, threshold: int, expected: bool) -> None:
+    """Test is_active returns correct status based on detection count vs threshold."""
+    track = TrackedObject(track_id=0, cls_id=0, history=deque(maxlen=5))
+    track.detection_count = count
+    assert track.is_active(threshold) == expected
+
+
+def test_get_interpolated_zero_confidence_decay() -> None:
+    """Test interpolation preserves confidence when decay is zero."""
+    track = create_track_with_detections(num_detections=2)
+    result = track.get_interpolated(
+        target_frame_id=3, target_timestamp=3.0, confidence_decay=0.0
+    )
+    assert result is not None
+    assert result.confidence == 0.9
+
+
+def test_get_interpolated_target_before_first_frame() -> None:
+    """Test interpolation clamps to first detection when target is before history."""
+    track = TrackedObject(track_id=0, cls_id=0, history=deque(maxlen=5))
+    track.add_detection(create_detection(frame_id=5, timestamp=5.0, tracked=True))
+    track.add_detection(
+        create_detection(
+            x1=20, y1=30, x2=60, y2=70, frame_id=10, timestamp=10.0, tracked=True
+        )
+    )
+    result = track.get_interpolated(
+        target_frame_id=3, target_timestamp=3.0, confidence_decay=0.1
+    )
+    assert result is not None
+    assert result.x1 == 10
+    assert result.y1 == 20
+
+
+def test_negative_detection_threshold_clamped(tracking_manager_factory) -> None:
+    """Test negative detection_threshold is clamped to zero."""
+    manager = tracking_manager_factory(detection_threshold=-5)
+    assert manager.detection_threshold == 0
+
+
+def test_match_empty_detections_list(tracking_manager) -> None:
+    """Test matching with empty detections returns empty results."""
+    updated, assignments = tracking_manager.match_detections_to_tracks(
+        [], [], frame_id=1, timestamp=1.0
+    )
+    assert updated == set()
+    assert assignments == []
+
+
+def test_track_id_increments(tracking_manager) -> None:
+    """Test new non-overlapping detections get unique incrementing track IDs."""
+    det1 = [create_detection(x1=0, y1=0, x2=50, y2=50)]
+    det2 = [create_detection(x1=200, y1=200, x2=250, y2=250)]
+    tracking_manager.match_detections_to_tracks(det1, [1.0], 1, 1.0)
+    tracking_manager.match_detections_to_tracks(det2, [2.0], 2, 2.0)
+    assert tracking_manager._next_track_id == 2
+    assert set(tracking_manager._tracked_objects.keys()) == {0, 1}
+
+
+def test_multiple_detections_same_frame(tracking_manager) -> None:
+    """Test multiple detections in one frame each get unique track IDs."""
+    dets = [
+        create_detection(x1=0, y1=0, x2=50, y2=50),
+        create_detection(x1=100, y1=100, x2=150, y2=150),
+        create_detection(x1=200, y1=200, x2=250, y2=250),
+    ]
+    updated, assignments = tracking_manager.match_detections_to_tracks(
+        dets, [1.0, 2.0, 3.0], frame_id=1, timestamp=1.0
+    )
+    assert len(updated) == 3
+    assert len(assignments) == 3
+    assert len(set(assignments)) == 3
+
+
+def test_early_termination_iou(tracking_manager_factory) -> None:
+    """Test matching stops early when IoU exceeds early_termination threshold."""
+    manager = tracking_manager_factory(iou_threshold=0.3, early_termination_iou=0.95)
+    det1 = [create_detection(x1=10, y1=10, x2=100, y2=100)]
+    manager.match_detections_to_tracks(det1, [1.0], 1, 1.0)
+    det2 = [create_detection(x1=10, y1=10, x2=100, y2=100)]
+    _, assignments = manager.match_detections_to_tracks(det2, [1.0], 2, 2.0)
+    assert len(manager._tracked_objects) == 1
+    assert assignments == [0]
+
+
+def test_used_track_not_matched_again(tracking_manager_factory) -> None:
+    """Test a track matched once in a frame cannot match another detection."""
+    manager = tracking_manager_factory(iou_threshold=0.3)
+    det1 = [create_detection(x1=10, y1=10, x2=100, y2=100)]
+    manager.match_detections_to_tracks(det1, [1.0], 1, 1.0)
+    dets = [
+        create_detection(x1=10, y1=10, x2=100, y2=100),
+        create_detection(x1=12, y1=12, x2=102, y2=102),
+    ]
+    _, assignments = manager.match_detections_to_tracks(dets, [1.0, 1.0], 2, 2.0)
+    assert len(set(assignments)) == 2
+
+
+def test_history_size_limit(tracking_manager_factory) -> None:
+    """Test history deque respects max size while detection_count keeps growing."""
+    manager = tracking_manager_factory(max_history_size=3)
+    det = [create_detection()]
+    for i in range(5):
+        manager.match_detections_to_tracks(det, [1.0], frame_id=i, timestamp=float(i))
+    track = manager._tracked_objects[0]
+    assert len(track.history) == 3
+    assert track.detection_count == 5
+
+
+def test_is_track_stale_none_last_seen(tracking_manager) -> None:
+    """Test track with no last_seen_frame is considered stale."""
+    track = TrackedObject(track_id=0, cls_id=0, history=deque(maxlen=5))
+    assert tracking_manager._is_track_stale(track, frame_id=10) is True
+
+
+def test_remove_stale_tracks_preserves_recent(tracking_manager_factory) -> None:
+    """Test stale track removal keeps recent tracks and removes old ones."""
+    manager = tracking_manager_factory(max_frames_without_detection=5)
+    det1 = [create_detection(x1=0, y1=0, x2=50, y2=50)]
+    det2 = [create_detection(x1=200, y1=200, x2=250, y2=250)]
+    manager.match_detections_to_tracks(det1, [1.0], 1, 1.0)
+    manager.match_detections_to_tracks(det2, [2.0], 5, 5.0)
+    manager._remove_stale_tracks(frame_id=7)
+    assert len(manager._tracked_objects) == 1
+    assert 1 in manager._tracked_objects
+
+
+def test_inactive_tracks_not_interpolated(tracking_manager_factory) -> None:
+    """Test tracks below detection threshold are excluded from interpolation."""
+    manager = tracking_manager_factory(detection_threshold=3)
+    det = [create_detection()]
+    manager.match_detections_to_tracks(det, [1.0], 1, 1.0)
+    manager.match_detections_to_tracks(
+        [create_detection(x1=12, y1=22, x2=52, y2=62)], [1.1], 2, 2.0
+    )
+    dets, dists = manager.get_interpolated_detections_and_distances(
+        frame_id=3, timestamp=3.0, track_ids_to_exclude=set()
+    )
+    assert dets == []
+    assert dists == []
+
+
+def test_active_tracks_interpolated(tracking_manager_factory) -> None:
+    """Test tracks meeting detection threshold are included in interpolation."""
+    manager = tracking_manager_factory(detection_threshold=2)
+    det = [create_detection()]
+    manager.match_detections_to_tracks(det, [1.0], 1, 1.0)
+    manager.match_detections_to_tracks(
+        [create_detection(x1=12, y1=22, x2=52, y2=62)], [1.1], 2, 2.0
+    )
+    dets, dists = manager.get_interpolated_detections_and_distances(
+        frame_id=3, timestamp=3.0, track_ids_to_exclude=set()
+    )
+    assert len(dets) == 1
+    assert len(dists) == 1
