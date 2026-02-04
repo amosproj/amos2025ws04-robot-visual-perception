@@ -9,6 +9,7 @@ import { useI18n } from '../i18n';
 import ThemeToggle from './ThemeToggle';
 import { IconButton } from './ui/IconButton';
 import { Video, VideoOff, Activity, Filter, Layers } from './video/Icons';
+import type { ServiceInfo } from '../hooks/useOrchestrator';
 
 export interface HeaderProps {
   /** Whether to show in minimal/game mode */
@@ -29,6 +30,11 @@ export interface HeaderProps {
   /** Radar overlay state */
   showRadar?: boolean;
   onToggleRadar?: () => void;
+  /** Stream switch props */
+  streamers?: ServiceInfo[];
+  selectedStreamerUrl?: string | null;
+  onSelectStreamer?: (url: string) => void;
+  isSwitching?: boolean;
 }
 
 const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
@@ -41,7 +47,7 @@ const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
         ref={ref}
         className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2 pointer-events-none"
       >
-        {/* Language selector - top left */}
+        {/* Left controls - Panel toggle, Language selector, Stream selector */}
         <div className="pointer-events-auto flex items-center gap-2">
           {props.onTogglePanel && (
             <IconButton
@@ -88,6 +94,76 @@ const Header = forwardRef<HTMLDivElement, HeaderProps>((props, ref) => {
               </svg>
             </div>
           </div>
+
+          {/* Stream source selector */}
+          {props.streamers && props.streamers.length > 0 && (
+            <>
+              <div className="w-px h-6 bg-theme-border mx-1" />
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="stream-select"
+                  className="flex items-center gap-1.5 text-xs text-theme-text-secondary whitespace-nowrap"
+                >
+                  <Video size={14} />
+                  <span>{t('streamSourceLabel')}:</span>
+                </label>
+                <div className="relative">
+                  <select
+                    id="stream-select"
+                    value={props.selectedStreamerUrl || ''}
+                    onChange={(event) => {
+                      if (props.onSelectStreamer && event.target.value) {
+                        props.onSelectStreamer(event.target.value);
+                      }
+                    }}
+                    disabled={props.isSwitching}
+                    className={`bg-[#2d3436] text-white border border-theme-border appearance-none pl-3 pr-8 py-1.5 rounded text-sm cursor-pointer shadow-lg ${
+                      props.isSwitching ? 'opacity-50 cursor-wait' : ''
+                    }`}
+                  >
+                    {props.streamers.map((s, index) => (
+                      <option
+                        key={s.url}
+                        value={s.url}
+                        className="bg-[#2d3436] text-white"
+                      >
+                        {t('streamSourceStream', { number: index + 1 })}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-white">
+                    {props.isSwitching ? (
+                      <svg
+                        className="animate-spin"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <circle cx="12" cy="12" r="10" opacity="0.25" />
+                        <path d="M12 2a10 10 0 0 1 10 10" />
+                      </svg>
+                    ) : (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Title - center */}
